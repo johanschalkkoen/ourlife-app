@@ -1,0 +1,17 @@
+{
+  "schalk": {
+    "passwordHash": "$2b$10$16XFjrYLb03VCGgn1omILevzW0uSk792oo8zXWNutOjdPRbfcRvnG"
+  },
+  "leani": {
+    "passwordHash": "$2b$10$TjRRma7vu.WAA7wKT/JlruhwSu3LCOpHKM83EVF0HrPLHEQmvDyie"
+  },
+  "test": {
+    "passwordHash": "$2b$10$bWT2kzfBpnTGuzRZYOs6K.cyriR27WsWANy7wf/TSR6LP0wlpxbOa"
+  },
+  "demo": {
+    "passwordHash": "$2b$10$B3z/.VF0L3dhEUe79cyll.Q.x1Z9pOIlIidPQfA2y2dzuTTZHYbHy"
+  },
+  "demo1": {
+    "passwordHash": "$2b$10$iFA85rKvNTMsEd6.0Kyd0OtWbo4w9PPpJez3sqi3sXiujXPVIlV86"
+  }
+}
