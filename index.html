@@ -135,6 +135,15 @@
     };
     const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
     const DEFAULT_EVENT_COLOR = '#2dd4bf';
+
+    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm)
+    const getCurrentDateTime = () => {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      now.setMinutes(now.getMinutes() - offset); // Adjust for local timezone
+      return now.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:mm
+    };
+
     const Login = ({ onLogin }) => {
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
@@ -498,7 +507,7 @@
       const [description, setDescription] = useState('');
       const [amount, setAmount] = useState('');
       const [type, setType] = useState('income');
-      const [date, setDate] = useState('');
+      const [date, setDate] = useState(getCurrentDateTime());
       const [hideValues, setHideValues] = useState(false);
       const [currency, setCurrency] = useState('ZAR');
       const [accessibleUsers, setAccessibleUsers] = useState([]);
@@ -507,8 +516,6 @@
       const [showAddItemForm, setShowAddItemForm] = useState(false);
       const [selectedMonth, setSelectedMonth] = useState('07');
       const [netTotal, setNetTotal] = useState(0);
-      
-      // New state for bulk import
       const [bulkData, setBulkData] = useState('');
       const [importMessage, setImportMessage] = useState('');
       const [showImportTool, setShowImportTool] = useState(false);
@@ -599,7 +606,7 @@
           fetchItems();
           setDescription('');
           setAmount('');
-          setDate('');
+          setDate(getCurrentDateTime());
           setShowAddItemForm(false);
         } catch (err) {
           console.error('Error adding financial item:', err);
@@ -613,8 +620,6 @@
           console.error('Error deleting financial item:', err);
         }
       };
-      
-      // New function to handle bulk data import
       const handleBulkImport = async () => {
         if (!bulkData.trim()) {
             setImportMessage('Please paste data into the text box.');
@@ -628,7 +633,7 @@
                 return null;
             }
             return { user: user.username, description, amount: parseFloat(amount), type, date };
-        }).filter(Boolean); // Filter out any null (invalid) lines
+        }).filter(Boolean);
 
         if (itemsToImport.length === 0) {
             setImportMessage('No valid data found. Please check the format.');
@@ -639,9 +644,7 @@
 
         try {
             const importPromises = itemsToImport.map(item => {
-                // Create financial item
                 const financialPromise = axios.post('http://159.223.3.108:4000/api/financial', item);
-                // Create corresponding calendar event
                 const calendarPromise = axios.post('http://159.223.3.108:4000/api/calendar', {
                     user: user.username,
                     title: `${item.description} (${item.type})`,
@@ -659,13 +662,12 @@
             setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
             setBulkData('');
             setShowImportTool(false);
-            fetchItems(); // Refresh the list
+            fetchItems();
         } catch (err) {
             setImportMessage('An error occurred during import. Please check the data and try again.');
             console.error('Bulk import error:', err);
         }
       };
-
       const toggleUser = (username) => {
         setSelectedUsers(prev =>
           prev.includes(username)
@@ -763,16 +765,14 @@
                 ))}
               </div>
             </div>
-            
-            {/* New Bulk Import Tool */}
             {showImportTool && (
                 <div className="card p-6 mb-6 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
                     <p className="text-gray-300 text-sm">
-                        Paste your data here in CSV format: Description,Amount,Type,Date
+                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm)
                     </p>
                     <textarea
-                        placeholder="e.g., Salary,50000,income,2025-07-25"
+                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30"
                         value={bulkData}
                         onChange={(e) => setBulkData(e.target.value)}
                         rows="8"
@@ -791,7 +791,6 @@
                     )}
                 </div>
             )}
-
             {showAddItemForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Financial Item</h2>
@@ -821,7 +820,7 @@
                   <option value="expense">Expense</option>
                 </select>
                 <input
-                  type="date"
+                  type="datetime-local"
                   name="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
@@ -857,7 +856,7 @@
                           className="event-profile-pic"
                         />
                       </div>
-                      <span>{item.description} ({item.type}) - {item.date} ({item.user})</span>
+                      <span>{item.description} ({item.type}) - {new Date(item.date).toLocaleString()} ({item.user})</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
@@ -883,7 +882,7 @@
       const [selectedMonth, setSelectedMonth] = useState('07');
       const [showAddEventForm, setShowAddEventForm] = useState(false);
       const [newEventTitle, setNewEventTitle] = useState('');
-      const [newEventDate, setNewEventDate] = useState('');
+      const [newEventDate, setNewEventDate] = useState(getCurrentDateTime());
       const [isFinancialEvent, setIsFinancialEvent] = useState(false);
       const [newEventAmount, setNewEventAmount] = useState('');
       const [newEventCategory, setNewEventCategory] = useState('income');
@@ -984,7 +983,7 @@
           }
           fetchEvents();
           setNewEventTitle('');
-          setNewEventDate('');
+          setNewEventDate(getCurrentDateTime());
           setIsFinancialEvent(false);
           setNewEventAmount('');
           setNewEventCategory('income');
@@ -1061,7 +1060,7 @@
               setSelectedEvent({
                 id: info.event.id,
                 title: info.event.title,
-                date: info.event.start.toISOString().split('T')[0],
+                date: info.event.start.toISOString().slice(0, 16),
                 user: info.event.extendedProps.user,
                 financial: info.event.extendedProps.financial,
                 type: info.event.extendedProps.type,
@@ -1072,7 +1071,7 @@
               setShowModal(true);
             },
             select: async (info) => {
-              setNewEventDate(info.startStr);
+              setNewEventDate(getCurrentDateTime());
               setShowAddEventForm(true);
             },
           });
@@ -1175,7 +1174,7 @@
                   className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
                 />
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={newEventDate}
                   onChange={(e) => setNewEventDate(e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
@@ -1244,7 +1243,7 @@
                       </div>
                       <span className="text-lg font-semibold text-white">{selectedEvent.title}</span>
                     </div>
-                    <p className="text-white"><strong>Date:</strong> {selectedEvent.date}</p>
+                    <p className="text-white"><strong>Date:</strong> {new Date(selectedEvent.date).toLocaleString()}</p>
                     <p className="text-white"><strong>User:</strong> {selectedEvent.user}</p>
                     {selectedEvent.financial ? (
                       <>
