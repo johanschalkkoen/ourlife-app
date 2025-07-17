@@ -6,13 +6,16 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
+const https = require('https');
+const http = require('http');
 const execPromise = util.promisify(exec);
 const app = express();
 
-const PORT = process.env.PORT || 4000;
+const HTTPS_PORT = 8443; // Standard HTTPS port
+const HTTP_PORT = 9000; // Standard HTTP port for redirect
 const USERS_FILE = path.join(__dirname, 'users.json');
 
-// Increase the body parser limit to handle larger payloads (e.g., base64 image data)
+// Increase the body parser limit
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 
@@ -23,7 +26,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
     } else {
         console.log('Connected to the SQLite database.');
         db.serialize(() => {
-            // Create tables if they don't exist
             db.run(`CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY,
                 profilePicUrl TEXT,
@@ -58,7 +60,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 UNIQUE(viewer, target)
             )`);
 
-            // Add color column to financial_items if it doesn't exist
             db.all(`PRAGMA table_info(financial_items)`, (err, columns) => {
                 if (err) {
                     console.error('Error checking financial_items schema:', err.message);
@@ -71,7 +72,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                             console.error('Error adding color column to financial_items:', alterErr.message);
                         } else {
                             console.log('Added color column to financial_items table.');
-                            // Update existing records with color based on type
                             db.run(`UPDATE financial_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
                                 if (updateErr) {
                                     console.error('Error updating existing financial items with color:', updateErr.message);
@@ -89,7 +89,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
     }
 });
 
-// Helper function to read users from users.json
+// Helper functions
 async function readUsers() {
     try {
         const data = await fs.readFile(USERS_FILE, 'utf8');
@@ -103,7 +103,6 @@ async function readUsers() {
     }
 }
 
-// Helper function to write users to users.json
 async function writeUsers(users) {
     try {
         await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
@@ -112,7 +111,6 @@ async function writeUsers(users) {
     }
 }
 
-// Helper function to get users that a given user has access to
 async function getAccessibleUsers(viewer) {
     return new Promise((resolve, reject) => {
         db.all(
@@ -124,7 +122,6 @@ async function getAccessibleUsers(viewer) {
                     reject(err);
                 } else {
                     const accessibleUsers = rows.map(row => row.target);
-                    // Always include the viewer's own data
                     if (!accessibleUsers.includes(viewer)) {
                         accessibleUsers.push(viewer);
                     }
@@ -135,18 +132,15 @@ async function getAccessibleUsers(viewer) {
     });
 }
 
-// Authentication (only existing users can log in)
+// Authentication and other endpoints
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
-
     try {
         const users = await readUsers();
         const storedUser = users[username];
-
         if (storedUser) {
             const passwordMatch = await bcrypt.compare(password, storedUser.passwordHash);
             if (passwordMatch) {
@@ -192,31 +186,24 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Endpoint for updating password (user updating their own password)
 app.post('/api/update-password', async (req, res) => {
     const { username, currentPassword, newPassword } = req.body;
-
     if (!username || !currentPassword || !newPassword) {
         return res.json({ success: false, message: 'Username, current password, and new password are required.' });
     }
-
     try {
         const users = await readUsers();
         const storedUser = users[username];
-
         if (!storedUser) {
             return res.json({ success: false, message: 'User not found.' });
         }
-
         const passwordMatch = await bcrypt.compare(currentPassword, storedUser.passwordHash);
         if (!passwordMatch) {
             return res.json({ success: false, message: 'Incorrect current password.' });
         }
-
         const newPasswordHash = await bcrypt.hash(newPassword, 10);
         users[username].passwordHash = newPasswordHash;
         await writeUsers(users);
-
         res.json({ success: true, message: 'Password updated successfully!' });
     } catch (error) {
         console.error('Password update error:', error);
@@ -224,24 +211,19 @@ app.post('/api/update-password', async (req, res) => {
     }
 });
 
-// Endpoint for admin to update any user's password
 app.post('/api/admin-update-password', async (req, res) => {
     const { username, newPassword } = req.body;
-
     if (!username || !newPassword) {
         return res.json({ success: false, message: 'Username and new password are required.' });
     }
-
     try {
         const users = await readUsers();
         if (!users[username]) {
             return res.json({ success: false, message: 'User not found.' });
         }
-
         const newPasswordHash = await bcrypt.hash(newPassword, 10);
         users[username].passwordHash = newPasswordHash;
         await writeUsers(users);
-
         res.json({ success: true, message: `Password for ${username} updated successfully!` });
     } catch (error) {
         console.error('Admin password update error:', error);
@@ -249,7 +231,6 @@ app.post('/api/admin-update-password', async (req, res) => {
     }
 });
 
-// Profile Picture and User Info Endpoints
 app.get('/api/profile-pictures', (req, res) => {
     const { username } = req.query;
     db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
@@ -278,7 +259,6 @@ app.post('/api/profile-pictures', (req, res) => {
     );
 });
 
-// Financial Endpoints
 app.get('/api/financial', async (req, res) => {
     const { user: viewer } = req.query;
     try {
@@ -303,7 +283,6 @@ app.get('/api/financial', async (req, res) => {
 
 app.post('/api/financial', (req, res) => {
     const { user, description, amount, type, date } = req.body;
-    // Assign color based on type: green for income, red for expense
     const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
     db.run(
         `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -331,7 +310,6 @@ app.delete('/api/financial/:id', (req, res) => {
     });
 });
 
-// Calendar Endpoints
 app.get('/api/calendar', async (req, res) => {
     const { user: viewer } = req.query;
     try {
@@ -382,8 +360,6 @@ app.delete('/api/calendar/:id', (req, res) => {
     });
 });
 
-// Admin Endpoints
-// Get all users from users.json
 app.get('/api/users', async (req, res) => {
     try {
         const users = await readUsers();
@@ -395,24 +371,19 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// Add a new user to users.json
 app.post('/api/add-user', async (req, res) => {
     const { username, password } = req.body;
-
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
-
     try {
         const users = await readUsers();
         if (users[username]) {
             return res.json({ success: false, message: 'User already exists.' });
         }
-
         const passwordHash = await bcrypt.hash(password, 10);
         users[username] = { passwordHash };
         await writeUsers(users);
-
         res.json({ success: true, message: 'User added successfully!' });
     } catch (error) {
         console.error('Error adding user:', error);
@@ -420,19 +391,15 @@ app.post('/api/add-user', async (req, res) => {
     }
 });
 
-// Delete a user from users.json and SQLite
 app.delete('/api/delete-user/:username', async (req, res) => {
     const { username } = req.params;
-
     try {
         const users = await readUsers();
         if (!users[username]) {
             return res.json({ success: false, message: 'User not found.' });
         }
-
         delete users[username];
         await writeUsers(users);
-
         db.run('DELETE FROM users WHERE username = ?', [username], (err) => {
             if (err) {
                 console.error('Database error deleting user from SQLite:', err.message);
@@ -450,7 +417,6 @@ app.delete('/api/delete-user/:username', async (req, res) => {
     }
 });
 
-// Get PAM users with UID >= 1000 and compare with users.json
 app.get('/api/pam-users', async (req, res) => {
     try {
         const { stdout } = await execPromise('getent passwd');
@@ -463,10 +429,8 @@ app.get('/api/pam-users', async (req, res) => {
             })
             .filter(user => user.uid >= 1000)
             .map(user => user.username);
-
         const users = await readUsers();
         const appUsers = Object.keys(users);
-
         const comparison = {
             pamUsers: pamUsers,
             appUsers: appUsers,
@@ -474,7 +438,6 @@ app.get('/api/pam-users', async (req, res) => {
             appOnlyUsers: appUsers.filter(user => !pamUsers.includes(user)),
             pamOnlyUsers: pamUsers.filter(user => !appUsers.includes(user))
         };
-
         res.json({ success: true, ...comparison });
     } catch (error) {
         console.error('Error fetching PAM users:', error);
@@ -482,7 +445,6 @@ app.get('/api/pam-users', async (req, res) => {
     }
 });
 
-// User Access Endpoints
 app.get('/api/get-access', (req, res) => {
     db.all(
         `SELECT viewer, target FROM user_access`,
@@ -490,7 +452,7 @@ app.get('/api/get-access', (req, res) => {
         (err, rows) => {
             if (err) {
                 console.error('Database error fetching user access:', err.message);
-            res.json({ success: false, accessList: [] });
+                res.json({ success: false, accessList: [] });
             } else {
                 res.json({ success: true, accessList: rows });
             }
@@ -500,14 +462,12 @@ app.get('/api/get-access', (req, res) => {
 
 app.post('/api/grant-access', (req, res) => {
     const { viewer, target } = req.body;
-
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
     }
     if (viewer === target) {
         return res.json({ success: false, message: 'Cannot grant access to self.' });
     }
-
     db.run(
         `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
         [viewer, target],
@@ -524,11 +484,9 @@ app.post('/api/grant-access', (req, res) => {
 
 app.post('/api/revoke-access', (req, res) => {
     const { viewer, target } = req.body;
-
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
     }
-
     db.run(
         `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
         [viewer, target],
@@ -543,7 +501,31 @@ app.post('/api/revoke-access', (req, res) => {
     );
 });
 
+// Load SSL certificates asynchronously
+async function startServer() {
+    try {
+        const sslOptions = {
+            key: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem', 'utf8'),
+            cert: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem', 'utf8')
+        };
+
+        // Create HTTPS server
+        https.createServer(sslOptions, app).listen(HTTPS_PORT, () => {
+            console.log(`HTTPS Server running on https://ourlife.work.gd:${HTTPS_PORT}`);
+        });
+
+        // Create HTTP server to redirect to HTTPS
+        http.createServer((req, res) => {
+            res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
+            res.end();
+        }).listen(HTTP_PORT, () => {
+            console.log(`HTTP Server running on port ${HTTP_PORT}, redirecting to HTTPS`);
+        });
+    } catch (error) {
+        console.error('Error starting server with SSL:', error);
+        process.exit(1);
+    }
+}
+
 // Start the server
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+startServer();

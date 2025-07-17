@@ -166,7 +166,7 @@
         e.preventDefault();
         setError('');
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/login', { username, password });
+          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
           if (response.data.success) {
             let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
             let eventColor = DEFAULT_EVENT_COLOR;
@@ -175,7 +175,7 @@
             let address = '';
             let isAdmin = false;
             try {
-              const profileResponse = await axios.get(`http://159.223.3.108:4000/api/profile-pictures?username=${username}`);
+              const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
               profilePicUrl = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
               eventColor = profileResponse.data.eventColor || DEFAULT_EVENT_COLOR;
               email = profileResponse.data.email || '';
@@ -329,7 +329,7 @@
           } else if (!profilePicUrl) {
             urlToSave = DEFAULT_PROFILE_PIC_URL;
           }
-          const response = await axios.post('http://159.223.3.108:4000/api/profile-pictures', {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', {
             username: user.username,
             profilePicUrl: urlToSave,
             email,
@@ -368,7 +368,7 @@
         }
         setPasswordMessage('Changing password...');
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/update-password', {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/update-password', {
             username: user.username,
             currentPassword,
             newPassword
@@ -567,7 +567,7 @@
       };
       const fetchAccessibleUsers = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/get-access', { params: { viewer: user.username } });
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
           if (response.data.success) {
             const accessible = [user.username, ...response.data.accessList
               .filter(access => access.viewer === user.username)
@@ -578,7 +578,7 @@
             for (const username of accessible) {
               if (username !== user.username) {
                 try {
-                  const profileResponse = await axios.get(`http://159.223.3.108:4000/api/profile-pictures?username=${username}`);
+                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
                   profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
                 } catch (err) {
                   profiles[username] = DEFAULT_PROFILE_PIC_URL;
@@ -597,7 +597,7 @@
       };
       const fetchItems = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/financial', { params: { user: user.username } });
+          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username } });
           setItems(response.data);
         } catch (err) {
           console.error('Error fetching financial items:', err);
@@ -607,8 +607,8 @@
         if (!description || !amount || !date) return;
         const item = { user: user.username, description, amount: parseFloat(amount), type, date };
         try {
-          await axios.post('http://159.223.3.108:4000/api/financial', item);
-          await axios.post('http://159.223.3.108:4000/api/calendar', {
+          await axios.post('https://ourlife.work.gd:8443/api/financial', item);
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
             user: user.username,
             title: `${description} (${type})`,
             date,
@@ -628,7 +628,7 @@
       };
       const deleteItem = async (id) => {
         try {
-          await axios.delete(`http://159.223.3.108:4000/api/financial/${id}`);
+          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`);
           fetchItems();
         } catch (err) {
           console.error('Error deleting financial item:', err);
@@ -658,8 +658,8 @@
 
         try {
             const importPromises = itemsToImport.map(item => {
-                const financialPromise = axios.post('http://159.223.3.108:4000/api/financial', item);
-                const calendarPromise = axios.post('http://159.223.3.108:4000/api/calendar', {
+                const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item);
+                const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
                     user: user.username,
                     title: `${item.description} (${item.type})`,
                     date: item.date,
@@ -925,7 +925,7 @@
       ];
       const fetchAccessibleUsers = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/get-access', { params: { viewer: user.username } });
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
           if (response.data.success) {
             const accessible = [user.username, ...response.data.accessList
               .filter(access => access.viewer === user.username)
@@ -936,7 +936,7 @@
             for (const username of accessible) {
               if (username !== user.username) {
                 try {
-                  const profileResponse = await axios.get(`http://159.223.3.108:4000/api/profile-pictures?username=${username}`);
+                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
                   profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
                 } catch (err) {
                   profiles[username] = DEFAULT_PROFILE_PIC_URL;
@@ -955,7 +955,7 @@
       };
       const fetchEvents = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/calendar', { params: { user: user.username } });
+          const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username } });
           const fetchedEvents = response.data.map((e) => ({
             id: e.id,
             title: e.title,
@@ -986,9 +986,9 @@
             amount: isFinancialEvent ? parseFloat(newEventAmount) : undefined,
             eventColor: user.eventColor,
           };
-          await axios.post('http://159.223.3.108:4000/api/calendar', eventData);
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData);
           if (isFinancialEvent) {
-            await axios.post('http://159.223.3.108:4000/api/financial', {
+            await axios.post('https://ourlife.work.gd:8443/api/financial', {
               user: user.username,
               description: newEventTitle,
               amount: parseFloat(newEventAmount),
@@ -1010,7 +1010,7 @@
       };
       const handleDeleteEvent = async (eventId) => {
         try {
-          await axios.delete(`http://159.223.3.108:4000/api/calendar/${eventId}`);
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${eventId}`);
           fetchEvents();
           setShowModal(false);
           setSelectedEvent(null);
@@ -1304,7 +1304,7 @@
       const [adminMessage, setAdminMessage] = useState('');
       const fetchUsers = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/users');
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users');
           if (response.data && Array.isArray(response.data)) {
             setUsers(response.data);
           } else {
@@ -1317,7 +1317,7 @@
       };
       const fetchPamUsers = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/pam-users');
+          const response = await axios.get('https://ourlife.work.gd:8443/api/pam-users');
           if (response.data.success) {
             setPamComparison(response.data);
           } else {
@@ -1330,7 +1330,7 @@
       };
       const fetchAccessList = async () => {
         try {
-          const response = await axios.get('http://159.223.3.108:4000/api/get-access');
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
           if (response.data.success) {
             setAccessList(response.data.accessList);
           } else {
@@ -1362,7 +1362,7 @@
           return;
         }
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/add-user', {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/add-user', {
             username: newUsername,
             password: newPassword
           });
@@ -1388,7 +1388,7 @@
         }
         if (confirm(`Delete user ${username}?`)) {
           try {
-            const response = await axios.delete(`http://159.223.3.108:4000/api/delete-user/${username}`);
+            const response = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${username}`);
             if (response.data.success) {
               setMessage('User deleted successfully!');
               fetchUsers();
@@ -1427,7 +1427,7 @@
           return;
         }
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/admin-update-password', {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/admin-update-password', {
             username: selectedUser,
             newPassword: updatePassword
           });
@@ -1456,7 +1456,7 @@
           return;
         }
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/grant-access', {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
             viewer: accessViewer,
             target: accessTarget
           });
@@ -1476,7 +1476,7 @@
       const handleRevokeAccess = async (viewer, target) => {
         if (confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
           try {
-            const response = await axios.post('http://159.223.3.108:4000/api/revoke-access', {
+            const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
               viewer,
               target
             });
@@ -1502,7 +1502,7 @@
           return;
         }
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/grant-admin', { username: adminUser });
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-admin', { username: adminUser });
           if (response.data.success) {
             setAdminMessage(`Admin access granted to ${adminUser}!`);
             setAdminUser('');
@@ -1525,7 +1525,7 @@
           return;
         }
         try {
-          const response = await axios.post('http://159.223.3.108:4000/api/revoke-admin', { username: adminUser });
+          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-admin', { username: adminUser });
           if (response.data.success) {
             setAdminMessage(`Admin access revoked for ${adminUser}!`);
             setAdminUser('');
