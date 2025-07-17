@@ -1,720 +1,1787 @@
-const express = require('express');
-const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-const fs = require('fs').promises;
-const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
-const https = require('https');
-const http = require('http');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const FacebookStrategy = require('passport-facebook').Strategy;
-const session = require('express-session');
-const execPromise = util.promisify(exec);
-const app = express();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurLife Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: #1e293b;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
+    }
+    .fc-event {
+      position: relative;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      margin: 4px 6px;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .fc-event:hover {
+      transform: scale(1.03);
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .fc-event:active {
+      transform: scale(0.98);
+    }
+    .fc-event-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 8px;
+      background: none;
+      color: #f1f5f9;
+      font-size: 0.875rem;
+    }
+    .fc-event-title {
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .fc-event-user {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .modal {
+      transform: scale(0.8);
+      opacity: 0;
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+    .modal.show {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .profile-pic-container {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #2dd4bf;
+      background: #fff;
+    }
+    .profile-pic {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .event-profile-pic-container {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #fff;
+      background: #fff;
+    }
+    .event-profile-pic {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    input, select, textarea {
+      transition: all 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+      border-color: #2dd4bf;
+    }
+    button {
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      transform: scale(1.02);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const capitalizeFirstLetter = (string) => {
+      if (!string) return '';
+      return string.charAt(0).toUpperCase() + string.slice(1);
+    };
+    const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
+    const DEFAULT_EVENT_COLOR = '#2dd4bf';
 
-const HTTPS_PORT = 8443;
-const HTTP_PORT = 9000;
-const USERS_FILE = path.join(__dirname, 'users.json');
+    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm:ss)
+    const getCurrentDateTime = () => {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      now.setMinutes(now.getMinutes() - offset); // Adjust for local timezone
+      return now.toISOString().slice(0, 19); // Format as YYYY-MM-DDTHH:mm:ss
+    };
 
-// Environment variables for OAuth
-const GOOGLE_CLIENT_ID = 'your-google-client-id';
-const GOOGLE_CLIENT_SECRET = 'your-google-client-secret';
-const FACEBOOK_APP_ID = 'your-facebook-app-id';
-const FACEBOOK_APP_SECRET = 'your-facebook-app-secret';
-const CALLBACK_URL = 'https://ourlife.work.gd:8443';
+    // Utility function to format date to include seconds
+    const formatDateTimeWithSeconds = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-ZA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/,/, '');
+    };
 
-app.use(express.json({ limit: '50mb' }));
-app.use(cors({
-  origin: 'https://ourlife.work.gd',
-  credentials: true
-}));
-app.use(session({
-  secret: 'your-session-secret',
-  resave: false,
-  saveUninitialized: false,
-}));
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Initialize SQLite database
-const db = new sqlite3.Database('./ourlife.db', (err) => {
-  if (err) {
-    console.error('Error connecting to database:', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    db.serialize(() => {
-      db.run(`CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY,
-        profilePicUrl TEXT,
-        email TEXT,
-        phone TEXT,
-        address TEXT,
-        eventColor TEXT,
-        isAdmin INTEGER DEFAULT 0,
-        oauthProvider TEXT,
-        oauthId TEXT
-      )`);
-      db.run(`CREATE TABLE IF NOT EXISTS financial_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user TEXT,
-        description TEXT,
-        amount REAL,
-        type TEXT,
-        date TEXT,
-        color TEXT
-      )`);
-      db.run(`CREATE TABLE IF NOT EXISTS calendar_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user TEXT,
-        title TEXT,
-        date TEXT,
-        financial INTEGER,
-        type TEXT,
-        amount REAL,
-        eventColor TEXT
-      )`);
-      db.run(`CREATE TABLE IF NOT EXISTS user_access (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        viewer TEXT,
-        target TEXT,
-        UNIQUE(viewer, target)
-      )`);
-
-      db.all(`PRAGMA table_info(financial_items)`, (err, columns) => {
-        if (err) {
-          console.error('Error checking financial_items schema:', err.message);
+    const Login = ({ onLogin }) => {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
+          if (response.data.success) {
+            let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
+            let eventColor = DEFAULT_EVENT_COLOR;
+            let email = '';
+            let phone = '';
+            let address = '';
+            let isAdmin = false;
+            try {
+              const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
+              profilePicUrl = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+              eventColor = profileResponse.data.eventColor || DEFAULT_EVENT_COLOR;
+              email = profileResponse.data.email || '';
+              phone = profileResponse.data.phone || '';
+              address = profileResponse.data.address || '';
+              isAdmin = profileResponse.data.isAdmin || false;
+            } catch (profileErr) {
+              console.error('Error fetching profile data:', profileErr);
+            }
+            const userInfo = {
+              username,
+              profilePicUrl,
+              email,
+              phone,
+              address,
+              eventColor,
+              isAdmin,
+            };
+            onLogin(userInfo);
+          } else {
+            setError(response.data.message || 'Login failed.');
+          }
+        } catch (err) {
+          setError('Error during login. Check server.');
+          console.error('Login error:', err);
+        }
+      };
+      return (
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="card p-8 w-full max-w-md">
+            <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+              />
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+              />
+              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+              <button
+                type="submit"
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    };
+    const Menu = ({ user, setPage, onLogout }) => {
+      return (
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="card p-8 w-full max-w-md">
+            <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+              <div className="flex flex-col items-center">
+                <div className="profile-pic-container">
+                  <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+                </div>
+                <span className="text-sm text-gray-300 mt-2">{user.username}</span>
+              </div>
+              <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
+            </h1>
+            <div className="space-y-3">
+              <button
+                onClick={() => setPage('financial')}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Finances
+              </button>
+              <button
+                onClick={() => setPage('calendar')}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Calendar
+              </button>
+              <button
+                onClick={() => setPage('profileSettings')}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Profile Settings
+              </button>
+              {user.isAdmin && (
+                <button
+                  onClick={() => setPage('admin')}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                >
+                  Admin Panel
+                </button>
+              )}
+              <button
+                onClick={onLogout}
+                className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+    const ProfileSettings = ({ user, setPage, onLogout }) => {
+      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
+      const [selectedFile, setSelectedFile] = useState(null);
+      const [message, setMessage] = useState('');
+      const [email, setEmail] = useState(user.email || '');
+      const [phone, setPhone] = useState(user.phone || '');
+      const [address, setAddress] = useState(user.address || '');
+      const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
+      const [currentPassword, setCurrentPassword] = useState('');
+      const [newPassword, setNewPassword] = useState('');
+      const [confirmNewPassword, setConfirmNewPassword] = useState('');
+      const [passwordMessage, setPasswordMessage] = useState('');
+      const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setSelectedFile(file);
+          setMessage('');
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setProfilePicUrl(reader.result);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setSelectedFile(null);
+          setProfilePicUrl(user.profilePicUrl || DEFAULT_PROFILE_PIC_URL);
+          setMessage('');
+        }
+      };
+      const handleSaveProfile = async () => {
+        setMessage('Saving...');
+        let urlToSave = profilePicUrl;
+        try {
+          if (selectedFile) {
+            urlToSave = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(selectedFile);
+            });
+          } else if (!profilePicUrl) {
+            urlToSave = DEFAULT_PROFILE_PIC_URL;
+          }
+          const response = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', {
+            username: user.username,
+            profilePicUrl: urlToSave,
+            email,
+            phone,
+            address,
+            eventColor,
+          });
+          if (response.data.success) {
+            setMessage('Profile saved successfully!');
+            user.profilePicUrl = urlToSave;
+            user.email = email;
+            user.phone = phone;
+            user.address = address;
+            user.eventColor = eventColor;
+          } else {
+            setMessage('Failed to save profile.');
+          }
+        } catch (err) {
+          setMessage('Error saving profile.');
+          console.error('Error saving profile:', err);
+        }
+      };
+      const handlePasswordChange = async () => {
+        setPasswordMessage('');
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+          setPasswordMessage('All password fields are required.');
           return;
         }
-        const hasColorColumn = columns.some(col => col.name === 'color');
-        if (!hasColorColumn) {
-          db.run(`ALTER TABLE financial_items ADD COLUMN color TEXT`, (alterErr) => {
-            if (alterErr) {
-              console.error('Error adding color column to financial_items:', alterErr.message);
-            } else {
-              console.log('Added color column to financial_items table.');
-              db.run(`UPDATE financial_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
-                if (updateErr) {
-                  console.error('Error updating existing financial items with color:', updateErr.message);
-                } else {
-                  console.log('Updated existing financial items with color values.');
-                }
-              });
-            }
+        if (newPassword !== confirmNewPassword) {
+          setPasswordMessage('Passwords do not match.');
+          return;
+        }
+        if (newPassword.length < 6) {
+          setPasswordMessage('Password must be at least 6 characters.');
+          return;
+        }
+        setPasswordMessage('Changing password...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/update-password', {
+            username: user.username,
+            currentPassword,
+            newPassword
           });
-        }
-      });
-
-      console.log('Database tables checked/created.');
-    });
-  }
-});
-
-// Passport configuration
-passport.serializeUser((user, done) => {
-  done(null, user.username);
-});
-
-passport.deserializeUser((username, done) => {
-  db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-    if (err) return done(err);
-    done(null, row || null);
-  });
-});
-
-passport.use(new GoogleStrategy({
-  clientID: GOOGLE_CLIENT_ID,
-  clientSecret: GOOGLE_CLIENT_SECRET,
-  callbackURL: `${CALLBACK_URL}/auth/google/callback`
-}, async (accessToken, refreshToken, profile, done) => {
-  const username = profile.emails[0].value.split('@')[0];
-  const email = profile.emails[0].value;
-  const profilePicUrl = profile.photos[0]?.value || 'https://placehold.co/50x50/808080/FFFFFF?text=U';
-  db.get('SELECT * FROM users WHERE oauthId = ? AND oauthProvider = ?', [profile.id, 'google'], (err, row) => {
-    if (err) return done(err);
-    if (row) {
-      return done(null, row);
-    }
-    db.run(
-      `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, oauthProvider, oauthId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, profilePicUrl, email, '', '', '#3b82f6', 'google', profile.id],
-      (err) => {
-        if (err) return done(err);
-        db.get('SELECT * FROM users WHERE username = ?', [username], (err, newUser) => {
-          done(err, newUser);
-        });
-      }
-    );
-  });
-}));
-
-passport.use(new FacebookStrategy({
-  clientID: FACEBOOK_APP_ID,
-  clientSecret: FACEBOOK_APP_SECRET,
-  callbackURL: `${CALLBACK_URL}/auth/facebook/callback`,
-  profileFields: ['id', 'emails', 'name', 'picture']
-}, async (accessToken, refreshToken, profile, done) => {
-  const username = profile.emails?.[0]?.value?.split('@')[0] || `fb_${profile.id}`;
-  const email = profile.emails?.[0]?.value || '';
-  const profilePicUrl = profile.photos?.[0]?.value || 'https://placehold.co/50x50/808080/FFFFFF?text=U';
-  db.get('SELECT * FROM users WHERE oauthId = ? AND oauthProvider = ?', [profile.id, 'facebook'], (err, row) => {
-    if (err) return done(err);
-    if (row) {
-      return done(null, row);
-    }
-    db.run(
-      `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, oauthProvider, oauthId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, profilePicUrl, email, '', '', '#3b82f6', 'facebook', profile.id],
-      (err) => {
-        if (err) return done(err);
-        db.get('SELECT * FROM users WHERE username = ?', [username], (err, newUser) => {
-          done(err, newUser);
-        });
-      }
-    );
-  });
-}));
-
-// Helper functions
-async function readUsers() {
-  try {
-    const data = await fs.readFile(USERS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return {};
-    }
-    console.error('Error reading users file:', error);
-    return {};
-  }
-}
-
-async function writeUsers(users) {
-  try {
-    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing users file:', error);
-  }
-}
-
-async function getAccessibleUsers(viewer) {
-  return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT target FROM user_access WHERE viewer = ?`,
-      [viewer],
-      (err, rows) => {
-        if (err) {
-          console.error('Error fetching accessible users:', err.message);
-          reject(err);
-        } else {
-          const accessibleUsers = rows.map(row => row.target);
-          if (!accessibleUsers.includes(viewer)) {
-            accessibleUsers.push(viewer);
-          }
-          resolve(accessibleUsers);
-        }
-      }
-    );
-  });
-}
-
-// Authentication endpoints
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.json({ success: false, message: 'Username and password are required.' });
-  }
-  try {
-    const users = await readUsers();
-    const storedUser = users[username];
-    if (storedUser) {
-      const passwordMatch = await bcrypt.compare(password, storedUser.passwordHash);
-      if (passwordMatch) {
-        console.log(`Authenticated user: ${username}`);
-        db.get('SELECT * FROM users WHERE username = ?', [username], (dbErr, row) => {
-          if (dbErr) {
-            console.error('Database error during login user fetch:', dbErr.message);
-            return res.json({ success: false, message: 'Database error during login.' });
-          }
-          if (row) {
-            return res.json({ success: true, ...row });
-          }
-          const defaultUserData = {
-            username,
-            profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=U',
-            email: '',
-            phone: '',
-            address: '',
-            eventColor: '#3b82f6',
-            isAdmin: 0
-          };
-          db.run(
-            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [defaultUserData.username, defaultUserData.profilePicUrl, defaultUserData.email, defaultUserData.phone, defaultUserData.address, defaultUserData.eventColor, defaultUserData.isAdmin],
-            (insertErr) => {
-              if (insertErr) {
-                console.error('Database error inserting new user into SQLite:', insertErr.message);
-                return res.json({ success: false, message: 'Database error creating new user profile.' });
-              }
-              res.json({ success: true, ...defaultUserData });
-            }
-          );
-        });
-      } else {
-        res.json({ success: false, message: 'Authentication failed: Incorrect password.' });
-      }
-    } else {
-      res.json({ success: false, message: 'Authentication failed: User does not exist.' });
-    }
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.json({ success: false, message: 'An internal server error occurred during authentication.' });
-  }
-});
-
-app.post('/api/admin-login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.json({ success: false, message: 'Username and password are required.' });
-  }
-  try {
-    const users = await readUsers();
-    const storedUser = users[username];
-    if (storedUser) {
-      const passwordMatch = await bcrypt.compare(password, storedUser.passwordHash);
-      if (passwordMatch) {
-        db.get('SELECT * FROM users WHERE username = ? AND isAdmin = 1', [username], (dbErr, row) => {
-          if (dbErr) {
-            console.error('Database error during admin login:', dbErr.message);
-            return res.json({ success: false, message: 'Database error during admin login.' });
-          }
-          if (row) {
-            res.json({ success: true, ...row });
+          if (response.data.success) {
+            setPasswordMessage('Password updated successfully!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmNewPassword('');
           } else {
-            res.json({ success: false, message: 'User is not an admin.' });
+            setPasswordMessage(response.data.message || 'Failed to update password.');
           }
-        });
-      } else {
-        res.json({ success: false, message: 'Authentication f
-ailed: Incorrect password.' });
-      }
-    } else {
-      res.json({ success: false, message: 'Authentication failed: User does not exist.' });
-    }
-  } catch (error) {
-    console.error('Admin authentication error:', error);
-    res.json({ success: false, message: 'An internal server error occurred during admin authentication.' });
-  }
-});
-
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-app.get('/auth/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/api/login' }),
-  (req, res) => {
-    db.get('SELECT * FROM users WHERE username = ?', [req.user.username], (err, row) => {
-      if (err) {
-        console.error('Database error fetching user after Google auth:', err.message);
-        return res.redirect('https://ourlife.work.gd?error=auth_failed');
-      }
-      res.redirect(`https://ourlife.work.gd?user=${encodeURIComponent(JSON.stringify(row))}`);
-    });
-  }
-);
-
-app.get('/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
-
-app.get('/auth/facebook/callback', 
-  passport.authenticate('facebook', { failureRedirect: '/api/login' }),
-  (req, res) => {
-    db.get('SELECT * FROM users WHERE username = ?', [req.user.username], (err, row) => {
-      if (err) {
-        console.error('Database error fetching user after Facebook auth:', err.message);
-        return res.redirect('https://ourlife.work.gd?error=auth_failed');
-      }
-      res.redirect(`https://ourlife.work.gd?user=${encodeURIComponent(JSON.stringify(row))}`);
-    });
-  }
-);
-
-app.get('/api/guest', (req, res) => {
-  const guestUser = {
-    username: 'guest',
-    profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=G',
-    email: '',
-    phone: '',
-    address: '',
-    eventColor: '#3b82f6',
-    isAdmin: 0
-  };
-  res.json({ success: true, ...guestUser });
-});
-
-// Other endpoints (profile-pictures, financial, calendar, etc.) remain the same
-app.get('/api/profile-pictures', (req, res) => {
-  const { username } = req.query;
-  db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-    if (err) {
-      console.error('Database error fetching profile pictures:', err.message);
-      res.json({ profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6', isAdmin: 0 });
-    } else {
-      res.json(row || { profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6', isAdmin: 0 });
-    }
-  });
-});
-
-app.post('/api/profile-pictures', (req, res) => {
-  const { username, profilePicUrl, email, phone, address, eventColor } = req.body;
-  db.run(
-    `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [username, profilePicUrl, email, phone, address, eventColor, req.body.isAdmin || 0],
-    (err) => {
-      if (err) {
-        console.error('Database error saving profile pictures:', err.message);
-        res.json({ success: false });
-      } else {
-        res.json({ success: true });
-      }
-    }
-  );
-});
-
-app.get('/api/financial', async (req, res) => {
-  const { user: viewer } = req.query;
-  if (viewer === 'guest') {
-    return res.json([]); // Guests have no access to financial data
-  }
-  try {
-    const accessibleUsers = await getAccessibleUsers(viewer);
-    db.all(
-      `SELECT * FROM financial_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
-      accessibleUsers,
-      (err, rows) => {
-        if (err) {
-          console.error('Database error fetching financial items:', err.message);
-          res.json([]);
-        } else {
-          res.json(rows);
+        } catch (err) {
+          setPasswordMessage('Error updating password.');
+          console.error('Error updating password:', err);
         }
-      }
-    );
-  } catch (error) {
-    console.error('Error fetching accessible users for financial data:', error);
-    res.json([]);
-  }
-});
-
-app.post('/api/financial', (req, res) => {
-  const { user, description, amount, type, date } = req.body;
-  if (user === 'guest') {
-    return res.json({ success: false, message: 'Guests cannot add financial items.' });
-  }
-  const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
-  db.run(
-    `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
-    [user, description, amount, type, date, color],
-    function (err) {
-      if (err) {
-        console.error('Database error adding financial item:', err.message);
-        res.json({ success: false });
-      } else {
-        res.json({ id: this.lastID, user, description, amount, type, date, color });
-      }
-    }
-  );
-});
-
-app.delete('/api/financial/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  db.run('DELETE FROM financial_items WHERE id = ?', id, (err) => {
-    if (err) {
-      console.error('Database error deleting financial item:', err.message);
-      res.json({ success: false });
-    } else {
-      res.json({ success: true });
-    }
-  });
-});
-
-app.get('/api/calendar', async (req, res) => {
-  const { user: viewer } = req.query;
-  if (viewer === 'guest') {
-    return res.json([]); // Guests have no access to calendar data
-  }
-  try {
-    const accessibleUsers = await getAccessibleUsers(viewer);
-    db.all(
-      `SELECT * FROM calendar_events WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
-      accessibleUsers,
-      (err, rows) => {
-        if (err) {
-          console.error('Database error fetching calendar events:', err.message);
-          res.json([]);
-        } else {
-          res.json(rows);
-        }
-      }
-    );
-  } catch (error) {
-    console.error('Error fetching accessible users for calendar events:', error);
-    res.json([]);
-  }
-});
-
-app.post('/api/calendar', (req, res) => {
-  const { user, title, date, financial, type, amount, eventColor } = req.body;
-  if (user === 'guest') {
-    return res.json({ success: false, message: 'Guests cannot add calendar events.' });
-  }
-  db.run(
-    `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [user, title, date, financial ? 1 : 0, type, amount, eventColor],
-    function (err) {
-      if (err) {
-        console.error('Database error adding calendar event:', err.message);
-        res.json({ success: false });
-      } else {
-        res.json({ id: this.lastID, user, title, date, financial, type, amount, eventColor });
-      }
-    }
-  );
-});
-
-app.delete('/api/calendar/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  db.run('DELETE FROM calendar_events WHERE id = ?', id, (err) => {
-    if (err) {
-      console.error('Database error deleting calendar event:', err.message);
-      res.json({ success: false });
-    } else {
-      res.json({ success: true });
-    }
-  });
-});
-
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await readUsers();
-    const userList = Object.keys(users).map(username => ({ username }));
-    db.all('SELECT username, isAdmin FROM users', [], (err, rows) => {
-      if (err) {
-        console.error('Database error fetching users:', err.message);
-        return res.json({ success: false, message: 'Failed to fetch users.' });
-      }
-      const enrichedUsers = rows.map(row => ({
-        username: row.username,
-        isAdmin: row.isAdmin
-      }));
-      res.json(enrichedUsers);
-    });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.json({ success: false, message: 'Failed to fetch users.' });
-  }
-});
-
-app.post('/api/add-user', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.json({ success: false, message: 'Username and password are required.' });
-  }
-  try {
-    const users = await readUsers();
-    if (users[username]) {
-      return res.json({ success: false, message: 'User already exists.' });
-    }
-    const passwordHash = await bcrypt.hash(password, 10);
-    users[username] = { passwordHash };
-    await writeUsers(users);
-    db.run(
-      `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [username, 'https://placehold.co/50x50/808080/FFFFFF?text=U', '', '', '', '#3b82f6', 0],
-      (err) => {
-        if (err) {
-          console.error('Database error inserting new user:', err.message);
-          return res.json({ success: false, message: 'Failed to add user to database.' });
-        }
-        res.json({ success: true, message: 'User added successfully!' });
-      }
-    );
-  } catch (error) {
-    console.error('Error adding user:', error);
-    res.json({ success: false, message: 'Failed to add user.' });
-  }
-});
-
-app.delete('/api/delete-user/:username', async (req, res) => {
-  const { username } = req.params;
-  try {
-    const users = await readUsers();
-    if (!users[username]) {
-      return res.json({ success: false, message: 'User not found.' });
-    }
-    delete users[username];
-    await writeUsers(users);
-    db.run('DELETE FROM users WHERE username = ?', [username], (err) => {
-      if (err) {
-        console.error('Database error deleting user from SQLite:', err.message);
-      }
-      db.run('DELETE FROM user_access WHERE viewer = ? OR target = ?', [username, username], (err) => {
-        if (err) {
-          console.error('Database error deleting user access:', err.message);
-        }
-        res.json({ success: true, message: 'User deleted successfully!' });
-      });
-    });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.json({ success: false, message: 'Failed to delete user.' });
-  }
-});
-
-app.get('/api/pam-users', async (req, res) => {
-  try {
-    const { stdout } = await execPromise('getent passwd');
-    const pamUsers = stdout
-      .split('\n')
-      .filter(line => line)
-      .map(line => {
-        const [username, , uid] = line.split(':');
-        return { username, uid: parseInt(uid) };
-      })
-      .filter(user => user.uid >= 1000)
-      .map(user => user.username);
-    const users = await readUsers();
-    const appUsers = Object.keys(users);
-    const comparison = {
-      pamUsers: pamUsers,
-      appUsers: appUsers,
-      commonUsers: appUsers.filter(user => pamUsers.includes(user)),
-      appOnlyUsers: appUsers.filter(user => !pamUsers.includes(user)),
-      pamOnlyUsers: pamUsers.filter(user => !appUsers.includes(user))
-    };
-    res.json({ success: true, ...comparison });
-  } catch (error) {
-    console.error('Error fetching PAM users:', error);
-    res.json({ success: false, message: 'Failed to fetch PAM users.' });
-  }
-});
-
-app.get('/api/get-access', (req, res) => {
-  db.all(
-    `SELECT viewer, target FROM user_access`,
-    [],
-    (err, rows) => {
-      if (err) {
-        console.error('Database error fetching user access:', err.message);
-        res.json({ success: false, accessList: [] });
-      } else {
-        res.json({ success: true, accessList: rows });
-      }
-    }
-  );
-});
-
-app.post('/api/grant-access', (req, res) => {
-  const { viewer, target } = req.body;
-  if (!viewer || !target) {
-    return res.json({ success: false, message: 'Viewer and target usernames are required.' });
-  }
-  if (viewer === target) {
-    return res.json({ success: false, message: 'Cannot grant access to self.' });
-  }
-  db.run(
-    `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
-    [viewer, target],
-    (err) => {
-      if (err) {
-        console.error('Database error granting access:', err.message);
-        res.json({ success: false, message: 'Failed to grant access.' });
-      } else {
-        res.json({ success: true, message: `Access granted: ${viewer} can view ${target}'s data.` });
-      }
-    }
-  );
-});
-
-app.post('/api/revoke-access', (req, res) => {
-  const { viewer, target } = req.body;
-  if (!viewer || !target) {
-    return res.json({ success: false, message: 'Viewer and target usernames are required.' });
-  }
-  db.run(
-    `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
-    [viewer, target],
-    (err) => {
-      if (err) {
-        console.error('Database error revoking access:', err.message);
-        res.json({ success: false, message: 'Failed to revoke access.' });
-      } else {
-        res.json({ success: true, message: `Access revoked: ${viewer} can no longer view ${target}'s data.` });
-      }
-    }
-  );
-});
-
-app.post('/api/grant-admin', (req, res) => {
-  const { username } = req.body;
-  if (!username) {
-    return res.json({ success: false, message: 'Username is required.' });
-  }
-  db.run(
-    `UPDATE users SET isAdmin = 1 WHERE username = ?`,
-    [username],
-    (err) => {
-      if (err) {
-        console.error('Database error granting admin access:', err.message);
-        res.json({ success: false, message: 'Failed to grant admin access.' });
-      } else {
-        res.json({ success: true, message: `Admin access granted to ${username}!` });
-      }
-    }
-  );
-});
-
-app.post('/api/revoke-admin', (req, res) => {
-  const { username } = req.body;
-  if (!username) {
-    return res.json({ success: false, message: 'Username is required.' });
-  }
-  db.run(
-    `UPDATE users SET isAdmin = 0 WHERE username = ?`,
-    [username],
-    (err) => {
-      if (err) {
-        console.error('Database error revoking admin access:', err.message);
-        res.json({ success: false, message: 'Failed to revoke admin access.' });
-      } else {
-        res.json({ success: true, message: `Admin access revoked for ${username}!` });
-      }
-    }
-  );
-});
-
-// Start server
-async function startServer() {
-  try {
-    const sslOptions = {
-      key: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem', 'utf8'),
-      cert: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem', 'utf8')
+      };
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <button
+              onClick={() => setPage('menu')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Back to Menu
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Sign Out
+            </button>
+          </div>
+          <div className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-white text-lg font-medium mb-2">Profile Picture</label>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="profile-pic-container">
+                    <img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+                  </div>
+                  <span className="text-white">{user.username}</span>
+                </div>
+                <input
+                  id="profileUpload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2">Phone Number</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="Enter your phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2">Address</label>
+                <textarea
+                  name="address"
+                  placeholder="Enter your address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  rows="3"
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2">Event Color</label>
+                <input
+                  type="color"
+                  name="eventColor"
+                  value={eventColor}
+                  onChange={(e) => setEventColor(e.target.value)}
+                  className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer"
+                />
+              </div>
+              {message && (
+                <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                  {message}
+                </p>
+              )}
+              <button
+                onClick={handleSaveProfile}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Save Profile
+              </button>
+              <div className="pt-6 border-t border-white/10">
+                <h2 className="text-xl font-semibold text-white mb-4">Change Password</h2>
+                <input
+                  type="password"
+                  placeholder="Current Password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                />
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                />
+                {passwordMessage && (
+                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {passwordMessage}
+                  </p>
+                )}
+                <button
+                  onClick={handlePasswordChange}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                >
+                  Change Password
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     };
 
-    https.createServer(sslOptions, app).listen(HTTPS_PORT, () => {
-      console.log(`HTTPS Server running on https://ourlife.work.gd:${HTTPS_PORT}`);
-    });
+    const Financial = ({ user, setPage, onLogout }) => {
+      const [items, setItems] = useState([]);
+      const [description, setDescription] = useState('');
+      const [amount, setAmount] = useState('');
+      const [type, setType] = useState('income');
+      const [date, setDate] = useState(getCurrentDateTime());
+      const [hideValues, setHideValues] = useState(false);
+      const [currency, setCurrency] = useState('ZAR');
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const [showAddItemForm, setShowAddItemForm] = useState(false);
+      const [selectedMonth, setSelectedMonth] = useState('07');
+      const [netTotal, setNetTotal] = useState(0);
+      const [bulkData, setBulkData] = useState('');
+      const [importMessage, setImportMessage] = useState('');
+      const [showImportTool, setShowImportTool] = useState(false);
 
-    http.createServer((req, res) => {
-      res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
-      res.end();
-    }).listen(HTTP_PORT, () => {
-      console.log(`HTTP Server running on port ${HTTP_PORT}, redirecting to HTTPS`);
-    });
-  } catch (error) {
-    console.error('Error starting server with SSL:', error);
-    process.exit(1);
-  }
-}
+      const currencyConfig = {
+        USD: { symbol: '$', rate: 1 },
+        EUR: { symbol: '€', rate: 0.85 },
+        ZAR: { symbol: 'R', rate: 18.5 },
+      };
+      const months = [
+        { value: '01', label: 'January' },
+        { value: '02', label: 'February' },
+        { value: '03', label: 'March' },
+        { value: '04', label: 'April' },
+        { value: '05', label: 'May' },
+        { value: '06', label: 'June' },
+        { value: '07', label: 'July' },
+        { value: '08', label: 'August' },
+        { value: '09', label: 'September' },
+        { value: '10', label: 'October' },
+        { value: '11', label: 'November' },
+        { value: '12', label: 'December' },
+      ];
+      const formatAmount = (amount) => {
+        return `${currencyConfig['ZAR'].symbol}${parseFloat(amount).toFixed(2)}`;
+      };
+      const calculateNetTotal = () => {
+        const filteredItems = items
+          .filter(item => selectedUsers.includes(item.user))
+          .filter(item => item.date.startsWith(`2025-${selectedMonth}`));
+        const total = filteredItems.reduce((sum, item) => {
+          return item.type === 'income' ? sum + item.amount : sum - item.amount;
+        }, 0);
+        setNetTotal(total);
+      };
+      const fetchAccessibleUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
+          if (response.data.success) {
+            const accessible = [user.username, ...response.data.accessList
+              .filter(access => access.viewer === user.username)
+              .map(access => access.target)];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (const username of accessible) {
+              if (username !== user.username) {
+                try {
+                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
+                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) {
+                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
+                  console.error(`Error fetching profile for ${username}:`, err);
+                }
+              }
+            }
+            setUserProfiles(profiles);
+            console.log('Fetched user profiles:', profiles);
+          }
+        } catch (err) {
+          console.error('Error fetching accessible users:', err);
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+      const fetchItems = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username } });
+          setItems(response.data);
+        } catch (err) {
+          console.error('Error fetching financial items:', err);
+        }
+      };
+      const addItem = async () => {
+        if (!description || !amount || !date) return;
+        const item = { user: user.username, description, amount: parseFloat(amount), type, date };
+        try {
+          await axios.post('https://ourlife.work.gd:8443/api/financial', item);
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
+            user: user.username,
+            title: `${description} (${type})`,
+            date,
+            financial: true,
+            type,
+            amount: parseFloat(amount),
+            eventColor: user.eventColor,
+          });
+          fetchItems();
+          setDescription('');
+          setAmount('');
+          setDate(getCurrentDateTime());
+          setShowAddItemForm(false);
+        } catch (err) {
+          console.error('Error adding financial item:', err);
+        }
+      };
+      const deleteItem = async (id) => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`);
+          fetchItems();
+        } catch (err) {
+          console.error('Error deleting financial item:', err);
+        }
+      };
+      const handleBulkImport = async () => {
+        if (!bulkData.trim()) {
+            setImportMessage('Please paste data into the text box.');
+            return;
+        }
 
-startServer();
+        const lines = bulkData.trim().split('\n').filter(line => line.trim() !== '');
+        const itemsToImport = lines.map(line => {
+            const [description, amount, type, date] = line.split(',').map(field => field.trim());
+            if (!description || !amount || !type || !date) {
+                return null;
+            }
+            return { user: user.username, description, amount: parseFloat(amount), type, date };
+        }).filter(Boolean);
+
+        if (itemsToImport.length === 0) {
+            setImportMessage('No valid data found. Please check the format.');
+            return;
+        }
+
+        setImportMessage(`Importing ${itemsToImport.length} items...`);
+
+        try {
+            const importPromises = itemsToImport.map(item => {
+                const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item);
+                const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
+                    user: user.username,
+                    title: `${item.description} (${item.type})`,
+                    date: item.date,
+                    financial: true,
+                    type: item.type,
+                    amount: item.amount,
+                    eventColor: user.eventColor,
+                });
+                return Promise.all([financialPromise, calendarPromise]);
+            });
+
+            await Promise.all(importPromises);
+
+            setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
+            setBulkData('');
+            setShowImportTool(false);
+            fetchItems();
+        } catch (err) {
+            setImportMessage('An error occurred during import. Please check the data and try again.');
+            console.error('Bulk import error:', err);
+        }
+      };
+      const toggleUser = (username) => {
+        setSelectedUsers(prev =>
+          prev.includes(username)
+            ? prev.filter(u => u !== username)
+            : [...prev, username]
+        );
+      };
+      useEffect(() => {
+        fetchAccessibleUsers();
+        fetchItems();
+      }, []);
+      useEffect(() => {
+        fetchItems();
+      }, [selectedUsers]);
+      useEffect(() => {
+        calculateNetTotal();
+      }, [items, selectedUsers, selectedMonth]);
+      
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <button
+              onClick={() => setPage('menu')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Back to Menu
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Sign Out
+            </button>
+          </div>
+          <div className="card p-8">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+              <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="profile-pic-container">
+                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+                  </div>
+                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
+                </div>
+                <span>Finances</span>
+              </h1>
+              <div className="flex space-x-3 mt-4 sm:mt-0">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                >
+                  {months.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label} 2025
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddItemForm(!showAddItemForm)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  {showAddItemForm ? 'Hide Form' : 'Add Item'}
+                </button>
+                <button
+                  onClick={() => setShowImportTool(!showImportTool)}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  {showImportTool ? 'Hide Import' : 'Bulk Import'}
+                </button>
+              </div>
+            </div>
+            <div className="card p-6 mb-6">
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Net Total for {months.find(m => m.value === selectedMonth)?.label} 2025
+              </h2>
+              <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {hideValues ? '****' : formatAmount(netTotal)}
+              </p>
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map(username => (
+                  <button
+                    key={username}
+                    onClick={() => toggleUser(username)}
+                    className={`px-3 py-2 rounded-lg text-white ${
+                      selectedUsers.includes(username)
+                        ? 'bg-teal-500 hover:bg-teal-600'
+                        : 'bg-gray-600 hover:bg-gray-700'
+                    }`}
+                  >
+                    {username}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {showImportTool && (
+                <div className="card p-6 mb-6 space-y-4">
+                    <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
+                    <p className="text-gray-300 text-sm">
+                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)
+                    </p>
+                    <textarea
+                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00"
+                        value={bulkData}
+                        onChange={(e) => setBulkData(e.target.value)}
+                        rows="8"
+                        className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                    ></textarea>
+                    <button
+                        onClick={handleBulkImport}
+                        className="w-full p-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                        Import Pasted Data
+                    </button>
+                    {importMessage && (
+                        <p className={`text-center text-sm ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                            {importMessage}
+                        </p>
+                    )}
+                </div>
+            )}
+            {showAddItemForm && (
+              <div className="card p-6 mb-6 space-y-4">
+                <h2 className="text-xl font-semibold text-white">Add Financial Item</h2>
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+                <input
+                  type="number"
+                  name="amount"
+                  placeholder="Amount (in ZAR)"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+                <select
+                  name="type"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                >
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+                <input
+                  type="datetime-local"
+                  name="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  step="1"
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+                <button
+                  onClick={addItem}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                >
+                  Add Item
+                </button>
+              </div>
+            )}
+            <div className="space-y-4 mb-6">
+              <button
+                onClick={() => setHideValues(!hideValues)}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                {hideValues ? 'Show Values' : 'Hide Values'}
+              </button>
+            </div>
+            <div className="space-y-3">
+              {items
+                .filter(item => selectedUsers.includes(item.user))
+                .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
+                .map((item) => (
+                  <div key={item.id} className="flex justify-between p-4 card items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="event-profile-pic-container">
+                        <img
+                          src={userProfiles[item.user] || DEFAULT_PROFILE_PIC_URL}
+                          alt={item.user}
+                          className="event-profile-pic"
+                        />
+                      </div>
+                      <span>{item.description} ({item.type}) - {formatDateTimeWithSeconds(item.date)} ({item.user})</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
+                      {item.user === user.username && (
+                        <button
+                          onClick={() => deleteItem(item.id)}
+                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Calendar = ({ user, setPage, onLogout }) => {
+      const [events, setEvents] = useState([]);
+      const [selectedMonth, setSelectedMonth] = useState('07');
+      const [showAddEventForm, setShowAddEventForm] = useState(false);
+      const [newEventTitle, setNewEventTitle] = useState('');
+      const [newEventDate, setNewEventDate] = useState(getCurrentDateTime());
+      const [isFinancialEvent, setIsFinancialEvent] = useState(false);
+      const [newEventAmount, setNewEventAmount] = useState('');
+      const [newEventCategory, setNewEventCategory] = useState('income');
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL });
+      const [showModal, setShowModal] = useState(false);
+      const [selectedEvent, setSelectedEvent] = useState(null);
+      const calendarRef = useRef(null);
+      const fullCalendarInstance = useRef(null);
+      const modalRef = useRef(null);
+      const months = [
+        { value: '01', label: 'January' },
+        { value: '02', label: 'February' },
+        { value: '03', label: 'March' },
+        { value: '04', label: 'April' },
+        { value: '05', label: 'May' },
+        { value: '06', label: 'June' },
+        { value: '07', label: 'July' },
+        { value: '08', label: 'August' },
+        { value: '09', label: 'September' },
+        { value: '10', label: 'October' },
+        { value: '11', label: 'November' },
+        { value: '12', label: 'December' },
+      ];
+      const fetchAccessibleUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
+          if (response.data.success) {
+            const accessible = [user.username, ...response.data.accessList
+              .filter(access => access.viewer === user.username)
+              .map(access => access.target)];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (const username of accessible) {
+              if (username !== user.username) {
+                try {
+                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
+                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) {
+                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
+                  console.error(`Error fetching profile for ${username}:`, err);
+                }
+              }
+            }
+            console.log('Fetched user profiles:', profiles);
+            setUserProfiles(profiles);
+          }
+        } catch (err) {
+          console.error('Error fetching accessible users:', err);
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+      const fetchEvents = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username } });
+          const fetchedEvents = response.data.map((e) => ({
+            id: e.id,
+            title: e.title,
+            start: e.date,
+            user: e.user,
+            financial: e.financial,
+            type: e.type,
+            amount: e.amount,
+            eventColor: e.eventColor || DEFAULT_EVENT_COLOR,
+          }));
+          setEvents(fetchedEvents);
+        } catch (err) {
+          console.error('Error fetching calendar events:', err);
+        }
+      };
+      const handleAddEvent = async () => {
+        if (!newEventTitle || !newEventDate) {
+          alert('Event title and date are required!');
+          return;
+        }
+        try {
+          const eventData = {
+            user: user.username,
+            title: newEventTitle,
+            date: newEventDate,
+            financial: isFinancialEvent,
+            type: isFinancialEvent ? newEventCategory : undefined,
+            amount: isFinancialEvent ? parseFloat(newEventAmount) : undefined,
+            eventColor: user.eventColor,
+          };
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData);
+          if (isFinancialEvent) {
+            await axios.post('https://ourlife.work.gd:8443/api/financial', {
+              user: user.username,
+              description: newEventTitle,
+              amount: parseFloat(newEventAmount),
+              type: newEventCategory,
+              date: newEventDate,
+            });
+          }
+          fetchEvents();
+          setNewEventTitle('');
+          setNewEventDate(getCurrentDateTime());
+          setIsFinancialEvent(false);
+          setNewEventAmount('');
+          setNewEventCategory('income');
+          setShowAddEventForm(false);
+        } catch (err) {
+          alert('Failed to add event.');
+          console.error('Error adding event:', err);
+        }
+      };
+      const handleDeleteEvent = async (eventId) => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${eventId}`);
+          fetchEvents();
+          setShowModal(false);
+          setSelectedEvent(null);
+        } catch (err) {
+          alert('Failed to delete event.');
+          console.error('Error deleting event:', err);
+        }
+      };
+      const toggleUser = (username) => {
+        setSelectedUsers(prev =>
+          prev.includes(username)
+            ? prev.filter(u => u !== username)
+            : [...prev, username]
+        );
+      };
+      useEffect(() => {
+        fetchAccessibleUsers();
+        fetchEvents();
+      }, []);
+      useEffect(() => {
+        if (fullCalendarInstance.current) {
+          const filteredEvents = events.filter(event => selectedUsers.includes(event.user));
+          fullCalendarInstance.current.setOption('events', filteredEvents);
+        }
+      }, [events, selectedUsers, userProfiles]);
+      useEffect(() => {
+        const calendarEl = document.getElementById('calendar');
+        if (calendarEl && !fullCalendarInstance.current) {
+          const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            initialDate: `2025-${selectedMonth}-01`,
+            editable: true,
+            selectable: true,
+            events: events.filter(event => selectedUsers.includes(event.user)),
+            eventContent: (info) => {
+              const event = info.event;
+              const eventUser = event.extendedProps.user;
+              const eventDisplayColor = event.extendedProps.eventColor;
+              const eventEl = document.createElement('div');
+              eventEl.className = `fc-event-main`;
+              eventEl.style.backgroundColor = eventDisplayColor;
+              eventEl.style.opacity = '0.8';
+              const imgEl = document.createElement('img');
+              imgEl.src = userProfiles[eventUser] || DEFAULT_PROFILE_PIC_URL;
+              imgEl.alt = eventUser;
+              imgEl.className = 'event-profile-pic';
+              const titleSpan = document.createElement('span');
+              titleSpan.className = 'fc-event-title';
+              titleSpan.textContent = event.title;
+              const userSpan = document.createElement('span');
+              userSpan.className = 'fc-event-user';
+              userSpan.textContent = eventUser;
+              const eventPicContainer = document.createElement('div');
+              eventPicContainer.className = 'event-profile-pic-container';
+              eventPicContainer.appendChild(imgEl);
+              eventEl.appendChild(eventPicContainer);
+              eventEl.appendChild(titleSpan);
+              eventEl.appendChild(userSpan);
+              return { domNodes: [eventEl] };
+            },
+            eventClick: (info) => {
+              setSelectedEvent({
+                id: info.event.id,
+                title: info.event.title,
+                date: info.event.start.toISOString().slice(0, 19),
+                user: info.event.extendedProps.user,
+                financial: info.event.extendedProps.financial,
+                type: info.event.extendedProps.type,
+                amount: info.event.extendedProps.amount,
+                profilePicUrl: userProfiles[info.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL,
+                eventColor: info.event.extendedProps.eventColor,
+              });
+              setShowModal(true);
+            },
+            select: async (info) => {
+              setNewEventDate(getCurrentDateTime());
+              setShowAddEventForm(true);
+            },
+          });
+          calendar.render();
+          fullCalendarInstance.current = calendar;
+        }
+        return () => {
+          if (fullCalendarInstance.current) {
+            fullCalendarInstance.current.destroy();
+            fullCalendarInstance.current = null;
+          }
+        };
+      }, [userProfiles]);
+      useEffect(() => {
+        if (fullCalendarInstance.current) {
+          fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`);
+        }
+      }, [selectedMonth]);
+      const handleMonthChange = (e) => {
+        const month = e.target.value;
+        setSelectedMonth(month);
+      };
+      const closeModal = () => {
+        setShowModal(false);
+        setTimeout(() => setSelectedEvent(null), 300);
+      };
+      return (
+        <div className="p-6 max-w-6xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <button
+              onClick={() => setPage('menu')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Back to Menu
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Sign Out
+            </button>
+          </div>
+          <div className="card p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="profile-pic-container">
+                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+                  </div>
+                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
+                </div>
+                <span>Calendar</span>
+              </h1>
+              <div className="flex space-x-3">
+                <select
+                  value={selectedMonth}
+                  onChange={handleMonthChange}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                >
+                  {months.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label} 2025
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddEventForm(!showAddEventForm)}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                >
+                  {showAddEventForm ? 'Hide Form' : 'Add Event'}
+                </button>
+              </div>
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map(username => (
+                  <button
+                    key={username}
+                    onClick={() => toggleUser(username)}
+                    className={`px-3 py-2 rounded-lg text-white ${
+                      selectedUsers.includes(username)
+                        ? 'bg-teal-500 hover:bg-teal-600'
+                        : 'bg-gray-600 hover:bg-gray-700'
+                    }`}
+                  >
+                    {username}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {showAddEventForm && (
+              <div className="card p-6 mb-6 space-y-4">
+                <h2 className="text-xl font-semibold text-white">Add Calendar Event</h2>
+                <input
+                  type="text"
+                  placeholder="Event Title"
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+                <input
+                  type="datetime-local"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  step="1"
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                />
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isFinancial"
+                    checked={isFinancialEvent}
+                    onChange={(e) => setIsFinancialEvent(e.target.checked)}
+                    className="form-checkbox h-5 w-5 text-teal-500 rounded"
+                  />
+                  <label htmlFor="isFinancial" className="text-white">Financial Event?</label>
+                </div>
+                {isFinancialEvent && (
+                  <div className="space-y-4">
+                    <input
+                      type="number"
+                      placeholder="Amount (in ZAR)"
+                      value={newEventAmount}
+                      onChange={(e) => setNewEventAmount(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                    />
+                    <select
+                      value={newEventCategory}
+                      onChange={(e) => setNewEventCategory(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                    >
+                      <option value="income">Income</option>
+                      <option value="expense">Expense</option>
+                    </select>
+                  </div>
+                )}
+                <button
+                  onClick={handleAddEvent}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                >
+                  Add Event
+                </button>
+              </div>
+            )}
+            <div id="calendar" className="text-white"></div>
+            {showModal && selectedEvent && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onClick={closeModal}>
+                <div
+                  ref={modalRef}
+                  className={`modal card p-8 max-w-md w-full mx-4 ${showModal ? 'show' : ''}`}
+                  style={{ backgroundColor: selectedEvent.eventColor, opacity: 0.8 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-white">Event Details</h2>
+                    <button
+                      onClick={closeModal}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="event-profile-pic-container !w-10 !h-10">
+                        <img src={selectedEvent.profilePicUrl} alt={selectedEvent.user} className="event-profile-pic" />
+                      </div>
+                      <span className="text-lg font-semibold text-white">{selectedEvent.title}</span>
+                    </div>
+                    <p className="text-white"><strong>Date:</strong> {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                    <p className="text-white"><strong>User:</strong> {selectedEvent.user}</p>
+                    {selectedEvent.financial ? (
+                      <>
+                        <p className="text-white"><strong>Type:</strong> {selectedEvent.type}</p>
+                        <p className="text-white"><strong>Amount:</strong> R{selectedEvent.amount.toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="text-white">Non-financial event</p>
+                    )}
+                    {selectedEvent.user === user.username && (
+                      <button
+                        onClick={() => handleDeleteEvent(selectedEvent.id)}
+                        className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      >
+                        Delete Event
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+    const Admin = ({ user, setPage, onLogout }) => {
+      const [users, setUsers] = useState([]);
+      const [newUsername, setNewUsername] = useState('');
+      const [newPassword, setNewPassword] = useState('');
+      const [confirmNewPassword, setConfirmNewPassword] = useState('');
+      const [message, setMessage] = useState('');
+      const [pamComparison, setPamComparison] = useState(null);
+      const [selectedUser, setSelectedUser] = useState('');
+      const [updatePassword, setUpdatePassword] = useState('');
+      const [updateConfirmPassword, setUpdateConfirmPassword] = useState('');
+      const [updateMessage, setUpdateMessage] = useState('');
+      const [accessViewer, setAccessViewer] = useState('');
+      const [accessTarget, setAccessTarget] = useState('');
+      const [accessMessage, setAccessMessage] = useState('');
+      const [accessList, setAccessList] = useState([]);
+      const [adminUser, setAdminUser] = useState('');
+      const [adminMessage, setAdminMessage] = useState('');
+      const fetchUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users');
+          if (response.data && Array.isArray(response.data)) {
+            setUsers(response.data);
+          } else {
+            setMessage('Failed to fetch users.');
+          }
+        } catch (err) {
+          setMessage('Error fetching users.');
+          console.error('Error fetching users:', err);
+        }
+      };
+      const fetchPamUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/pam-users');
+          if (response.data.success) {
+            setPamComparison(response.data);
+          } else {
+            setMessage('Failed to fetch PAM users.');
+          }
+        } catch (err) {
+          setMessage('Error fetching PAM users.');
+          console.error('Error fetching PAM users:', err);
+        }
+      };
+      const fetchAccessList = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
+          if (response.data.success) {
+            setAccessList(response.data.accessList);
+          } else {
+            setAccessMessage('Failed to fetch access list.');
+          }
+        } catch (err) {
+          setAccessMessage('Error fetching access list.');
+          console.error('Error fetching access list:', err);
+        }
+      };
+      useEffect(() => {
+        fetchUsers();
+        fetchPamUsers();
+        fetchAccessList();
+      }, []);
+      const handleAddUser = async (e) => {
+        e.preventDefault();
+        setMessage('');
+        if (!newUsername || !newPassword || !confirmNewPassword) {
+          setMessage('All fields are required.');
+          return;
+        }
+        if (newPassword !== confirmNewPassword) {
+          setMessage('Passwords do not match.');
+          return;
+        }
+        if (newPassword.length < 6) {
+          setMessage('Password must be at least 6 characters.');
+          return;
+        }
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/add-user', {
+            username: newUsername,
+            password: newPassword
+          });
+          if (response.data.success) {
+            setMessage('User added successfully!');
+            setNewUsername('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            fetchUsers();
+            fetchPamUsers();
+          } else {
+            setMessage(response.data.message || 'Failed to add user.');
+          }
+        } catch (err) {
+          setMessage('Error adding user.');
+          console.error('Error adding user:', err);
+        }
+      };
+      const handleDeleteUser = async (username) => {
+        if (username === user.username) {
+          setMessage('Cannot delete your own account.');
+          return;
+        }
+        if (confirm(`Delete user ${username}?`)) {
+          try {
+            const response = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${username}`);
+            if (response.data.success) {
+              setMessage('User deleted successfully!');
+              fetchUsers();
+              fetchPamUsers();
+              fetchAccessList();
+            } else {
+              setMessage(response.data.message || 'Failed to delete user.');
+            }
+          } catch (err) {
+            setMessage('Error deleting user.');
+            console.error('Error deleting user:', err);
+          }
+        }
+      };
+      const handleUpdatePassword = async (e) => {
+        e.preventDefault();
+        setUpdateMessage('');
+        if (!selectedUser) {
+          setUpdateMessage('Please select a user.');
+          return;
+        }
+        if (selectedUser === user.username) {
+          setUpdateMessage('Use Profile Settings to update your own password.');
+          return;
+        }
+        if (!updatePassword || !updateConfirmPassword) {
+          setUpdateMessage('New password and confirmation are required.');
+          return;
+        }
+        if (updatePassword !== updateConfirmPassword) {
+          setUpdateMessage('Passwords do not match.');
+          return;
+        }
+        if (updatePassword.length < 6) {
+          setUpdateMessage('Password must be at least 6 characters.');
+          return;
+        }
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/admin-update-password', {
+            username: selectedUser,
+            newPassword: updatePassword
+          });
+          if (response.data.success) {
+            setUpdateMessage(`Password updated for ${selectedUser}!`);
+            setSelectedUser('');
+            setUpdatePassword('');
+            setUpdateConfirmPassword('');
+          } else {
+            setUpdateMessage(response.data.message || 'Failed to update password.');
+          }
+        } catch (err) {
+          setUpdateMessage('Error updating password.');
+          console.error('Error updating password:', err);
+        }
+      };
+      const handleGrantAccess = async (e) => {
+        e.preventDefault();
+        setAccessMessage('');
+        if (!accessViewer || !accessTarget) {
+          setAccessMessage('Select both a viewer and target user.');
+          return;
+        }
+        if (accessViewer === accessTarget) {
+          setAccessMessage('Cannot grant access to self.');
+          return;
+        }
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
+            viewer: accessViewer,
+            target: accessTarget
+          });
+          if (response.data.success) {
+            setAccessMessage(response.data.message);
+            setAccessViewer('');
+            setAccessTarget('');
+            fetchAccessList();
+          } else {
+            setAccessMessage(response.data.message || 'Failed to grant access.');
+          }
+        } catch (err) {
+          setAccessMessage('Error granting access.');
+          console.error('Error granting access:', err);
+        }
+      };
+      const handleRevokeAccess = async (viewer, target) => {
+        if (confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
+          try {
+            const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
+              viewer,
+              target
+            });
+            if (response.data.success) {
+              setAccessMessage(response.data.message);
+              fetchAccessList();
+            } else {
+              setAccessMessage(response.data.message || 'Failed to revoke access.');
+            }
+          } catch (err) {
+            setAccessMessage('Error revoking access.');
+            console.error('Error revoking access:', err);
+          }
+        }
+      };
+      const handleGrantAdmin = async () => {
+        if (!adminUser) {
+          setAdminMessage('Please select a user.');
+          return;
+        }
+        if (adminUser === user.username) {
+          setAdminMessage('Cannot modify your own admin status.');
+          return;
+        }
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-admin', { username: adminUser });
+          if (response.data.success) {
+            setAdminMessage(`Admin access granted to ${adminUser}!`);
+            setAdminUser('');
+            fetchUsers();
+          } else {
+            setAdminMessage(response.data.message || 'Failed to grant admin access.');
+          }
+        } catch (err) {
+          setAdminMessage('Error granting admin access. Check server logs.');
+          console.error('Error granting admin access:', err, 'Response:', err.response?.data);
+        }
+      };
+      const handleRevokeAdmin = async () => {
+        if (!adminUser) {
+          setAdminMessage('Please select a user.');
+          return;
+        }
+        if (adminUser === user.username) {
+          setAdminMessage('Cannot modify your own admin status.');
+          return;
+        }
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-admin', { username: adminUser });
+          if (response.data.success) {
+            setAdminMessage(`Admin access revoked for ${adminUser}!`);
+            setAdminUser('');
+            fetchUsers();
+          } else {
+            setAdminMessage(response.data.message || 'Failed to revoke admin access.');
+          }
+        } catch (err) {
+          setAdminMessage('Error revoking admin access.');
+          console.error('Error revoking admin access:', err);
+        }
+      };
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <button
+              onClick={() => setPage('menu')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Back to Menu
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Sign Out
+            </button>
+          </div>
+          <div className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
+                <form onSubmit={handleAddUser} className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="New Username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm Password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  >
+                    Add User
+                  </button>
+                </form>
+                {message && (
+                  <p className={`mt-3 text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Manage Users</h2>
+                <div className="space-y-3">
+                  {users.map((u) => (
+                    <div key={u.username} className="flex justify-between items-center p-4 card">
+                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
+                      <button
+                        onClick={() => handleDeleteUser(u.username)}
+                        className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
+                <form onSubmit={handleUpdatePassword} className="space-y-4">
+                  <select
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  >
+                    <option value="">Select User</option>
+                    {users.map((u) => (
+                      <option key={u.username} value={u.username}>{u.username}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="password"
+                    placeholder="New Password"
+                    value={updatePassword}
+                    onChange={(e) => setUpdatePassword(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm New Password"
+                    value={updateConfirmPassword}
+                    onChange={(e) => setUpdateConfirmPassword(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  >
+                    Update Password
+                  </button>
+                </form>
+                {updateMessage && (
+                  <p className={`mt-3 text-center text-sm ${updateMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {updateMessage}
+                  </p>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
+                <div className="space-y-4">
+                  <select
+                    value={adminUser}
+                    onChange={(e) => setAdminUser(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  >
+                    <option value="">Select User</option>
+                    {users.map((u) => (
+                      <option key={u.username} value={u.username}>{u.username}</option>
+                    ))}
+                  </select>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleGrantAdmin}
+                      className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                    >
+                      Grant Admin Access
+                    </button>
+                    <button
+                      onClick={handleRevokeAdmin}
+                      className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                    >
+                      Revoke Admin Access
+                    </button>
+                  </div>
+                  {adminMessage && (
+                    <p className={`mt-3 text-center text-sm ${adminMessage.includes('success') || adminMessage.includes('granted') || adminMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
+                      {adminMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
+                <form onSubmit={handleGrantAccess} className="space-y-4 mb-6">
+                  <select
+                    value={accessViewer}
+                    onChange={(e) => setAccessViewer(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  >
+                    <option value="">Select Viewer</option>
+                    {users.map((u) => (
+                      <option key={u.username} value={u.username}>{u.username}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={accessTarget}
+                    onChange={(e) => setAccessTarget(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  >
+                    <option value="">Select Target User</option>
+                    {users.map((u) => (
+                      <option key={u.username} value={u.username}>{u.username}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  >
+                    Grant Access
+                  </button>
+                </form>
+                <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
+                <div className="space-y-3">
+                  {accessList.length > 0 ? (
+                    accessList.map((access, index) => (
+                      <div key={index} className="flex justify-between items-center p-4 card">
+                        <span>{access.viewer} can view {access.target}'s data</span>
+                        <button
+                          onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-white">No access permissions set.</p>
+                  )}
+                </div>
+                {accessMessage && (
+                  <p className={`mt-3 text-center text-sm ${accessMessage.includes('success') || accessMessage.includes('granted') || accessMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
+                    {accessMessage}
+                  </p>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
+                {pamComparison ? (
+                  <div className="space-y-2 text-white">
+                    <p><strong>PAM Users:</strong> {pamComparison.pamUsers.join(', ') || 'None'}</p>
+                    <p><strong>App Users:</strong> {pamComparison.appUsers.join(', ') || 'None'}</p>
+                    <p><strong>Common Users:</strong> {pamComparison.commonUsers.join(', ') || 'None'}</p>
+                    <p><strong>App Only Users:</strong> {pamComparison.appOnlyUsers.join(', ') || 'None'}</p>
+                    <p><strong>PAM Only Users:</strong> {pamComparison.pamOnlyUsers.join(', ') || 'None'}</p>
+                  </div>
+                ) : (
+                  <p className="text-white">Loading PAM comparison...</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+    const App = () => {
+      const [page, setPage] = useState('login');
+      const [user, setUser] = useState(null);
+      const handleLogin = (userInfo) => {
+        setUser(userInfo);
+        setPage('menu');
+      };
+      const handleLogout = () => {
+        setUser(null);
+        setPage('login');
+      };
+      return (
+        <div>
+          {page === 'login' && <Login onLogin={handleLogin} />}
+          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'admin' && user && user.isAdmin && (
+            <Admin user={user} setPage={setPage} onLogout={handleLogout} />
+          )}
+        </div>
+      );
+    };
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
