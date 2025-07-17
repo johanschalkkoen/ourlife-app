@@ -136,12 +136,26 @@
     const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
     const DEFAULT_EVENT_COLOR = '#2dd4bf';
 
-    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm)
+    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm:ss)
     const getCurrentDateTime = () => {
       const now = new Date();
       const offset = now.getTimezoneOffset();
       now.setMinutes(now.getMinutes() - offset); // Adjust for local timezone
-      return now.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:mm
+      return now.toISOString().slice(0, 19); // Format as YYYY-MM-DDTHH:mm:ss
+    };
+
+    // Utility function to format date to include seconds
+    const formatDateTimeWithSeconds = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-ZA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/,/, '');
     };
 
     const Login = ({ onLogin }) => {
@@ -485,7 +499,7 @@
                   className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
                 />
                 {passwordMessage && (
-                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'} mb-4`}>
+                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
                     {passwordMessage}
                   </p>
                 )}
@@ -769,10 +783,10 @@
                 <div className="card p-6 mb-6 space-y-4">
                     <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
                     <p className="text-gray-300 text-sm">
-                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm)
+                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)
                     </p>
                     <textarea
-                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30"
+                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00"
                         value={bulkData}
                         onChange={(e) => setBulkData(e.target.value)}
                         rows="8"
@@ -824,6 +838,7 @@
                   name="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  step="1"
                   className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
                 />
                 <button
@@ -856,7 +871,7 @@
                           className="event-profile-pic"
                         />
                       </div>
-                      <span>{item.description} ({item.type}) - {new Date(item.date).toLocaleString()} ({item.user})</span>
+                      <span>{item.description} ({item.type}) - {formatDateTimeWithSeconds(item.date)} ({item.user})</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
@@ -1060,7 +1075,7 @@
               setSelectedEvent({
                 id: info.event.id,
                 title: info.event.title,
-                date: info.event.start.toISOString().slice(0, 16),
+                date: info.event.start.toISOString().slice(0, 19),
                 user: info.event.extendedProps.user,
                 financial: info.event.extendedProps.financial,
                 type: info.event.extendedProps.type,
@@ -1177,6 +1192,7 @@
                   type="datetime-local"
                   value={newEventDate}
                   onChange={(e) => setNewEventDate(e.target.value)}
+                  step="1"
                   className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
                 />
                 <div className="flex items-center space-x-2">
@@ -1243,7 +1259,7 @@
                       </div>
                       <span className="text-lg font-semibold text-white">{selectedEvent.title}</span>
                     </div>
-                    <p className="text-white"><strong>Date:</strong> {new Date(selectedEvent.date).toLocaleString()}</p>
+                    <p className="text-white"><strong>Date:</strong> {formatDateTimeWithSeconds(selectedEvent.date)}</p>
                     <p className="text-white"><strong>User:</strong> {selectedEvent.user}</p>
                     {selectedEvent.financial ? (
                       <>
