@@ -1,33 +1,33 @@
 OurLife Website
 
 Overview
-OurLife is a platform that empowers professionals with transparent workplace reviews and career resources. This repository contains the front-end and back-end code for the website, starting with a modern, responsive homepage. The goal is to foster community engagement and informed career decisions through an accessible, user-friendly interface.
+OurLife is a platform for transparent workplace reviews and career resources. This repository contains the front-end and back-end code for a user-friendly, responsive website. The homepage is designed to engage users and build trust.
 Homepage Wireframe
-The homepage prioritizes usability, engagement, and trust with a single-column layout optimized for desktop and mobile.
+The homepage uses a single-column layout, optimized for desktop and mobile.
 Header (Sticky)
 
-Logo: Top-left, clickable (150x50px, e.g., "OurLife").
-Navigation: Top-right, links: Home, Reviews, Resources, About, Submit Review. Hamburger menu on mobile.
-Primary CTA: "Share Your Review" button (e.g., blue).
-Search Icon: Magnifying glass for search functionality.
+Logo: Top-left, clickable (150x50px, "OurLife").
+Navigation: Top-right links: Home, Reviews, Resources, About, Submit Review. Hamburger menu on mobile.
+Primary CTA: "Share Your Review" button (blue).
+Search Icon: Magnifying glass for quick search.
 
 Hero Section
 
-Background: Subtle workplace image with text overlay.
+Background: Workplace image with text overlay.
 Headline: "Discover Transparent Workplace Reviews" (H1, 32px, Roboto).
-Subheadline: "Read and share honest reviews to make informed career decisions" (18px).
+Subheadline: "Share and read reviews for better career decisions" (18px).
 CTAs:
-Primary: "Browse Reviews" (links to reviews).
-Secondary: "Submit a Review" (links to submission form).
+"Browse Reviews" (links to reviews).
+"Submit a Review" (links to submission form).
 
 
-Stats Bar: Trust signals (e.g., "10,000+ Reviews", "500+ Companies").
+Stats Bar: "10,000+ Reviews", "500+ Companies".
 
 Featured Reviews Section
 
 Title: "Top Workplace Reviews" (H2, 24px).
-Content: Carousel/grid of 3–4 review cards (1 on mobile, 3 on desktop).
-Card: Company name, star rating (1–5), 100-char excerpt, "Read More" link.
+Content: 3–4 review cards (1 on mobile, 3 on desktop).
+Card: Company name, star rating (1–5), 100-char excerpt, "Read More".
 
 
 CTA: "View All Reviews" button.
@@ -35,8 +35,8 @@ CTA: "View All Reviews" button.
 Resources Section
 
 Title: "Career Resources & Tools" (H2, 24px).
-Content: Grid of 3 cards (e.g., "Salary Calculator", "Career Quiz", "Interview Tips").
-Card: Icon/image, title, description, "Explore" link.
+Content: 3 cards (e.g., "Salary Calculator", "Career Quiz", "Interview Tips").
+Card: Icon, title, description, "Explore" link.
 
 
 CTA: "See All Resources" button.
@@ -45,8 +45,8 @@ Call-to-Action Banner
 
 Background: Light gray.
 Text: "Join our community to shape better workplaces!" (18px).
-CTA: "Get Started" button (links to sign-up/submission).
-Visual: Icon (e.g., handshake).
+CTA: "Get Started" button (sign-up/submission).
+Icon: Handshake.
 
 Footer
 
@@ -55,7 +55,7 @@ Social Icons: LinkedIn, X.
 Newsletter: Email input with "Subscribe" button.
 Copyright: "© 2025 OurLife. All rights reserved."
 
-Design Specifications
+Design Specs
 
 Colors: Navy blue, white, light gray, teal accent.
 Typography: Open Sans (body), Montserrat (headings).
@@ -67,7 +67,7 @@ Getting Started
 Prerequisites
 
 OS: Ubuntu 24.10 (or compatible Linux).
-Node.js: v18.x or later (for http-server and server.js).
+Node.js: v18.x or later.
 pm2: Node.js process manager.
 Nginx: Reverse proxy and SSL.
 Git: For cloning.
@@ -93,14 +93,14 @@ Install http-server
 sudo npm install -g http-server
 
 
-Install Project DependenciesIf a package.json exists for the API server:
+Install Project DependenciesIf a package.json exists:
 npm install
 
 
 Install and Configure NginxInstall Nginx:
 sudo apt install -y nginx
 
-Create the Nginx configuration:
+Create configuration:
 sudo nano /etc/nginx/sites-available/ourlife.work.gd
 
 Add:
@@ -126,7 +126,7 @@ server {
     }
 }
 
-Enable the configuration:
+Enable configuration:
 sudo ln -s /etc/nginx/sites-available/ourlife.work.gd /etc/nginx/sites-enabled/
 
 Test and restart Nginx:
@@ -137,10 +137,9 @@ sudo systemctl restart nginx
 Install Certbot for SSL
 sudo apt install -y certbot python3-certbot-nginx
 
-Obtain SSL certificates:
+Obtain certificates:
 sudo certbot --nginx -d ourlife.work.gd -d www.ourlife.work.gd
 
-Follow prompts to enable HTTPS.
 
 Run the Application
 chmod +x startup.sh
@@ -152,35 +151,35 @@ http-server on port 8080 (front-end, live reloading).
 server.js (Node.js API, live reloading).
 
 
-Access the SiteVisit https://ourlife.work.gd (SSL) or http://159.223.3.108:8080 (non-SSL).
+Access the SiteVisit https://ourlife.work.gd or http://159.223.3.108:8080.
 
 
 Notes
 
-Open ports 80 and 443:sudo ufw allow 80
+Open ports:sudo ufw allow 80
 sudo ufw allow 443
 
 
-Update proxy_pass if using a different IP/port.
-Uncomment return 301 in the Nginx port 80 block for HTTPS redirection in production.
+Update proxy_pass if IP/port differs.
+Uncomment return 301 for HTTPS redirection.
 Automate certificate renewal:sudo crontab -e
 
 Add: 0 0 * * * certbot renew --quiet
 
 Implementation
 
-Tech Stack: HTML, CSS (Tailwind CSS), JavaScript; Node.js (server.js); Nginx.
-Tools: Figma/Canva, Google Fonts, Unsplash.
-SEO: Meta tags, schema markup for reviews.
+Tech Stack: HTML, CSS (Tailwind), JavaScript; Node.js (server.js); Nginx.
+Tools: Figma, Google Fonts, Unsplash.
+SEO: Meta tags, schema markup.
 
 Next Steps
 
-Add backend logic in server.js for reviews and search.
+Add review/search logic in server.js.
 Integrate analytics (e.g., Google Analytics).
-Test accessibility with WAVE or Lighthouse.
+Test accessibility with WAVE.
 
 Contributing
-See CONTRIBUTING.md for details.
+See CONTRIBUTING.md.
 License
 MIT License
 
