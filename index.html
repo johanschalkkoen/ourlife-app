@@ -340,46 +340,30 @@
       );
     };
 
-    // Menu (Home) Component with Social Proof
-    const Menu = ({ user, setPage }) => {
-      const testimonials = [
-        { quote: "OurLife helped me manage my finances effortlessly!", author: "Jane D." },
-        { quote: "The calendar feature keeps our family organized.", author: "John S." },
-        { quote: "A game-changer for tracking expenses!", author: "Emma R." }
-      ];
-      const [currentTestimonial, setCurrentTestimonial] = useState(0);
-      useEffect(() => {
-        const interval = setInterval(() => {
-          setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-        }, 5000);
-        return () => clearInterval(interval);
-      }, [testimonials.length]);
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-              <div className="profile-pic-container welcome-pic-container">
-                <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
-              </div>
-              <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
-            </h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
-              <button onClick={() => setPage('calendar )} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
-              <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
-              <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
-              <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
-              <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
-              <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
-            </div>
-            <div className="card p-4 text-center">
-              <p className="text-white italic">"{testimonials[currentTestimonial].quote}"</p>
-              <p className="text-gray-300 mt-2">— {testimonials[currentTestimonial].author}</p>
-            </div>
-          </section>
-        </main>
-      );
-    };
+// Menu (Home) Component without Testimonials
+const Menu = ({ user, setPage }) => {
+  return (
+    <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <section className="card p-8">
+        <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+          <div className="profile-pic-container welcome-pic-container">
+            <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
+          </div>
+          <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
+        </h1>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
+          <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
+          <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
+          <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
+          <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
+          <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
+          <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
+        </div>
+      </section>
+    </main>
+  );
+};
     
     // About Component
     const About = ({ setPage }) => {
