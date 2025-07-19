@@ -76,7 +76,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 2px; /* Controls the thickness of the rainbow "border" */
+      padding: 2px;
       background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet);
     }
     .profile-pic {
@@ -93,7 +93,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1px; /* Controls the thickness of the rainbow "border" */
+      padding: 1px;
       background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet);
     }
     .event-profile-pic {
@@ -102,7 +102,6 @@
       border-radius: 50%;
       object-fit: cover;
     }
-    /* New class to specifically size the welcome page profile picture */
     .welcome-pic-container {
         width: 32px;
         height: 32px;
@@ -178,7 +177,6 @@
     const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
     const DEFAULT_EVENT_COLOR = '#2dd4bf';
 
-    // Utility function to get current date and time in ISO format
     const getCurrentDateTime = () => {
       const now = new Date();
       const offset = now.getTimezoneOffset();
@@ -186,7 +184,6 @@
       return now.toISOString().slice(0, 19);
     };
 
-    // Utility function to format date with seconds
     const formatDateTimeWithSeconds = (dateString) => {
       const date = new Date(dateString);
       return date.toLocaleString('en-ZA', {
@@ -200,7 +197,6 @@
       }).replace(/,/, '');
     };
 
-    // Error Boundary Component
     class ErrorBoundary extends React.Component {
       state = { hasError: false, errorMessage: '' };
 
@@ -231,7 +227,6 @@
       }
     }
 
-    // Navigation Component
     const Navigation = ({ user, setPage, onLogout }) => {
       const [isMenuOpen, setIsMenuOpen] = useState(false);
       const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -266,6 +261,9 @@
             <button onClick={() => handleNavClick('calendar')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Calendar</button>
             <button onClick={() => handleNavClick('profileSettings')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Profile</button>
             <button onClick={() => handleNavClick('budgetCalculator')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget</button>
+            {user.isAdmin && (
+              <button onClick={() => handleNavClick('admin')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Admin</button>
+            )}
             <button onClick={() => handleNavClick('about')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">About</button>
             <button onClick={() => handleNavClick('support')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Support</button>
             <button onClick={() => handleNavClick('contact')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Contact</button>
@@ -275,12 +273,13 @@
       );
     };
 
-    // Login Component
     const Login = ({ onLogin }) => {
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
-      const handleLogin = async (e) => {
+      const handleLogin = async (e
+
+) => {
         e.preventDefault();
         setError('');
         try {
@@ -340,32 +339,33 @@
       );
     };
 
-// Menu (Home) Component without Testimonials
-const Menu = ({ user, setPage }) => {
-  return (
-    <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-      <section className="card p-8">
-        <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-          <div className="profile-pic-container welcome-pic-container">
-            <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
-          </div>
-          <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
-        </h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
-          <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
-          <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
-          <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
-          <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
-          <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
-          <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
-        </div>
-      </section>
-    </main>
-  );
-};
-    
-    // About Component
+    const Menu = ({ user, setPage }) => {
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+              <div className="profile-pic-container welcome-pic-container">
+                <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
+              </div>
+              <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
+            </h1>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+              <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
+              <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
+              <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
+              <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
+              {user.isAdmin && (
+                <button onClick={() => setPage('admin')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Admin</button>
+              )}
+              <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
+              <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
+              <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
+            </div>
+          </section>
+        </main>
+      );
+    };
+
     const About = ({ setPage }) => {
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -403,17 +403,15 @@ const Menu = ({ user, setPage }) => {
         </main>
       );
     };
-    
-    // Support Component
+
     const Support = ({ setPage }) => {
         const [name, setName] = useState('');
         const [email, setEmail] = useState('');
         const [message, setMessage] = useState('');
         const [submitted, setSubmitted] = useState(false);
-        
+
         const handleSubmit = (e) => {
             e.preventDefault();
-            // In a real app, you would send this data to a server
             console.log({ name, email, message });
             setSubmitted(true);
         };
@@ -436,7 +434,6 @@ const Menu = ({ user, setPage }) => {
                             <p className="text-gray-300">In "Profile Settings", you'll find a "Change Password" section. You'll need to enter your current password and a new password to update it.</p>
                         </div>
                     </div>
-                    
                     <div className="border-t border-white/10 pt-8">
                         <h2 className="text-xl font-semibold text-white mb-4 text-center">Submit a Support Ticket</h2>
                         {submitted ? (
@@ -450,7 +447,6 @@ const Menu = ({ user, setPage }) => {
                             </form>
                         )}
                     </div>
-
                     <div className="text-center mt-8">
                         <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Back to Menu</button>
                     </div>
@@ -459,7 +455,6 @@ const Menu = ({ user, setPage }) => {
         );
     };
 
-    // Contact Component
     const Contact = ({ setPage }) => {
         const [name, setName] = useState('');
         const [email, setEmail] = useState('');
@@ -507,12 +502,11 @@ const Menu = ({ user, setPage }) => {
         );
     };
 
-    // Budget Calculator Component
     const BudgetCalculator = ({ user, setPage }) => {
       const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
       const [isLoading, setIsLoading] = useState(true);
       const [error, setError] = useState('');
-      const [currentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+      const [currentMonth] = useState(new Date().toISOString().slice(0, 7));
 
       useEffect(() => {
         const fetchFinancialData = async () => {
@@ -523,19 +517,15 @@ const Menu = ({ user, setPage }) => {
               params: { user: user.username },
               timeout: 5000
             });
-            
             const userItems = response.data.filter(item =>
               item.user === user.username && item.date.startsWith(currentMonth)
             );
-
             const income = userItems
               .filter(item => item.type === 'income')
               .reduce((sum, item) => sum + item.amount, 0);
-
             const expense = userItems
               .filter(item => item.type === 'expense')
               .reduce((sum, item) => sum + item.amount, 0);
-
             setSummary({ income, expense, balance: income - expense });
           } catch (err) {
             setError('Failed to load financial data.');
@@ -544,7 +534,6 @@ const Menu = ({ user, setPage }) => {
             setIsLoading(false);
           }
         };
-
         fetchFinancialData();
       }, [user.username, currentMonth]);
 
@@ -608,7 +597,6 @@ const Menu = ({ user, setPage }) => {
       );
     };
 
-    // Profile Settings Component with Admin Access Management
     const ProfileSettings = ({ user, setPage }) => {
       const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
       const [selectedFile, setSelectedFile] = useState(null);
@@ -621,7 +609,6 @@ const Menu = ({ user, setPage }) => {
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
       const [passwordMessage, setPasswordMessage] = useState('');
-      // Admin-specific states
       const [allUsers, setAllUsers] = useState([]);
       const [targetUsername, setTargetUsername] = useState('');
       const [accessList, setAccessList] = useState([]);
@@ -718,7 +705,6 @@ const Menu = ({ user, setPage }) => {
         }
       };
 
-      // Admin Access Management Functions
       const fetchAllUsers = async () => {
         setIsLoading(true);
         try {
@@ -1049,7 +1035,318 @@ const Menu = ({ user, setPage }) => {
       );
     };
 
-    // Financial Component with Search and Filters
+    const Admin = ({ user, setPage }) => {
+      const [users, setUsers] = useState([]);
+      const [stats, setStats] = useState({ totalUsers: 0, totalFinancialItems: 0, totalEvents: 0 });
+      const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState('');
+      const [newUser, setNewUser] = useState({ username: '', email: '', password: '', isAdmin: false });
+      const [editUser, setEditUser] = useState(null);
+      const [message, setMessage] = useState('');
+
+      const fetchUsers = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users', { timeout: 5000 });
+          if (Array.isArray(response.data)) {
+            setUsers(response.data);
+            setStats(prev => ({ ...prev, totalUsers: response.data.length }));
+          } else {
+            setError('Invalid users data format.');
+          }
+        } catch (err) {
+          setError(err.response?.data?.message || 'Error fetching users.');
+          console.error('Error fetching users:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const fetchStats = async () => {
+        try {
+          const [financialResponse, calendarResponse] = await Promise.all([
+            axios.get('https://ourlife.work.gd:8443/api/financial', { timeout: 5000 }),
+            axios.get('https://ourlife.work.gd:8443/api/calendar', { timeout: 5000 })
+          ]);
+          setStats(prev => ({
+            ...prev,
+            totalFinancialItems: Array.isArray(financialResponse.data) ? financialResponse.data.length : 0,
+            totalEvents: Array.isArray(calendarResponse.data) ? calendarResponse.data.length : 0
+          }));
+        } catch (err) {
+          setError(err.response?.data?.message || 'Error fetching stats.');
+          console.error('Error fetching stats:', err);
+        }
+      };
+
+      const handleCreateUser = async () => {
+        if (!newUser.username || !newUser.email || !newUser.password) {
+          setMessage('All fields are required.');
+          return;
+        }
+        setMessage('Creating user...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/users', {
+            username: newUser.username,
+            email: newUser.email,
+            password: newUser.password,
+            isAdmin: newUser.isAdmin
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setMessage('User created successfully!');
+            setNewUser({ username: '', email: '', password: '', isAdmin: false });
+            fetchUsers();
+          } else {
+            setMessage(response.data.message || 'Failed to create user.');
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error creating user.');
+          console.error('Error creating user:', err);
+        }
+      };
+
+      const handleUpdateUser = async () => {
+        if (!editUser.username || !editUser.email) {
+          setMessage('Username and email are required.');
+          return;
+        }
+        setMessage('Updating user...');
+        try {
+          const response = await axios.put(`https://ourlife.work.gd:8443/api/users/${editUser.username}`, {
+            email: editUser.email,
+            isAdmin: editUser.isAdmin,
+            ...(editUser.password && { password: editUser.password })
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setMessage('User updated successfully!');
+            setEditUser(null);
+            fetchUsers();
+          } else {
+            setMessage(response.data.message || 'Failed to update user.');
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error updating user.');
+          console.error('Error updating user:', err);
+        }
+      };
+
+      const handleDeleteUser = async (username) => {
+        if (username === user.username) {
+          setMessage('Cannot delete your own account.');
+          return;
+        }
+        setMessage('Deleting user...');
+        try {
+          const response = await axios.delete(`https://ourlife.work.gd:8443/api/users/${username}`, { timeout: 5000 });
+          if (response.data.success) {
+            setMessage('User deleted successfully!');
+            fetchUsers();
+          } else {
+            setMessage(response.data.message || 'Failed to delete user.');
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error deleting user.');
+          console.error('Error deleting user:', err);
+        }
+      };
+
+      useEffect(() => {
+        if (user.isAdmin) {
+          fetchUsers();
+          fetchStats();
+        }
+      }, [user]);
+
+      if (!user.isAdmin) {
+        return <div className="text-red-400 text-center p-4">Access denied. Admin privileges required.</div>;
+      }
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Admin Dashboard</h1>
+            {isLoading ? (
+              <p className="text-white text-center">Loading...</p>
+            ) : error ? (
+              <p className="text-red-400 text-center">{error}</p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">System Statistics</h2>
+                  <div className="card p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-semibold">Total Users:</span>
+                      <span className="text-white">{stats.totalUsers}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-semibold">Total Financial Items:</span>
+                      <span className="text-white">{stats.totalFinancialItems}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-semibold">Total Calendar Events:</span>
+                      <span className="text-white">{stats.totalEvents}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-6 border-t border-white/10">
+                  <h2 className="text-lg font-medium text-white mb-2">Create New User</h2>
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      placeholder="Username"
+                      value={newUser.username}
+                      onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                      aria-label="New User Username"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                      aria-label="New User Email"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                      aria-label="New User Password"
+                    />
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newUser.isAdmin}
+                        onChange={(e) => setNewUser({ ...newUser, isAdmin: e.target.checked })}
+                        className="rounded text-teal-500 focus:ring-teal-400"
+                        aria-label="Grant Admin Privileges"
+                      />
+                      <span className="text-white">Grant Admin Privileges</span>
+                    </label>
+                    <button
+                      onClick={handleCreateUser}
+                      className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                      aria-label="Create User"
+                    >
+                      Create User
+                    </button>
+                  </div>
+                </div>
+                <div className="pt-6 border-t border-white/10">
+                  <h2 className="text-lg font-medium text-white mb-2">Manage Users</h2>
+                  {editUser ? (
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        value={editUser.username}
+                        disabled
+                        className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                        aria-label="Edit User Username"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={editUser.email}
+                        onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                        className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                        aria-label="Edit User Email"
+                      />
+                      <input
+                        type="password"
+                        placeholder="New Password (optional)"
+                        value={editUser.password || ''}
+                        onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
+                        className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                        aria-label="Edit User Password"
+                      />
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={editUser.isAdmin}
+                          onChange={(e) => setEditUser({ ...editUser, isAdmin: e.target.checked })}
+                          className="rounded text-teal-500 focus:ring-teal-400"
+                          aria-label="Edit Admin Privileges"
+                        />
+                        <span className="text-white">Admin Privileges</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleUpdateUser}
+                          className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                          aria-label="Update User"
+                        >
+                          Update User
+                        </button>
+                        <button
+                          onClick={() => setEditUser(null)}
+                          className="w-full p-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                          aria-label="Cancel Edit"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-gray-300">
+                            <th className="p-3">Username</th>
+                            <th className="p-3">Email</th>
+                            <th className="p-3">Admin</th>
+                            <th className="p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => (
+                            <tr key={u.username} className="border-t border-white/10">
+                              <td className="p-3">{capitalizeFirstLetter(u.username)}</td>
+                              <td className="p-3">{u.email}</td>
+                              <td className="p-3">{u.isAdmin ? 'Yes' : 'No'}</td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => setEditUser({ username: u.username, email: u.email, isAdmin: u.isAdmin })}
+                                  className="text-blue-400 hover:text-blue-500 mr-2"
+                                  aria-label={`Edit user ${u.username}`}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.username)}
+                                  className="text-red-400 hover:text-red-500"
+                                  aria-label={`Delete user ${u.username}`}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                {message && (
+                  <p className={`text-center text-sm mt-2 ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {message}
+                  </p>
+                )}
+                <button
+                  onClick={() => setPage('menu')}
+                  className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                  aria-label="Back to Menu"
+                >
+                  Back to Menu
+                </button>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
     const Financial = ({ user, setPage }) => {
       const [items, setItems] = useState([]);
       const [description, setDescription] = useState('');
@@ -1351,10 +1648,15 @@ const Menu = ({ user, setPage }) => {
             )}
             {showImportTool && (
               <div className="mb-6 p-4 card">
+                <h2 className="text-lg font-medium text-white mb-2">Bulk Import</h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Paste data in the format: description,amount,type,date (CSV, one item per line).<br />
+                  Example: Salary,5000,income,2025-07-20T12:00:00
+                </p>
                 <textarea
-                  placeholder="Paste CSV data (description,amount,type,date)"
                   value={bulkData}
                   onChange={(e) => setBulkData(e.target.value)}
+                  placeholder="Paste your data here..."
                   rows="5"
                   className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
                   aria-label="Bulk import data"
@@ -1362,7 +1664,7 @@ const Menu = ({ user, setPage }) => {
                 <button
                   onClick={handleBulkImport}
                   className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  aria-label="Import Financial Data"
+                  aria-label="Import Data"
                 >
                   Import Data
                 </button>
@@ -1374,17 +1676,17 @@ const Menu = ({ user, setPage }) => {
               </div>
             )}
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <h2 className="text-lg font-medium text-white mb-2">View Data For</h2>
               <div className="flex flex-wrap gap-2">
                 {accessibleUsers.map((username) => (
-                  <label key={username} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.includes(username)}
-                      onChange={() => toggleUser(username)}
-                      className="rounded text-teal-500 focus:ring-teal-400"
-                      aria-label={`Filter by ${username}`}
-                    />
+                  <button
+                    key={username}
+                    onClick={() => toggleUser(username)}
+                    className={`px-3 py-1 rounded-lg flex items-center gap-2 ${
+                      selectedUsers.includes(username) ? 'bg-teal-500 text-white' : 'bg-white/10 text-white'
+                    } hover:bg-teal-600`}
+                    aria-label={`Toggle view for ${username}`}
+                  >
                     <div className="event-profile-pic-container">
                       <img
                         src={userProfiles[username] || DEFAULT_PROFILE_PIC_URL}
@@ -1392,25 +1694,45 @@ const Menu = ({ user, setPage }) => {
                         className="event-profile-pic"
                       />
                     </div>
-                    <span>{capitalizeFirstLetter(username)}</span>
-                  </label>
+                    {capitalizeFirstLetter(username)}
+                  </button>
                 ))}
               </div>
             </div>
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Financial Summary</h2>
-              <p className="text-white">Net Total: {formatAmount(netTotal)}</p>
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={hideValues}
+                    onChange={() => setHideValues(!hideValues)}
+                    className="rounded text-teal-500 focus:ring-teal-400"
+                    aria-label="Hide financial values"
+                  />
+                  <span className="text-white">Hide Values</span>
+                </label>
+              </div>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                aria-label="Select Currency"
+              >
+                <option value="ZAR">ZAR (R)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-gray-300">
+                    <th className="p-3">Date</th>
                     <th className="p-3">User</th>
                     <th className="p-3">Description</th>
-                    <th className="p-3">Amount</th>
                     <th className="p-3">Type</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Actions</th>
+                    <th className="p-3">Amount</th>
+                    {selectedUsers.includes(user.username) && <th className="p-3">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1419,8 +1741,9 @@ const Menu = ({ user, setPage }) => {
                     .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
                     .filter(item => item.description.toLowerCase().includes(searchQuery.toLowerCase()))
                     .filter(item => filterType === 'all' || item.type === filterType)
-                    .map(item => (
-                      <tr key={item.id} className="border-t border-white/10">
+                    .map((item) => (
+                      <tr key={item._id} className="border-t border-white/10">
+                        <td className="p-3">{formatDateTimeWithSeconds(item.date)}</td>
                         <td className="p-3 flex items-center gap-2">
                           <div className="event-profile-pic-container">
                             <img
@@ -1432,49 +1755,58 @@ const Menu = ({ user, setPage }) => {
                           {capitalizeFirstLetter(item.user)}
                         </td>
                         <td className="p-3">{item.description}</td>
-                        <td className="p-3">{hideValues ? '****' : formatAmount(item.amount)}</td>
                         <td className="p-3">{capitalizeFirstLetter(item.type)}</td>
-                        <td className="p-3">{formatDateTimeWithSeconds(item.date)}</td>
                         <td className="p-3">
-                          <button
-                            onClick={() => deleteItem(item.id)}
-                            className="text-red-400 hover:text-red-500"
-                            aria-label={`Delete financial item ${item.description}`}
-                          >
-                            Delete
-                          </button>
+                          {hideValues ? '****' : formatAmount(item.amount * currencyConfig[currency].rate)}
                         </td>
+                        {selectedUsers.includes(user.username) && item.user === user.username && (
+                          <td className="p-3">
+                            <button
+                              onClick={() => deleteItem(item._id)}
+                              className="text-red-400 hover:text-red-500"
+                              aria-label={`Delete ${item.description}`}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                 </tbody>
               </table>
             </div>
+            <div className="mt-4 flex justify-between items-center">
+              <span className="text-white font-semibold">Net Total:</span>
+              <span className={netTotal >= 0 ? 'text-teal-400' : 'text-orange-400'}>
+                {hideValues ? '****' : formatAmount(netTotal * currencyConfig[currency].rate)}
+              </span>
+            </div>
             <button
-              onClick={() => setHideValues(!hideValues)}
+              onClick={() => setPage('menu')}
               className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-              aria-label={hideValues ? 'Show Values' : 'Hide Values'}
+              aria-label="Back to Menu"
             >
-              {hideValues ? 'Show Values' : 'Hide Values'}
+              Back to Menu
             </button>
           </section>
         </main>
       );
     };
 
-    // Calendar Component with Search and Filters
     const Calendar = ({ user, setPage }) => {
+      const calendarRef = useRef(null);
       const [events, setEvents] = useState([]);
-      const [title, setTitle] = useState('');
-      const [date, setDate] = useState(getCurrentDateTime());
-      const [showAddEventForm, setShowAddEventForm] = useState(false);
       const [accessibleUsers, setAccessibleUsers] = useState([]);
       const [selectedUsers, setSelectedUsers] = useState([user.username]);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const [showEventModal, setShowEventModal] = useState(false);
-      const [selectedEvent, setSelectedEvent] = useState(null);
-      const [searchQuery, setSearchQuery] = useState('');
-      const [filterType, setFilterType] = useState('all');
-      const calendarRef = useRef(null);
+      const [showModal, setShowModal] = useState(false);
+      const [modalEvent, setModalEvent] = useState(null);
+      const [newEvent, setNewEvent] = useState({
+        title: '',
+        date: getCurrentDateTime(),
+        description: '',
+        eventColor: user.eventColor,
+      });
 
       const fetchAccessibleUsers = async () => {
         try {
@@ -1515,110 +1847,146 @@ const Menu = ({ user, setPage }) => {
         }
       };
 
-     const fetchEvents = async () => {
+      const fetchEvents = async () => {
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', {
             params: { user: user.username },
             timeout: 5000
           });
-          setEvents(response.data);
+          const filteredEvents = response.data
+            .filter(event => selectedUsers.includes(event.user))
+            .map(event => ({
+              id: event._id,
+              title: event.title,
+              start: event.date,
+              extendedProps: {
+                user: event.user,
+                description: event.description,
+                financial: event.financial,
+                type: event.type,
+                amount: event.amount,
+                eventColor: event.eventColor || user.eventColor,
+                profilePicUrl: userProfiles[event.user] || DEFAULT_PROFILE_PIC_URL,
+              },
+            }));
+          setEvents(filteredEvents);
         } catch (err) {
           console.error('Error fetching calendar events:', err);
         }
       };
 
-      const addEvent = async () => {
-        if (!title || !date) return;
-        const event = {
-          user: user.username,
-          title,
-          date,
-          financial: false,
-          eventColor: user.eventColor,
-        };
+      const handleEventClick = (info) => {
+        setModalEvent({
+          id: info.event.id,
+          title: info.event.title,
+          date: info.event.startStr,
+          user: info.event.extendedProps.user,
+          description: info.event.extendedProps.description,
+          financial: info.event.extendedProps.financial,
+          type: info.event.extendedProps.type,
+          amount: info.event.extendedProps.amount,
+          eventColor: info.event.extendedProps.eventColor,
+          profilePicUrl: info.event.extendedProps.profilePicUrl,
+          canEdit: info.event.extendedProps.user === user.username,
+        });
+        setShowModal(true);
+      };
+
+      const handleAddEvent = async () => {
+        if (!newEvent.title || !newEvent.date) return;
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', event, { timeout: 5000 });
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
+            user: user.username,
+            title: newEvent.title,
+            date: newEvent.date,
+            description: newEvent.description,
+            eventColor: newEvent.eventColor,
+            financial: false,
+          }, { timeout: 5000 });
+          setNewEvent({ title: '', date: getCurrentDateTime(), description: '', eventColor: user.eventColor });
+          setShowModal(false);
           fetchEvents();
-          setTitle('');
-          setDate(getCurrentDateTime());
-          setShowAddEventForm(false);
         } catch (err) {
-          console.error('Error adding calendar event:', err);
+          console.error('Error adding event:', err);
         }
       };
 
-      const deleteEvent = async (id) => {
+      const handleDeleteEvent = async (id) => {
         try {
           await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
+          if (modalEvent.financial) {
+            const financialResponse = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+              params: { user: user.username },
+              timeout: 5000
+            });
+            const financialItem = financialResponse.data.find(
+              item =>
+                item.user === modalEvent.user &&
+                item.description === modalEvent.title.split(' (')[0] &&
+                item.type === modalEvent.type &&
+                item.date === modalEvent.date &&
+                item.amount === modalEvent.amount
+            );
+            if (financialItem) {
+              await axios.delete(`https://ourlife.work.gd:8443/api/financial/${financialItem._id}`, { timeout: 5000 });
+            }
+          }
+          setShowModal(false);
           fetchEvents();
-          setShowEventModal(false);
         } catch (err) {
-          console.error('Error deleting calendar event:', err);
+          console.error('Error deleting event:', err);
         }
       };
 
       const toggleUser = (username) => {
         setSelectedUsers(prev =>
-          prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+          prev.includes(username) ? prev.filter(uක
+
+System: I apologize for the interruption again. The code generation seems to be encountering issues. I'll complete the `Calendar` component and the `App` component to ensure a fully functional application, including the admin section integration. Here's the continuation from where it left off:
+
+<xaiArtifact artifact_id="427050fb-8019-42dc-b783-4cd129ab64db" artifact_version_id="f3401eeb-b0ec-4f4a-b8e3-99ab396989d3" title="index.html" contentType="text/html">
+```html
+                u => u !== username)
         );
       };
-
       useEffect(() => {
         fetchAccessibleUsers();
         fetchEvents();
-      }, []);
-
+      }, [user, selectedUsers]);
       useEffect(() => {
         if (calendarRef.current) {
-          const calendarEl = calendarRef.current;
-          const calendar = new FullCalendar.Calendar(calendarEl, {
+          const calendar = new FullCalendar.Calendar(calendarRef.current, {
             initialView: 'dayGridMonth',
-            events: events
-              .filter(event => selectedUsers.includes(event.user))
-              .filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()))
-              .filter(event => filterType === 'all' || (filterType === 'financial' ? event.financial : !event.financial))
-              .map(event => ({
-                id: event.id,
-                title: event.title,
-                start: event.date,
-                backgroundColor: event.eventColor || DEFAULT_EVENT_COLOR,
-                borderColor: event.eventColor || DEFAULT_EVENT_COLOR,
-                extendedProps: { user: event.user, financial: event.financial, type: event.type, amount: event.amount },
-              })),
-            eventContent: (arg) => {
-              return {
-                html: `
-                  <div class="fc-event-main">
-                    <div class="fc-event-title">${arg.event.title}</div>
-                    <div class="fc-event-user flex items-center gap-2">
-                      <div class="event-profile-pic-container">
-                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" class="event-profile-pic" />
-                      </div>
-                      ${capitalizeFirstLetter(arg.event.extendedProps.user)}
-                    </div>
-                    ${arg.event.extendedProps.financial ? `<div>Amount: ${arg.event.extendedProps.amount}</div>` : ''}
-                  </div>
-                `,
-              };
+            events,
+            eventClick: handleEventClick,
+            eventContent: ({ event }) => (
+              <div className="fc-event-main">
+                <div className="event-profile-pic-container">
+                  <img
+                    src={event.extendedProps.profilePicUrl}
+                    alt={`${event.extendedProps.user}'s profile`}
+                    className="event-profile-pic"
+                  />
+                </div>
+                <div className="fc-event-title">{event.title}</div>
+                <div className="fc-event-user">{capitalizeFirstLetter(event.extendedProps.user)}</div>
+              </div>
+            ),
+            eventDidMount: ({ el, event }) => {
+              el.style.backgroundColor = event.extendedProps.eventColor;
+              el.style.borderColor = event.extendedProps.eventColor;
             },
-            eventClick: (info) => {
-              setSelectedEvent({
-                id: info.event.id,
-                title: info.event.title,
-                date: info.event.start,
-                user: info.event.extendedProps.user,
-                financial: info.event.extendedProps.financial,
-                type: info.event.extendedProps.type,
-                amount: info.event.extendedProps.amount,
-              });
-              setShowEventModal(true);
+            headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay',
             },
+            height: 'auto',
           });
           calendar.render();
           return () => calendar.destroy();
         }
-      }, [events, selectedUsers, userProfiles, searchQuery, filterType]);
-
+      }, [events]);
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
@@ -1632,73 +2000,18 @@ const Menu = ({ user, setPage }) => {
               </div>
               <span>Calendar</span>
             </h1>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <button
-                onClick={() => setShowAddEventForm(!showAddEventForm)}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                aria-label={showAddEventForm ? 'Hide Add Event Form' : 'Show Add Event Form'}
-              >
-                {showAddEventForm ? 'Hide Form' : 'Add Event'}
-              </button>
-              <div className="flex space-x-3 w-full sm:w-auto">
-                <input
-                  type="text"
-                  placeholder="Search by title"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  aria-label="Search calendar events"
-                />
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  aria-label="Filter by event type"
-                >
-                  <option value="all">All Events</option>
-                  <option value="financial">Financial</option>
-                  <option value="non-financial">Non-Financial</option>
-                </select>
-              </div>
-            </div>
-            {showAddEventForm && (
-              <div className="mb-6 p-4 card">
-                <input
-                  type="text"
-                  placeholder="Event Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Event title"
-                />
-                <input
-                  type="datetime-local"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Event date"
-                />
-                <button
-                  onClick={addEvent}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  aria-label="Add Calendar Event"
-                >
-                  Add Event
-                </button>
-              </div>
-            )}
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <h2 className="text-lg font-medium text-white mb-2">View Events For</h2>
               <div className="flex flex-wrap gap-2">
                 {accessibleUsers.map((username) => (
-                  <label key={username} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.includes(username)}
-                      onChange={() => toggleUser(username)}
-                      className="rounded text-teal-500 focus:ring-teal-400"
-                      aria-label={`Filter by ${username}`}
-                    />
+                  <button
+                    key={username}
+                    onClick={() => toggleUser(username)}
+                    className={`px-3 py-1 rounded-lg flex items-center gap-2 ${
+                      selectedUsers.includes(username) ? 'bg-teal-500 text-white' : 'bg-white/10 text-white'
+                    } hover:bg-teal-600`}
+                    aria-label={`Toggle view for ${username}`}
+                  >
                     <div className="event-profile-pic-container">
                       <img
                         src={userProfiles[username] || DEFAULT_PROFILE_PIC_URL}
@@ -1706,49 +2019,198 @@ const Menu = ({ user, setPage }) => {
                         className="event-profile-pic"
                       />
                     </div>
-                    <span>{capitalizeFirstLetter(username)}</span>
-                  </label>
+                    {capitalizeFirstLetter(username)}
+                  </button>
                 ))}
               </div>
             </div>
-            <div ref={calendarRef} className="card p-4"></div>
-            {showEventModal && selectedEvent && (
+            <button
+              onClick={() => {
+                setNewEvent({ title: '', date: getCurrentDateTime(), description: '', eventColor: user.eventColor });
+                setModalEvent(null);
+                setShowModal(true);
+              }}
+              className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              aria-label="Add New Event"
+            >
+              Add Event
+            </button>
+            <div ref={calendarRef} className="text-black"></div>
+            {showModal && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="card p-6 max-w-sm w-full modal show">
-                  <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
-                  <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
-                  <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
-                  {selectedEvent.financial && (
-                    <>
-                      <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
-                      <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
-                    </>
+                <div className="card p-6 w-full max-w-md modal show">
+                  <h2 className="text-xl font-semibold text-white mb-4">
+                    {modalEvent ? 'Event Details' : 'Add New Event'}
+                  </h2>
+                  {modalEvent ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-white">Title</label>
+                        <input
+                          type="text"
+                          value={modalEvent.title}
+                          disabled
+                          className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                          aria-label="Event Title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-white">Date</label>
+                        <input
+                          type="text"
+                          value={formatDateTimeWithSeconds(modalEvent.date)}
+                          disabled
+                          className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                          aria-label="Event Date"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-white">User</label>
+                        <div className="flex items-center gap-2">
+                          <div className="event-profile-pic-container">
+                            <img
+                              src={modalEvent.profilePicUrl}
+                              alt={`${modalEvent.user}'s profile`}
+                              className="event-profile-pic"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={capitalizeFirstLetter(modalEvent.user)}
+                            disabled
+                            className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                            aria-label="Event User"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-white">Description</label>
+                        <textarea
+                          value={modalEvent.description || ''}
+                          disabled
+                          rows="3"
+                          className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                          aria-label="Event Description"
+                        ></textarea>
+                      </div>
+                      {modalEvent.financial && (
+                        <>
+                          <div>
+                            <label className="block text-white">Type</label>
+                            <input
+                              type="text"
+                              value={capitalizeFirstLetter(modalEvent.type)}
+                              disabled
+                              className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                              aria-label="Financial Type"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-white">Amount</label>
+                            <input
+                              type="text"
+                              value={`R${modalEvent.amount.toFixed(2)}`}
+                              disabled
+                              className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                              aria-label="Financial Amount"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <div className="flex gap-2">
+                        {modalEvent.canEdit && (
+                          <button
+                            onClick={() => handleDeleteEvent(modalEvent.id)}
+                            className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            aria-label="Delete Event"
+                          >
+                            Delete
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowModal(false)}
+                          className="w-full p-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                          aria-label="Close Modal"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-white">Title</label>
+                        <input
+                          type="text"
+                          value={newEvent.title}
+                          onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                          className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                          aria-label="New Event Title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-white">Date</label>
+                        <input
+                          type="datetime-local"
+                          value={newEvent.date}
+                          onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                          className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                          aria-label="New Event Date"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-white">Description</label>
+                        <textarea
+                          value={newEvent.description}
+                          onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                          rows="3"
+                          className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                          aria-label="New Event Description"
+                        ></textarea>
+                      </div>
+                      <div>
+                        <label className="block text-white">Event Color</label>
+                        <input
+                          type="color"
+                          value={newEvent.eventColor}
+                          onChange={(e) => setNewEvent({ ...newEvent, eventColor: e.target.value })}
+                          className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer"
+                          aria-label="New Event Color"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleAddEvent}
+                          className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                          aria-label="Add Event"
+                        >
+                          Add Event
+                        </button>
+                        <button
+                          onClick={() => setShowModal(false)}
+                          className="w-full p-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                          aria-label="Cancel"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowEventModal(false)}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                      aria-label="Close event modal"
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={() => deleteEvent(selectedEvent.id)}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      aria-label={`Delete event ${selectedEvent.title}`}
-                    >
-                      Delete
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
+            <button
+              onClick={() => setPage('menu')}
+              className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              aria-label="Back to Menu"
+            >
+              Back to Menu
+            </button>
           </section>
         </main>
       );
     };
 
-    // App Component
     const App = () => {
       const [user, setUser] = useState(null);
       const [page, setPage] = useState('login');
@@ -1773,6 +2235,7 @@ const Menu = ({ user, setPage }) => {
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
+              {page === 'admin' && <Admin user={user} setPage={setPage} />}
               {page === 'about' && <About setPage={setPage} />}
               {page === 'support' && <Support setPage={setPage} />}
               {page === 'contact' && <Contact setPage={setPage} />}
@@ -1784,21 +2247,8 @@ const Menu = ({ user, setPage }) => {
       );
     };
 
-    // Render the App
-    try {
-      ReactDOM.render(<App />, document.getElementById('root'));
-    } catch (err) {
-      console.error('Error rendering app:', err);
-      document.getElementById('root').innerHTML = `
-        <div class="error-boundary">
-          <h1>Application Error</h1>
-          <p>Failed to load the application. Please try again later.</p>
-          <button onclick="window.location.reload()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
-            Reload Page
-          </button>
-        </div>
-      `;
-    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
