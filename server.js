@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs'); // Import full fs module
-const fsPromises = require('fs').promises; // Import promises API
+const fs = require('fs'); // Import full fs module for synchronous methods
+const fsPromises = require('fs').promises; // Import promises API for asynchronous methods
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -13,8 +13,8 @@ const rateLimit = require('express-rate-limit');
 const execPromise = util.promisify(exec);
 const app = express();
 
-const HTTPS_PORT = 8443;
-const HTTP_PORT = 9000;
+const HTTPS_PORT = 8443; // Standard HTTPS port
+const HTTP_PORT = 9000; // Standard HTTP port for redirect
 const USERS_FILE = path.join(__dirname, 'users.json');
 
 // Increase the body parser limit
@@ -588,10 +588,10 @@ app.get('/api/get-all-access', adminLimiter, async (req, res) => {
     }
 });
 
-// HTTPS server setup
+// HTTPS server setup with Let's Encrypt certificates
 const httpsOptions = {
-    cert: fs.readFileSync(path.join(__dirname, 'ssl', 'server.crt')),
-    key: fs.readFileSync(path.join(__dirname, 'ssl', 'server.key')),
+    cert: fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem'),
+    key: fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem'),
 };
 https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
     console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
