@@ -1,133 +1,1804 @@
-const Admin = ({ user, setPage }) => {
-  const [allUsers, setAllUsers] = useState([]);
-  const [targetUsername, setTargetUsername] = useState('');
-  const [accessList, setAccessList] = useState([]);
-  const [accessMessage, setAccessMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Reuse the same fetchAllUsers, fetchAccessList, handleGrantAccess, handleRevokeAccess functions
-  // from ProfileSettings (you can extract them to a utility file to avoid duplication)
-
-  useEffect(() => {
-    if (user.isAdmin) {
-      fetchAllUsers();
-      fetchAccessList();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurLife Dashboard</title>
+  <link rel="icon" type="image/png" href="https://placehold.co/32x32/808080/FFFFFF?text=OL" alt="OurLife Logo">
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: #1e293b;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
     }
-  }, [user]);
+    .fc-event {
+      position: relative;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      margin: 4px 6px;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .fc-event:hover {
+      transform: scale(1.03);
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .fc-event:active {
+      transform: scale(0.98);
+    }
+    .fc-event-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 8px;
+      background: none;
+      color: #f1f5f9;
+      font-size: 0.875rem;
+    }
+    .fc-event-title {
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .fc-event-user {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .modal {
+      transform: scale(0.8);
+      opacity: 0;
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+    .modal.show {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .profile-pic-container {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px; /* Controls the thickness of the rainbow "border" */
+      background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet);
+    }
+    .profile-pic {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #1e293b;
+    }
+    .event-profile-pic-container {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px; /* Controls the thickness of the rainbow "border" */
+      background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet);
+    }
+    .event-profile-pic {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    /* New class to specifically size the welcome page profile picture */
+    .welcome-pic-container {
+        width: 32px;
+        height: 32px;
+    }
+    input, select, textarea {
+      transition: all 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+      border-color: #2dd4bf;
+    }
+    button {
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      transform: scale(1.02);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: #1e293b;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .hamburger-menu {
+      display: none;
+    }
+    .error-boundary {
+      text-align: center;
+      padding: 2rem;
+      color: #f87171;
+    }
+    @media (max-width: 768px) {
+      .hamburger-menu {
+        display: block;
+      }
+      .nav-links {
+        display: none;
+      }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        background: #1e293b;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 40;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-  if (!user.isAdmin) {
-    return (
-      <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-        <section className="card p-8">
-          <h1 className="text-2xl font-semibold text-white mb-6">Access Denied</h1>
-          <p className="text-red-400">You do not have admin privileges.</p>
+    const capitalizeFirstLetter = (string) => {
+      if (!string) return '';
+      return string.charAt(0).toUpperCase() + string.slice(1);
+    };
+    const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
+    const DEFAULT_EVENT_COLOR = '#2dd4bf';
+
+    // Utility function to get current date and time in ISO format
+    const getCurrentDateTime = () => {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      now.setMinutes(now.getMinutes() - offset);
+      return now.toISOString().slice(0, 19);
+    };
+
+    // Utility function to format date with seconds
+    const formatDateTimeWithSeconds = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-ZA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/,/, '');
+    };
+
+    // Error Boundary Component
+    class ErrorBoundary extends React.Component {
+      state = { hasError: false, errorMessage: '' };
+
+      static getDerivedStateFromError(error) {
+        return { hasError: true, errorMessage: error.message };
+      }
+
+      componentDidCatch(error, errorInfo) {
+        console.error('ErrorBoundary caught an error:', error, errorInfo);
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="error-boundary">
+              <h1>Something went wrong.</h1>
+              <p>{this.state.errorMessage}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Reload Page
+              </button>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    // Navigation Component
+    const Navigation = ({ user, setPage, onLogout }) => {
+      const [isMenuOpen, setIsMenuOpen] = useState(false);
+      const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+      const handleNavClick = (page) => {
+        setPage(page);
+        setIsMenuOpen(false);
+      };
+      const handleKeyDown = (e, page) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleNavClick(page);
+        }
+      };
+      return (
+        <nav className="sticky-header p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="https://placehold.co/32x32/808080/FFFFFF?text=OL" alt="OurLife Logo" className="w-8 h-8" />
+            <h1 className="text-xl font-semibold text-white">OurLife Dashboard</h1>
+          </div>
           <button
-            onClick={() => setPage('menu')}
-            className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-            aria-label="Back to Menu"
+            className="hamburger-menu md:hidden text-white focus:outline-none"
+            onClick={toggleMenu}
+            tabIndex={0}
+            aria-label="Toggle navigation menu"
           >
-            Back to Menu
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
           </button>
-        </section>
-      </main>
-    );
-  }
+          <div className={`nav-links flex-col md:flex-row md:flex space-x-0 md:space-x-2 ${isMenuOpen ? 'open' : ''}`}>
+            <button onClick={() => handleNavClick('menu')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Home</button>
+            <button onClick={() => handleNavClick('financial')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Finances</button>
+            <button onClick={() => handleNavClick('calendar')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Calendar</button>
+            <button onClick={() => handleNavClick('profileSettings')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Profile</button>
+            <button onClick={() => handleNavClick('budgetCalculator')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget</button>
+            <button onClick={() => handleNavClick('about')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">About</button>
+            <button onClick={() => handleNavClick('support')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Support</button>
+            <button onClick={() => handleNavClick('contact')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Contact</button>
+            <button onClick={onLogout} className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 w-full text-left md:w-auto">Sign Out</button>
+          </div>
+        </nav>
+      );
+    };
 
+    // Login Component
+    const Login = ({ onLogin }) => {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password }, { timeout: 5000 });
+          if (response.data.success) {
+            const userInfo = {
+              username,
+              profilePicUrl: response.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL,
+              email: response.data.email || '',
+              phone: response.data.phone || '',
+              address: response.data.address || '',
+              eventColor: response.data.eventColor || DEFAULT_EVENT_COLOR,
+              isAdmin: response.data.isAdmin || false
+            };
+            onLogin(userInfo);
+          } else {
+            setError(response.data.message || 'Login failed.');
+          }
+        } catch (err) {
+          setError(err.response?.data?.message || 'Error during login. Check server.');
+        }
+      };
+      return (
+        <main className="flex items-center justify-center min-h-screen px-4">
+          <section className="card p-8 w-full max-w-md">
+            <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                aria-label="Username"
+              />
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                aria-label="Password"
+              />
+              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+              <button
+                type="submit"
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                aria-label="Sign In"
+              >
+                Sign In
+              </button>
+            </form>
+          </section>
+        </main>
+      );
+    };
+
+// Menu (Home) Component without Testimonials
+const Menu = ({ user, setPage }) => {
   return (
     <main className="p-4 sm:p-6 max-w-4xl mx-auto">
       <section className="card p-8">
-        <h1 className="text-2xl font-semibold text-white mb-6">Admin Dashboard</h1>
-        {/* Copy the Manage User Access section from ProfileSettings */}
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-2">Grant View Access</h3>
-            <div className="mb-4">
-              <label className="block text-white text-lg font-medium mb-2">Viewer</label>
-              <input
-                type="text"
-                value={user.username}
-                disabled
-                className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
-                aria-label="Viewer Username (Current User)"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
-              <select
-                id="targetUsername"
-                value={targetUsername}
-                onChange={(e) => setTargetUsername(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                aria-label="Select Target User"
-              >
-                <option value="">Select a user</option>
-                {allUsers.length > 0 ? (
-                  allUsers.map((username) => (
-                    <option key={username} value={username}>
-                      {capitalizeFirstLetter(username)}
-                    </option>
-                  ))
-                ) : (
-                  <option value="" disabled>No users available</option>
-                )}
-              </select>
-            </div>
-            <button
-              onClick={handleGrantAccess}
-              disabled={!targetUsername}
-              className={`w-full p-3 rounded-lg text-white ${
-                targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'
-              }`}
-              aria-label="Grant Access"
-            >
-              Grant Access
-            </button>
-            {accessMessage && (
-              <p className={`text-center text-sm mt-2 ${accessMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                {accessMessage}
-              </p>
-            )}
+        <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+          <div className="profile-pic-container welcome-pic-container">
+            <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
           </div>
-          <div className="pt-6 border-t border-white/10">
-            <h3 className="text-lg font-semibold text-white mb-2">Current Access Permissions</h3>
-            {accessList.length === 0 ? (
-              <p className="text-white text-center">No access permissions granted.</p>
+          <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
+        </h1>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
+          <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
+          <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
+          <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
+          <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
+          <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
+          <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
+        </div>
+      </section>
+    </main>
+  );
+};
+    
+    // About Component
+    const About = ({ setPage }) => {
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8 text-left">
+            <h1 className="text-2xl font-semibold text-white mb-4 text-center">About OurLife</h1>
+            <p className="text-gray-300 mb-4">
+              Welcome to <strong>OurLife</strong>, your comprehensive digital solution for managing personal and shared finances and schedules. In today's fast-paced world, staying organized is key to achieving your goals, and OurLife is designed to be the ultimate partner on your journey to financial clarity and a well-planned life.
+            </p>
+            <p className="text-gray-300 mb-4">
+              Our platform provides a secure, intuitive, and collaborative environment where users can track income and expenses, manage budgets, and coordinate events on a shared calendar. Whether you are managing your personal finances, coordinating with a partner, or keeping the family on the same page, OurLife offers the tools you need to succeed.
+            </p>
+             <p className="text-gray-300 mb-6">
+              OurLife was created and developed by <strong>Johan Koen</strong>, a forward-thinking developer passionate about creating technology that makes a tangible difference in people's lives. You can connect with him on LinkedIn to learn more about his work.
+            </p>
+            <div className="text-center">
+                <a
+                  href="https://www.linkedin.com/in/johan-koen-12a11b234/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6"
+                >
+                  Connect on LinkedIn
+                </a>
+                <div>
+                  <button
+                    onClick={() => setPage('menu')}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                    aria-label="Back to Menu"
+                  >
+                    Back to Menu
+                  </button>
+                </div>
+            </div>
+          </section>
+        </main>
+      );
+    };
+    
+    // Support Component
+    const Support = ({ setPage }) => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [message, setMessage] = useState('');
+        const [submitted, setSubmitted] = useState(false);
+        
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            // In a real app, you would send this data to a server
+            console.log({ name, email, message });
+            setSubmitted(true);
+        };
+
+        return (
+            <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+                <section className="card p-8">
+                    <h1 className="text-2xl font-semibold text-white mb-6 text-center">Support & FAQ</h1>
+                    <div className="space-y-4 mb-8 text-left">
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">How do I add a financial item?</h3>
+                            <p className="text-gray-300">Navigate to the "Finances" page and use the "Add Item" button to open the form. Fill in the details and click "Add Item" to save it. The item will also automatically appear on your calendar.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">Can I share my data with another user?</h3>
+                            <p className="text-gray-300">Yes, if you have admin privileges. Go to "Profile Settings" and use the "Manage User Access" section to grant another user view access to your financial and calendar data.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">How do I change my password?</h3>
+                            <p className="text-gray-300">In "Profile Settings", you'll find a "Change Password" section. You'll need to enter your current password and a new password to update it.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="border-t border-white/10 pt-8">
+                        <h2 className="text-xl font-semibold text-white mb-4 text-center">Submit a Support Ticket</h2>
+                        {submitted ? (
+                            <p className="text-green-400 text-center">Thank you! Your request has been submitted.</p>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your Email" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Describe your issue..." rows="4" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required></textarea>
+                                <button type="submit" className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Submit</button>
+                            </form>
+                        )}
+                    </div>
+
+                    <div className="text-center mt-8">
+                        <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Back to Menu</button>
+                    </div>
+                </section>
+            </main>
+        );
+    };
+
+    // Contact Component
+    const Contact = ({ setPage }) => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [message, setMessage] = useState('');
+        const [submitted, setSubmitted] = useState(false);
+
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            console.log({ name, email, message });
+            setSubmitted(true);
+        };
+
+        return (
+            <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+                <section className="card p-8">
+                    <h1 className="text-2xl font-semibold text-white mb-6 text-center">Contact Us</h1>
+                    <div className="grid md:grid-cols-2 gap-8 mb-8 text-left">
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400 mb-2">Get in Touch</h3>
+                            <p className="text-gray-300">Have a question, feedback, or a business inquiry? We'd love to hear from you. Use the form or contact us directly.</p>
+                            <div className="mt-4 space-y-2">
+                                <p className="text-gray-300"><strong>Email:</strong> support@ourlife.work.gd</p>
+                                <p className="text-gray-300"><strong>Phone:</strong> +27 (11) 555-0123</p>
+                                <p className="text-gray-300"><strong>Location:</strong> Alberton, Gauteng, South Africa</p>
+                            </div>
+                        </div>
+                        <div>
+                            {submitted ? (
+                                <p className="text-green-400 text-center md:text-left">Thank you for your message! We'll get back to you shortly.</p>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your Email" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                    <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Your Message..." rows="4" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required></textarea>
+                                    <button type="submit" className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Send Message</button>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                     <div className="text-center mt-8">
+                        <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Back to Menu</button>
+                    </div>
+                </section>
+            </main>
+        );
+    };
+
+    // Budget Calculator Component
+    const BudgetCalculator = ({ user, setPage }) => {
+      const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
+      const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState('');
+      const [currentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+
+      useEffect(() => {
+        const fetchFinancialData = async () => {
+          setIsLoading(true);
+          setError('');
+          try {
+            const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+              params: { user: user.username },
+              timeout: 5000
+            });
+            
+            const userItems = response.data.filter(item =>
+              item.user === user.username && item.date.startsWith(currentMonth)
+            );
+
+            const income = userItems
+              .filter(item => item.type === 'income')
+              .reduce((sum, item) => sum + item.amount, 0);
+
+            const expense = userItems
+              .filter(item => item.type === 'expense')
+              .reduce((sum, item) => sum + item.amount, 0);
+
+            setSummary({ income, expense, balance: income - expense });
+          } catch (err) {
+            setError('Failed to load financial data.');
+            console.error('Error fetching financial data for budget:', err);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        fetchFinancialData();
+      }, [user.username, currentMonth]);
+
+      const expensePercentage = summary.income > 0 ? (summary.expense / summary.income) * 100 : 0;
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Monthly Budget Calculator</h1>
+            {isLoading ? (
+              <p className="text-white text-center">Calculating...</p>
+            ) : error ? (
+              <p className="text-red-400 text-center">{error}</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-gray-300">
-                      <th className="p-3">Viewer</th>
-                      <th className="p-3">Target</th>
-                      <th className="p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accessList.map((access, index) => (
-                      <tr key={index} className="border-t border-white/10">
-                        <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
-                        <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Summary for {new Date(currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                  <div className="card p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-green-400 font-semibold">Total Income:</span>
+                      <span className="text-green-400">R{summary.income.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-400 font-semibold">Total Expenses:</span>
+                      <span className="text-red-400">R{summary.expense.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-white/10 my-2"></div>
+                    <div className="flex justify-between items-center font-bold text-xl">
+                      <span className="text-white">Net Balance:</span>
+                      <span className={summary.balance >= 0 ? 'text-teal-400' : 'text-orange-400'}>
+                        R{summary.balance.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Expense Breakdown</h2>
+                  <div className="w-full bg-gray-700 rounded-full h-6">
+                    <div
+                      className="bg-red-500 h-6 rounded-full text-center text-white text-sm flex items-center justify-center"
+                      style={{ width: `${Math.min(expensePercentage, 100)}%` }}
+                    >
+                      {expensePercentage > 5 ? `${expensePercentage.toFixed(0)}%` : ''}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-2 text-center">
+                    You have spent {expensePercentage.toFixed(0)}% of your income.
+                  </p>
+                </div>
+                 <button
+                    onClick={() => setPage('menu')}
+                    className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                    aria-label="Back to Menu"
+                  >
+                    Back to Menu
+                  </button>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
+    // Profile Settings Component with Admin Access Management
+    const ProfileSettings = ({ user, setPage }) => {
+      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
+      const [selectedFile, setSelectedFile] = useState(null);
+      const [message, setMessage] = useState('');
+      const [email, setEmail] = useState(user.email || '');
+      const [phone, setPhone] = useState(user.phone || '');
+      const [address, setAddress] = useState(user.address || '');
+      const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
+      const [currentPassword, setCurrentPassword] = useState('');
+      const [newPassword, setNewPassword] = useState('');
+      const [confirmNewPassword, setConfirmNewPassword] = useState('');
+      const [passwordMessage, setPasswordMessage] = useState('');
+      // Admin-specific states
+      const [allUsers, setAllUsers] = useState([]);
+      const [targetUsername, setTargetUsername] = useState('');
+      const [accessList, setAccessList] = useState([]);
+      const [accessMessage, setAccessMessage] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+
+      const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setSelectedFile(file);
+          setMessage('');
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setProfilePicUrl(reader.result);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setSelectedFile(null);
+          setProfilePicUrl(user.profilePicUrl || DEFAULT_PROFILE_PIC_URL);
+          setMessage('');
+        }
+      };
+
+      const handleSaveProfile = async () => {
+        setMessage('Saving...');
+        let urlToSave = profilePicUrl;
+        try {
+          if (selectedFile) {
+            urlToSave = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(selectedFile);
+            });
+          } else if (!profilePicUrl) {
+            urlToSave = DEFAULT_PROFILE_PIC_URL;
+          }
+          const response = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', {
+            username: user.username,
+            profilePicUrl: urlToSave,
+            email,
+            phone,
+            address,
+            eventColor,
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setMessage('Profile saved successfully!');
+            user.profilePicUrl = urlToSave;
+            user.email = email;
+            user.phone = phone;
+            user.address = address;
+            user.eventColor = eventColor;
+          } else {
+            setMessage(response.data.message || 'Failed to save profile.');
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error saving profile.');
+          console.error('Error saving profile:', err);
+        }
+      };
+
+      const handlePasswordChange = async () => {
+        setPasswordMessage('');
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+          setPasswordMessage('All password fields are required.');
+          return;
+        }
+        if (newPassword !== confirmNewPassword) {
+          setPasswordMessage('Passwords do not match.');
+          return;
+        }
+        if (newPassword.length < 6) {
+          setPasswordMessage('Password must be at least 6 characters.');
+          return;
+        }
+        setPasswordMessage('Changing password...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/update-password', {
+            username: user.username,
+            currentPassword,
+            newPassword
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setPasswordMessage('Password updated successfully!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+          } else {
+            setPasswordMessage(response.data.message || 'Failed to update password.');
+          }
+        } catch (err) {
+          setPasswordMessage(err.response?.data?.message || 'Error updating password.');
+          console.error('Error updating password:', err);
+        }
+      };
+
+      // Admin Access Management Functions
+      const fetchAllUsers = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users', {
+            timeout: 5000
+          });
+          if (Array.isArray(response.data)) {
+            const filteredUsers = response.data
+              .filter(u => u.username && u.username !== user.username)
+              .map(u => u.username);
+            setAllUsers(filteredUsers);
+            console.log('Fetched users:', filteredUsers);
+          } else {
+            setAccessMessage('Failed to fetch users: Invalid response format.');
+            console.error('Invalid users response:', response.data);
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching users';
+          setAccessMessage(`Error fetching users: ${errorMessage}`);
+          console.error('Error fetching users:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const fetchAccessList = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
+            timeout: 5000
+          });
+          if (response.data.success && Array.isArray(response.data.accessList)) {
+            const userAccessList = response.data.accessList
+              .filter(access => access.viewer === user.username && access.target !== user.username);
+            setAccessList(userAccessList);
+            console.log('Fetched access list:', userAccessList);
+          } else {
+            setAccessMessage(`Failed to fetch access list: ${response.data.message || 'Invalid response format'}`);
+            console.error('Invalid access list response:', response.data);
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching access list';
+          setAccessMessage(`Error fetching access list: ${errorMessage}`);
+          console.error('Error fetching access list:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const handleGrantAccess = async () => {
+        if (!targetUsername) {
+          setAccessMessage('Please select a target user.');
+          return;
+        }
+        setAccessMessage('Granting access...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
+            viewer: user.username,
+            target: targetUsername
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setAccessMessage('Access granted successfully!');
+            setTargetUsername('');
+            await fetchAccessList();
+          } else {
+            setAccessMessage(response.data.message || 'Failed to grant access.');
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error granting access';
+          setAccessMessage(`Error granting access: ${errorMessage}`);
+          console.error('Error granting access:', err);
+        }
+      };
+
+      const handleRevokeAccess = async (viewer, target) => {
+        setAccessMessage('Revoking access...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
+            viewer,
+            target
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setAccessMessage('Access revoked successfully!');
+            await fetchAccessList();
+          } else {
+            setAccessMessage(response.data.message || 'Failed to revoke access.');
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error revoking access';
+          setAccessMessage(`Error revoking access: ${errorMessage}`);
+          console.error('Error revoking access:', err);
+        }
+      };
+
+      useEffect(() => {
+        if (user?.isAdmin) {
+          console.log('Admin user detected, fetching access data...');
+          fetchAllUsers();
+          fetchAccessList();
+        }
+      }, [user]);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-white text-lg font-medium mb-2" htmlFor="profilePic">Profile Picture</label>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="profile-pic-container">
+                    <img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
+                  </div>
+                  <span className="text-white">{user.username}</span>
+                </div>
+                <input
+                  id="profilePic"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600"
+                  aria-label="Upload Profile Picture"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2" htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Email"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2" htmlFor="phone">Phone Number</label>
+                <input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Phone Number"
+                />
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2" htmlFor="address">Address</label>
+                <textarea
+                  id="address"
+                  placeholder="Enter your address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  rows="3"
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Address"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-white text-lg font-medium mb-2" htmlFor="eventColor">Event Color</label>
+                <input
+                  id="eventColor"
+                  type="color"
+                  value={eventColor}
+                  onChange={(e) => setEventColor(e.target.value)}
+                  className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer"
+                  aria-label="Event Color"
+                />
+              </div>
+              {message && (
+                <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                  {message}
+                </p>
+              )}
+              <button
+                onClick={handleSaveProfile}
+                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                aria-label="Save Profile"
+              >
+                Save Profile
+              </button>
+              <div className="pt-6 border-t border-white/10">
+                <h2 className="text-xl font-semibold text-white mb-4">Change Password</h2>
+                <input
+                  type="password"
+                  placeholder="Current Password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Current Password"
+                />
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="New Password"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Confirm New Password"
+                />
+                {passwordMessage && (
+                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {passwordMessage}
+                  </p>
+                )}
+                <button
+                  onClick={handlePasswordChange}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  aria-label="Change Password"
+                >
+                  Change Password
+                </button>
+              </div>
+              {user.isAdmin && (
+                <div className="pt-6 border-t border-white/10">
+                  <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
+                  {isLoading ? (
+                    <p className="text-white text-center">Loading...</p>
+                  ) : (
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Grant View Access</h3>
+                        <div className="mb-4">
+                          <label className="block text-white text-lg font-medium mb-2">Viewer</label>
+                          <input
+                            type="text"
+                            value={user.username}
+                            disabled
+                            className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                            aria-label="Viewer Username (Current User)"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
+                          <select
+                            id="targetUsername"
+                            value={targetUsername}
+                            onChange={(e) => setTargetUsername(e.target.value)}
+                            className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                            aria-label="Select Target User"
+                          >
+                            <option value="">Select a user</option>
+                            {allUsers.length > 0 ? (
+                              allUsers.map((username) => (
+                                <option key={username} value={username}>
+                                  {capitalizeFirstLetter(username)}
+                                </option>
+                              ))
+                            ) : (
+                              <option value="" disabled>No users available</option>
+                            )}
+                          </select>
+                        </div>
+                        <button
+                          onClick={handleGrantAccess}
+                          disabled={!targetUsername}
+                          className={`w-full p-3 rounded-lg text-white ${
+                            targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'
+                          }`}
+                          aria-label="Grant Access"
+                        >
+                          Grant Access
+                        </button>
+                        {accessMessage && (
+                          <p className={`text-center text-sm mt-2 ${accessMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                            {accessMessage}
+                          </p>
+                        )}
+                      </div>
+                      <div className="pt-6 border-t border-white/10">
+                        <h3 className="text-lg font-semibold text-white mb-2">Current Access Permissions</h3>
+                        {accessList.length === 0 ? (
+                          <p className="text-white text-center">No access permissions granted.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="text-gray-300">
+                                  <th className="p-3">Viewer</th>
+                                  <th className="p-3">Target</th>
+                                  <th className="p-3">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {accessList.map((access, index) => (
+                                  <tr key={index} className="border-t border-white/10">
+                                    <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
+                                    <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
+                                    <td className="p-3">
+                                      <button
+                                        onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                                        className="text-red-400 hover:text-red-500"
+                                        aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
+                                      >
+                                        Revoke
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setPage('menu')}
+                className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                aria-label="Back to Menu"
+              >
+                Back to Menu
+              </button>
+            </div>
+          </section>
+        </main>
+      );
+    };
+
+    // Financial Component with Search and Filters
+    const Financial = ({ user, setPage }) => {
+      const [items, setItems] = useState([]);
+      const [description, setDescription] = useState('');
+      const [amount, setAmount] = useState('');
+      const [type, setType] = useState('income');
+      const [date, setDate] = useState(getCurrentDateTime());
+      const [hideValues, setHideValues] = useState(false);
+      const [currency, setCurrency] = useState('ZAR');
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const [showAddItemForm, setShowAddItemForm] = useState(false);
+      const [selectedMonth, setSelectedMonth] = useState('07');
+      const [netTotal, setNetTotal] = useState(0);
+      const [bulkData, setBulkData] = useState('');
+      const [importMessage, setImportMessage] = useState('');
+      const [showImportTool, setShowImportTool] = useState(false);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [filterType, setFilterType] = useState('all');
+
+      const currencyConfig = {
+        USD: { symbol: '$', rate: 1 },
+        EUR: { symbol: '€', rate: 0.85 },
+        ZAR: { symbol: 'R', rate: 18.5 },
+      };
+      const months = [
+        { value: '01', label: 'January' },
+        { value: '02', label: 'February' },
+        { value: '03', label: 'March' },
+        { value: '04', label: 'April' },
+        { value: '05', label: 'May' },
+        { value: '06', label: 'June' },
+        { value: '07', label: 'July' },
+        { value: '08', label: 'August' },
+        { value: '09', label: 'September' },
+        { value: '10', label: 'October' },
+        { value: '11', label: 'November' },
+        { value: '12', label: 'December' },
+      ];
+      const formatAmount = (amount) => {
+        return `${currencyConfig[currency].symbol}${parseFloat(amount).toFixed(2)}`;
+      };
+      const calculateNetTotal = () => {
+        const filteredItems = items
+          .filter(item => selectedUsers.includes(item.user))
+          .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
+          .filter(item => item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+          .filter(item => filterType === 'all' || item.type === filterType);
+        const total = filteredItems.reduce((sum, item) => {
+          return item.type === 'income' ? sum + item.amount : sum - item.amount;
+        }, 0);
+        setNetTotal(total);
+      };
+      const fetchAccessibleUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
+            params: { viewer: user.username },
+            timeout: 5000
+          });
+          if (response.data.success) {
+            const accessible = [
+              user.username,
+              ...response.data.accessList
+                .filter(access => access.viewer === user.username)
+                .map(access => access.target),
+            ];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (username of accessible) {
+              if (username !== user.username) {
+                try {
+                  const profileResponse = await axios.get(
+                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`,
+                    { timeout: 5000 }
+                  );
+                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) {
+                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
+                  console.error(`Error fetching profile for ${username}:`, err);
+                }
+              }
+            }
+            setUserProfiles(profiles);
+          }
+        } catch (err) {
+          console.error('Error fetching accessible users:', err);
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+      const fetchItems = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+            params: { user: user.username },
+            timeout: 5000
+          });
+          setItems(response.data);
+        } catch (err) {
+          console.error('Error fetching financial items:', err);
+        }
+      };
+      const addItem = async () => {
+        if (!description || !amount || !date) return;
+        const item = {
+          user: user.username,
+          description,
+          amount: parseFloat(amount),
+          type,
+          date,
+        };
+        try {
+          await axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
+            user: user.username,
+            title: `${description} (${type})`,
+            date,
+            financial: true,
+            type,
+            amount: parseFloat(amount),
+            eventColor: user.eventColor,
+          }, { timeout: 5000 });
+          fetchItems();
+          setDescription('');
+          setAmount('');
+          setDate(getCurrentDateTime());
+          setShowAddItemForm(false);
+        } catch (err) {
+          console.error('Error adding financial item:', err);
+        }
+      };
+      const deleteItem = async (id) => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`, { timeout: 5000 });
+          fetchItems();
+        } catch (err) {
+          console.error('Error deleting financial item:', err);
+        }
+      };
+      const handleBulkImport = async () => {
+        if (!bulkData.trim()) {
+          setImportMessage('Please paste data into the text box.');
+          return;
+        }
+        const lines = bulkData.trim().split('\n').filter(line => line.trim() !== '');
+        const itemsToImport = lines
+          .map(line => {
+            const [description, amount, type, date] = line.split(',').map(field => field.trim());
+            if (!description || !amount || !type || !date) return null;
+            return { user: user.username, description, amount: parseFloat(amount), type, date };
+          })
+          .filter(Boolean);
+        if (itemsToImport.length === 0) {
+          setImportMessage('No valid data found. Please check the format.');
+          return;
+        }
+        setImportMessage(`Importing ${itemsToImport.length} items...`);
+        try {
+          const importPromises = itemsToImport.map(item => {
+            const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
+            const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
+              user: user.username,
+              title: `${item.description} (${item.type})`,
+              date: item.date,
+              financial: true,
+              type: item.type,
+              amount: item.amount,
+              eventColor: user.eventColor,
+            }, { timeout: 5000 });
+            return Promise.all([financialPromise, calendarPromise]);
+          });
+          await Promise.all(importPromises);
+          setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
+          setBulkData('');
+          setShowImportTool(false);
+          fetchItems();
+        } catch (err) {
+          setImportMessage('An error occurred during import. Please check the data and try again.');
+          console.error('Bulk import error:', err);
+        }
+      };
+      const toggleUser = (username) => {
+        setSelectedUsers(prev =>
+          prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+        );
+      };
+      useEffect(() => {
+        fetchAccessibleUsers();
+        fetchItems();
+      }, []);
+      useEffect(() => {
+        calculateNetTotal();
+      }, [items, selectedUsers, selectedMonth, searchQuery, filterType]);
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <div className="profile-pic-container">
+                <img
+                  src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL}
+                  alt={`${user.username}'s profile`}
+                  className="profile-pic"
+                />
+              </div>
+              <span>Finances</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Select Month"
+                >
+                  {months.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label} 2025
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddItemForm(!showAddItemForm)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  aria-label={showAddItemForm ? 'Hide Add Item Form' : 'Show Add Item Form'}
+                >
+                  {showAddItemForm ? 'Hide Form' : 'Add Item'}
+                </button>
+                <button
+                  onClick={() => setShowImportTool(!showImportTool)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  aria-label={showImportTool ? 'Hide Import Tool' : 'Show Import Tool'}
+                >
+                  {showImportTool ? 'Hide Import' : 'Bulk Import'}
+                </button>
+              </div>
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Search by description"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Search financial items"
+                />
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Filter by type"
+                >
+                  <option value="all">All Types</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+            </div>
+            {showAddItemForm && (
+              <div className="mb-6 p-4 card">
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Financial item description"
+                />
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Financial item amount"
+                />
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Financial item type"
+                >
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+                <input
+                  type="datetime-local"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Financial item date"
+                />
+                <button
+                  onClick={addItem}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  aria-label="Add Financial Item"
+                >
+                  Add Item
+                </button>
+              </div>
+            )}
+            {showImportTool && (
+              <div className="mb-6 p-4 card">
+                <textarea
+                  placeholder="Paste CSV data (description,amount,type,date)"
+                  value={bulkData}
+                  onChange={(e) => setBulkData(e.target.value)}
+                  rows="5"
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Bulk import data"
+                ></textarea>
+                <button
+                  onClick={handleBulkImport}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  aria-label="Import Financial Data"
+                >
+                  Import Data
+                </button>
+                {importMessage && (
+                  <p className={`text-center text-sm mt-2 ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                    {importMessage}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map((username) => (
+                  <label key={username} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(username)}
+                      onChange={() => toggleUser(username)}
+                      className="rounded text-teal-500 focus:ring-teal-400"
+                      aria-label={`Filter by ${username}`}
+                    />
+                    <div className="event-profile-pic-container">
+                      <img
+                        src={userProfiles[username] || DEFAULT_PROFILE_PIC_URL}
+                        alt={`${username}'s profile`}
+                        className="event-profile-pic"
+                      />
+                    </div>
+                    <span>{capitalizeFirstLetter(username)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Financial Summary</h2>
+              <p className="text-white">Net Total: {formatAmount(netTotal)}</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-gray-300">
+                    <th className="p-3">User</th>
+                    <th className="p-3">Description</th>
+                    <th className="p-3">Amount</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items
+                    .filter(item => selectedUsers.includes(item.user))
+                    .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
+                    .filter(item => item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .filter(item => filterType === 'all' || item.type === filterType)
+                    .map(item => (
+                      <tr key={item.id} className="border-t border-white/10">
+                        <td className="p-3 flex items-center gap-2">
+                          <div className="event-profile-pic-container">
+                            <img
+                              src={userProfiles[item.user] || DEFAULT_PROFILE_PIC_URL}
+                              alt={`${item.user}'s profile`}
+                              className="event-profile-pic"
+                            />
+                          </div>
+                          {capitalizeFirstLetter(item.user)}
+                        </td>
+                        <td className="p-3">{item.description}</td>
+                        <td className="p-3">{hideValues ? '****' : formatAmount(item.amount)}</td>
+                        <td className="p-3">{capitalizeFirstLetter(item.type)}</td>
+                        <td className="p-3">{formatDateTimeWithSeconds(item.date)}</td>
                         <td className="p-3">
                           <button
-                            onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                            onClick={() => deleteItem(item.id)}
                             className="text-red-400 hover:text-red-500"
-                            aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
+                            aria-label={`Delete financial item ${item.description}`}
                           >
-                            Revoke
+                            Delete
                           </button>
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
+                </tbody>
+              </table>
+            </div>
+            <button
+              onClick={() => setHideValues(!hideValues)}
+              className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              aria-label={hideValues ? 'Show Values' : 'Hide Values'}
+            >
+              {hideValues ? 'Show Values' : 'Hide Values'}
+            </button>
+          </section>
+        </main>
+      );
+    };
+
+    // Calendar Component with Search and Filters
+    const Calendar = ({ user, setPage }) => {
+      const [events, setEvents] = useState([]);
+      const [title, setTitle] = useState('');
+      const [date, setDate] = useState(getCurrentDateTime());
+      const [showAddEventForm, setShowAddEventForm] = useState(false);
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const [showEventModal, setShowEventModal] = useState(false);
+      const [selectedEvent, setSelectedEvent] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [filterType, setFilterType] = useState('all');
+      const calendarRef = useRef(null);
+
+      const fetchAccessibleUsers = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
+            params: { viewer: user.username },
+            timeout: 5000
+          });
+          if (response.data.success) {
+            const accessible = [
+              user.username,
+              ...response.data.accessList
+                .filter(access => access.viewer === user.username)
+                .map(access => access.target),
+            ];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (const username of accessible) {
+              if (username !== user.username) {
+                try {
+                  const profileResponse = await axios.get(
+                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`,
+                    { timeout: 5000 }
+                  );
+                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) {
+                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
+                  console.error(`Error fetching profile for ${username}:`, err);
+                }
+              }
+            }
+            setUserProfiles(profiles);
+          }
+        } catch (err) {
+          console.error('Error fetching accessible users:', err);
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+
+     const fetchEvents = async () => {
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', {
+            params: { user: user.username },
+            timeout: 5000
+          });
+          setEvents(response.data);
+        } catch (err) {
+          console.error('Error fetching calendar events:', err);
+        }
+      };
+
+      const addEvent = async () => {
+        if (!title || !date) return;
+        const event = {
+          user: user.username,
+          title,
+          date,
+          financial: false,
+          eventColor: user.eventColor,
+        };
+        try {
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', event, { timeout: 5000 });
+          fetchEvents();
+          setTitle('');
+          setDate(getCurrentDateTime());
+          setShowAddEventForm(false);
+        } catch (err) {
+          console.error('Error adding calendar event:', err);
+        }
+      };
+
+      const deleteEvent = async (id) => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
+          fetchEvents();
+          setShowEventModal(false);
+        } catch (err) {
+          console.error('Error deleting calendar event:', err);
+        }
+      };
+
+      const toggleUser = (username) => {
+        setSelectedUsers(prev =>
+          prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+        );
+      };
+
+      useEffect(() => {
+        fetchAccessibleUsers();
+        fetchEvents();
+      }, []);
+
+      useEffect(() => {
+        if (calendarRef.current) {
+          const calendarEl = calendarRef.current;
+          const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            events: events
+              .filter(event => selectedUsers.includes(event.user))
+              .filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter(event => filterType === 'all' || (filterType === 'financial' ? event.financial : !event.financial))
+              .map(event => ({
+                id: event.id,
+                title: event.title,
+                start: event.date,
+                backgroundColor: event.eventColor || DEFAULT_EVENT_COLOR,
+                borderColor: event.eventColor || DEFAULT_EVENT_COLOR,
+                extendedProps: { user: event.user, financial: event.financial, type: event.type, amount: event.amount },
+              })),
+            eventContent: (arg) => {
+              return {
+                html: `
+                  <div class="fc-event-main">
+                    <div class="fc-event-title">${arg.event.title}</div>
+                    <div class="fc-event-user flex items-center gap-2">
+                      <div class="event-profile-pic-container">
+                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" class="event-profile-pic" />
+                      </div>
+                      ${capitalizeFirstLetter(arg.event.extendedProps.user)}
+                    </div>
+                    ${arg.event.extendedProps.financial ? `<div>Amount: ${arg.event.extendedProps.amount}</div>` : ''}
+                  </div>
+                `,
+              };
+            },
+            eventClick: (info) => {
+              setSelectedEvent({
+                id: info.event.id,
+                title: info.event.title,
+                date: info.event.start,
+                user: info.event.extendedProps.user,
+                financial: info.event.extendedProps.financial,
+                type: info.event.extendedProps.type,
+                amount: info.event.extendedProps.amount,
+              });
+              setShowEventModal(true);
+            },
+          });
+          calendar.render();
+          return () => calendar.destroy();
+        }
+      }, [events, selectedUsers, userProfiles, searchQuery, filterType]);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <div className="profile-pic-container">
+                <img
+                  src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL}
+                  alt={`${user.username}'s profile`}
+                  className="profile-pic"
+                />
+              </div>
+              <span>Calendar</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <button
+                onClick={() => setShowAddEventForm(!showAddEventForm)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                aria-label={showAddEventForm ? 'Hide Add Event Form' : 'Show Add Event Form'}
+              >
+                {showAddEventForm ? 'Hide Form' : 'Add Event'}
+              </button>
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Search by title"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Search calendar events"
+                />
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Filter by event type"
+                >
+                  <option value="all">All Events</option>
+                  <option value="financial">Financial</option>
+                  <option value="non-financial">Non-Financial</option>
+                </select>
+              </div>
+            </div>
+            {showAddEventForm && (
+              <div className="mb-6 p-4 card">
+                <input
+                  type="text"
+                  placeholder="Event Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Event title"
+                />
+                <input
+                  type="datetime-local"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Event date"
+                />
+                <button
+                  onClick={addEvent}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  aria-label="Add Calendar Event"
+                >
+                  Add Event
+                </button>
               </div>
             )}
-          </div>
-          <button
-            onClick={() => setPage('menu')}
-            className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-            aria-label="Back to Menu"
-          >
-            Back to Menu
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map((username) => (
+                  <label key={username} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(username)}
+                      onChange={() => toggleUser(username)}
+                      className="rounded text-teal-500 focus:ring-teal-400"
+                      aria-label={`Filter by ${username}`}
+                    />
+                    <div className="event-profile-pic-container">
+                      <img
+                        src={userProfiles[username] || DEFAULT_PROFILE_PIC_URL}
+                        alt={`${username}'s profile`}
+                        className="event-profile-pic"
+                      />
+                    </div>
+                    <span>{capitalizeFirstLetter(username)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div ref={calendarRef} className="card p-4"></div>
+            {showEventModal && selectedEvent && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="card p-6 max-w-sm w-full modal show">
+                  <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
+                  <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                  <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
+                  {selectedEvent.financial && (
+                    <>
+                      <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
+                      <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
+                    </>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowEventModal(false)}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                      aria-label="Close event modal"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => deleteEvent(selectedEvent.id)}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      aria-label={`Delete event ${selectedEvent.title}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
+    // App Component
+    const App = () => {
+      const [user, setUser] = useState(null);
+      const [page, setPage] = useState('login');
+
+      const handleLogin = (userInfo) => {
+        setUser(userInfo);
+        setPage('menu');
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        setPage('login');
+      };
+
+      return (
+        <ErrorBoundary>
+          {user ? (
+            <>
+              <Navigation user={user} setPage={setPage} onLogout={handleLogout} />
+              {page === 'menu' && <Menu user={user} setPage={setPage} />}
+              {page === 'financial' && <Financial user={user} setPage={setPage} />}
+              {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
+              {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
+              {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
+              {page === 'about' && <About setPage={setPage} />}
+              {page === 'support' && <Support setPage={setPage} />}
+              {page === 'contact' && <Contact setPage={setPage} />}
+            </>
+          ) : (
+            <Login onLogin={handleLogin} />
+          )}
+        </ErrorBoundary>
+      );
+    };
+
+    // Render the App
+    try {
+      ReactDOM.render(<App />, document.getElementById('root'));
+    } catch (err) {
+      console.error('Error rendering app:', err);
+      document.getElementById('root').innerHTML = `
+        <div class="error-boundary">
+          <h1>Application Error</h1>
+          <p>Failed to load the application. Please try again later.</p>
+          <button onclick="window.location.reload()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
+            Reload Page
           </button>
         </div>
+      `;
+    }
+  </script>
+</body>
+</html>
