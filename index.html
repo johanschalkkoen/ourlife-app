@@ -167,7 +167,7 @@
 
     // Utility function to get current date and time in ISO format
     const getCurrentDateTime = () => {
-      const now = new date();
+      const now = new Date();
       const offset = now.getTimezoneOffset();
       now.setMinutes(now.getMinutes() - offset);
       return now.toISOString().slice(0, 19);
@@ -1382,40 +1382,46 @@
       const [targetUsername, setTargetUsername] = useState('');
       const [accessList, setAccessList] = useState([]);
       const [message, setMessage] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
 
       const fetchAllUsers = async () => {
+        setIsLoading(true);
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/users');
           if (response.data && Array.isArray(response.data)) {
-            // Filter out the current user to prevent self-access
             const filteredUsers = response.data
               .filter(u => u.username !== user.username)
               .map(u => u.username);
             setAllUsers(filteredUsers);
           } else {
-            setMessage('Failed to fetch users.');
+            setMessage('Failed to fetch users: Invalid response format.');
           }
         } catch (err) {
-          setMessage('Error fetching users.');
-          console.error('Error fetching users:', err);
+          setMessage(`Error fetching users: ${err.response ? err.response.data.message || err.message : err.message}`);
+          console.error('Error fetching users:', err.response ? err.response.data : err);
+        } finally {
+          setIsLoading(false);
         }
       };
 
       const fetchAccessList = async () => {
+        setIsLoading(true);
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
+            params: { viewer: user.username },
+          });
           if (response.data.success) {
-            // Filter access list to show only entries where the viewer is the current user
-            const userAccessList = response.data.accessList.filter(
-              access => access.viewer === user.username
-            );
+            const userAccessList = response.data.accessList
+              .filter(access => access.viewer === user.username && access.target !== user.username);
             setAccessList(userAccessList);
           } else {
-            setMessage('Failed to fetch access list.');
+            setMessage(`Failed to fetch access list: ${response.data.message || 'Unknown error'}`);
           }
         } catch (err) {
-          setMessage('Error fetching access list.');
-          console.error('Error fetching access list:', err);
+          setMessage(`Error fetching access list: ${err.response ? err.response.data.message || err.message : err.message}`);
+          console.error('Detailed error:', err.response ? err.response.data : err);
+        } finally {
+          setIsLoading(false);
         }
       };
 
@@ -1438,8 +1444,8 @@
             setMessage(response.data.message || 'Failed to grant access.');
           }
         } catch (err) {
-          setMessage('Error granting access.');
-          console.error('Error granting access:', err);
+          setMessage(`Error granting access: ${err.response ? err.response.data.message || err.message : err.message}`);
+          console.error('Error granting access:', err.response ? err.response.data : err);
         }
       };
 
@@ -1457,8 +1463,8 @@
             setMessage(response.data.message || 'Failed to revoke access.');
           }
         } catch (err) {
-          setMessage('Error revoking access.');
-          console.error('Error revoking access:', err);
+          setMessage(`Error revoking access: ${err.response ? err.response.data.message || err.message : err.message}`);
+          console.error('Error revoking access:', err.response ? err.response.data : err);
         }
       };
 
@@ -1473,81 +1479,89 @@
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
-                <div className="mb-4">
-                  <label className="block text-white text-lg font-medium mb-2">Viewer</label>
-                  <input
-                    type="text"
-                    value={user.username}
-                    disabled
-                    className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
-                    aria-label="Viewer Username (Current User)"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
-                  <select
-                    id="targetUsername"
-                    value={targetUsername}
-                    onChange={(e) => setTargetUsername(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                    aria-label="Select Target User"
-                  >
-                    <option value="">Select a user</option>
-                    {allUsers.map((username) => (
-                      <option key={username} value={username}>
-                        {capitalizeFirstLetter(username)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  onClick={handleGrantAccess}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  aria-label="Grant Access"
-                >
-                  Grant Access
-                </button>
-                {message && (
-                  <p className={`text-center text-sm mt-2 ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {message}
-                  </p>
-                )}
-              </div>
-              <div className="pt-6 border-t border-white/10">
-                <h2 className="text-xl font-semibold text-white mb-4">Current Access Permissions</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-gray-300">
-                        <th className="p-3">Viewer</th>
-                        <th className="p-3">Target</th>
-                        <th className="p-3">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accessList.map((access, index) => (
-                        <tr key={index} className="border-t border-white/10">
-                          <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
-                          <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
-                          <td className="p-3">
-                            <button
-                              onClick={() => handleRevokeAccess(access.viewer, access.target)}
-                              className="text-red-400 hover:text-red-500"
-                              aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
-                            >
-                              Revoke
-                            </button>
-                          </td>
-                        </tr>
+            {isLoading ? (
+              <p className="text-white text-center">Loading...</p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
+                  <div className="mb-4">
+                    <label className="block text-white text-lg font-medium mb-2">Viewer</label>
+                    <input
+                      type="text"
+                      value={user.username}
+                      disabled
+                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                      aria-label="Viewer Username (Current User)"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
+                    <select
+                      id="targetUsername"
+                      value={targetUsername}
+                      onChange={(e) => setTargetUsername(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                      aria-label="Select Target User"
+                    >
+                      <option value="">Select a user</option>
+                      {allUsers.map((username) => (
+                        <option key={username} value={username}>
+                          {capitalizeFirstLetter(username)}
+                        </option>
                       ))}
-                    </tbody>
-                  </table>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleGrantAccess}
+                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                    aria-label="Grant Access"
+                  >
+                    Grant Access
+                  </button>
+                  {message && (
+                    <p className={`text-center text-sm mt-2 ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                      {message}
+                    </p>
+                  )}
+                </div>
+                <div className="pt-6 border-t border-white/10">
+                  <h2 className="text-xl font-semibold text-white mb-4">Current Access Permissions</h2>
+                  {accessList.length === 0 ? (
+                    <p className="text-white text-center">No access permissions granted.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-gray-300">
+                            <th className="p-3">Viewer</th>
+                            <th className="p-3">Target</th>
+                            <th className="p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {accessList.map((access, index) => (
+                            <tr key={index} className="border-t border-white/10">
+                              <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
+                              <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                                  className="text-red-400 hover:text-red-500"
+                                  aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
+                                >
+                                  Revoke
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
           </section>
         </main>
       );
