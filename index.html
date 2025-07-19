@@ -287,16 +287,6 @@
             >
               Profile
             </button>
-            {user.isAdmin && (
-              <button
-                onClick={() => handleNavClick('admin')}
-                onKeyDown={(e) => handleKeyDown(e, 'admin')}
-                className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-                tabIndex={0}
-              >
-                Admin
-              </button>
-            )}
             <button
               onClick={() => handleNavClick('salaryCalculator')}
               onKeyDown={(e) => handleKeyDown(e, 'salaryCalculator')}
@@ -403,7 +393,7 @@
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-              <div className="profile-pic-container">
+              <div className="profileARE YOU SURE YOU WANT TO DELETE THIS EVENT? pic-container">
                 <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
               </div>
               <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
@@ -496,7 +486,7 @@
       );
     };
 
-    // Profile Settings Component
+    // Profile Settings Component with Admin Access Management
     const ProfileSettings = ({ user, setPage }) => {
       const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
       const [selectedFile, setSelectedFile] = useState(null);
@@ -509,6 +499,13 @@
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
       const [passwordMessage, setPasswordMessage] = useState('');
+      // Admin-specific states
+      const [allUsers, setAllUsers] = useState([]);
+      const [targetUsername, setTargetUsername] = useState('');
+      const [accessList, setAccessList] = useState([]);
+      const [accessMessage, setAccessMessage] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+
       const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -525,6 +522,7 @@
           setMessage('');
         }
       };
+
       const handleSaveProfile = async () => {
         setMessage('Saving...');
         let urlToSave = profilePicUrl;
@@ -562,6 +560,7 @@
           console.error('Error saving profile:', err);
         }
       };
+
       const handlePasswordChange = async () => {
         setPasswordMessage('');
         if (!currentPassword || !newPassword || !confirmNewPassword) {
@@ -596,6 +595,110 @@
           console.error('Error updating password:', err);
         }
       };
+
+      // Admin Access Management Functions
+      const fetchAllUsers = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users', {
+            timeout: 5000
+          });
+          if (Array.isArray(response.data)) {
+            const filteredUsers = response.data
+              .filter(u => u.username && u.username !== user.username)
+              .map(u => u.username);
+            setAllUsers(filteredUsers);
+            console.log('Fetched users:', filteredUsers);
+          } else {
+            setAccessMessage('Failed to fetch users: Invalid response format.');
+            console.error('Invalid users response:', response.data);
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching users';
+          setAccessMessage(`Error fetching users: ${errorMessage}`);
+          console.error('Error fetching users:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const fetchAccessList = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
+            timeout: 5000
+          });
+          if (response.data.success && Array.isArray(response.data.accessList)) {
+            const userAccessList = response.data.accessList
+              .filter(access => access.viewer === user.username && access.target !== user.username);
+            setAccessList(userAccessList);
+            console.log('Fetched access list:', userAccessList);
+          } else {
+            setAccessMessage(`Failed to fetch access list: ${response.data.message || 'Invalid response format'}`);
+            console.error('Invalid access list response:', response.data);
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching access list';
+          setAccessMessage(`Error fetching access list: ${errorMessage}`);
+          console.error('Error fetching access list:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const handleGrantAccess = async () => {
+        if (!targetUsername) {
+          setAccessMessage('Please select a target user.');
+          return;
+        }
+        setAccessMessage('Granting access...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
+            viewer: user.username,
+            target: targetUsername
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setAccessMessage('Access granted successfully!');
+            setTargetUsername('');
+            await fetchAccessList();
+          } else {
+            setAccessMessage(response.data.message || 'Failed to grant access.');
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error granting access';
+          setAccessMessage(`Error granting access: ${errorMessage}`);
+          console.error('Error granting access:', err);
+        }
+      };
+
+      const handleRevokeAccess = async (viewer, target) => {
+        setAccessMessage('Revoking access...');
+        try {
+          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
+            viewer,
+            target
+          }, { timeout: 5000 });
+          if (response.data.success) {
+            setAccessMessage('Access revoked successfully!');
+            await fetchAccessList();
+          } else {
+            setAccessMessage(response.data.message || 'Failed to revoke access.');
+          }
+        } catch (err) {
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error revoking access';
+          setAccessMessage(`Error revoking access: ${errorMessage}`);
+          console.error('Error revoking access:', err);
+        }
+      };
+
+      useEffect(() => {
+        if (user?.isAdmin) {
+          console.log('Admin user detected, fetching access data...');
+          fetchAllUsers();
+          fetchAccessList();
+        }
+      }, [user]);
+
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
@@ -716,6 +819,108 @@
                   Change Password
                 </button>
               </div>
+              {user.isAdmin && (
+                <div className="pt-6 border-t border-white/10">
+                  <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
+                  {isLoading ? (
+                    <p className="text-white text-center">Loading...</p>
+                  ) : (
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Grant View Access</h3>
+                        <div className="mb-4">
+                          <label className="block text-white text-lg font-medium mb-2">Viewer</label>
+                          <input
+                            type="text"
+                            value={user.username}
+                            disabled
+                            className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
+                            aria-label="Viewer Username (Current User)"
+                          />
+                        </div>
+                        <div className="mb-4">
+                          <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
+                          <select
+                            id="targetUsername"
+                            value={targetUsername}
+                            onChange={(e) => setTargetUsername(e.target.value)}
+                            className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                            aria-label="Select Target User"
+                          >
+                            <option value="">Select a user</option>
+                            {allUsers.length > 0 ? (
+                              allUsers.map((username) => (
+                                <option key={username} value={username}>
+                                  {capitalizeFirstLetter(username)}
+                                </option>
+                              ))
+                            ) : (
+                              <option value="" disabled>No users available</option>
+                            )}
+                          </select>
+                        </div>
+                        <button
+                          onClick={handleGrantAccess}
+                          disabled={!targetUsername}
+                          className={`w-full p-3 rounded-lg text-white ${
+                            targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'
+                          }`}
+                          aria-label="Grant Access"
+                        >
+                          Grant Access
+                        </button>
+                        {accessMessage && (
+                          <p className={`text-center text-sm mt-2 ${accessMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                            {accessMessage}
+                          </p>
+                        )}
+                      </div>
+                      <div className="pt-6 border-t border-white/10">
+                        <h3 className="text-lg font-semibold text-white mb-2">Current Access Permissions</h3>
+                        {accessList.length === 0 ? (
+                          <p className="text-white text-center">No access permissions granted.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="text-gray-300">
+                                  <th className="p-3">Viewer</th>
+                                  <th className="p-3">Target</th>
+                                  <th className="p-3">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {accessList.map((access, index) => (
+                                  <tr key={index} className="border-t border-white/10">
+                                    <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
+                                    <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
+                                    <td className="p-3">
+                                      <button
+                                        onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                                        className="text-red-400 hover:text-red-500"
+                                        aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
+                                      >
+                                        Revoke
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setPage('menu')}
+                className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                aria-label="Back to Menu"
+              >
+                Back to Menu
+              </button>
             </div>
           </section>
         </main>
@@ -1261,11 +1466,11 @@
             eventContent: (arg) => {
               return {
                 html: `
-                  <div class="fc-event-main">
-                    <div class="fc-event-title">${arg.event.title}</div>
-                    <div class="fc-event-user flex items-center gap-2">
-                      <div class="event-profile-pic-container">
-                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" class="event-profile-pic" />
+                  <div className="fc-event-main">
+                    <div className="fc-event-title">${arg.event.title}</div>
+                    <div className="fc-event-user flex items-center gap-2">
+                      <div className="event-profile-pic-container">
+                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" className="event-profile-pic" />
                       </div>
                       ${capitalizeFirstLetter(arg.event.extendedProps.user)}
                     </div>
@@ -1421,243 +1626,6 @@
       );
     };
 
-    // Admin Component
-    const Admin = ({ user, setPage }) => {
-      const [allUsers, setAllUsers] = useState([]);
-      const [targetUsername, setTargetUsername] = useState('');
-      const [accessList, setAccessList] = useState([]);
-      const [message, setMessage] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
-
-      const fetchAllUsers = async () => {
-        setIsLoading(true);
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/users', {
-            timeout: 5000
-          });
-          if (Array.isArray(response.data)) {
-            const filteredUsers = response.data
-              .filter(u => u.username && u.username !== user.username)
-              .map(u => u.username);
-            setAllUsers(filteredUsers);
-            console.log('Fetched users:', filteredUsers);
-          } else {
-            setMessage('Failed to fetch users: Invalid response format.');
-            console.error('Invalid users response:', response.data);
-          }
-        } catch (err) {
-          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching users';
-          setMessage(`Error fetching users: ${errorMessage}`);
-          console.error('Error fetching users:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      const fetchAccessList = async () => {
-        setIsLoading(true);
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
-            timeout: 5000
-          });
-          if (response.data.success && Array.isArray(response.data.accessList)) {
-            const userAccessList = response.data.accessList
-              .filter(access => access.viewer === user.username && access.target !== user.username);
-            setAccessList(userAccessList);
-            console.log('Fetched access list:', userAccessList);
-          } else {
-            setMessage(`Failed to fetch access list: ${response.data.message || 'Invalid response format'}`);
-            console.error('Invalid access list response:', response.data);
-          }
-        } catch (err) {
-          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching access list';
-          setMessage(`Error fetching access list: ${errorMessage}`);
-          console.error('Error fetching access list:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      const handleGrantAccess = async () => {
-        if (!targetUsername) {
-          setMessage('Please select a target user.');
-          return;
-        }
-        setMessage('Granting access...');
-        try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
-            viewer: user.username,
-            target: targetUsername
-          }, { timeout: 5000 });
-          if (response.data.success) {
-            setMessage('Access granted successfully!');
-            setTargetUsername('');
-            await fetchAccessList();
-          } else {
-            setMessage(response.data.message || 'Failed to grant access.');
-          }
-        } catch (err) {
-          const errorMessage = err.response?.data?.message || err.message || 'Unknown error granting access';
-          setMessage(`Error granting access: ${errorMessage}`);
-          console.error('Error granting access:', err);
-        }
-      };
-
-      const handleRevokeAccess = async (viewer, target) => {
-        setMessage('Revoking access...');
-        try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
-            viewer,
-            target
-          }, { timeout: 5000 });
-          if (response.data.success) {
-            setMessage('Access revoked successfully!');
-            await fetchAccessList();
-          } else {
-            setMessage(response.data.message || 'Failed to revoke access.');
-          }
-        } catch (err) {
-          const errorMessage = err.response?.data?.message || err.message || 'Unknown error revoking access';
-          setMessage(`Error revoking access: ${errorMessage}`);
-          console.error('Error revoking access:', err);
-        }
-      };
-
-      useEffect(() => {
-        if (user?.isAdmin) {
-          console.log('Admin user detected, fetching data...');
-          fetchAllUsers();
-          fetchAccessList();
-        } else {
-          setMessage('Unauthorized: Admin access required.');
-          console.log('Non-admin user detected:', user);
-        }
-      }, [user]);
-
-      if (!user?.isAdmin) {
-        return (
-          <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-            <section className="card p-8">
-              <h1 className="text-2xl font-semibold text-white mb-6">Access Denied</h1>
-              <p className="text-red-400 text-center">You do not have admin privileges.</p>
-              <button
-                onClick={() => setPage('menu')}
-                className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                aria-label="Back to Menu"
-              >
-                Back to Menu
-              </button>
-            </section>
-          </main>
-        );
-      }
-
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Manage User Access</h1>
-            {isLoading ? (
-              <p className="text-white text-center">Loading...</p>
-            ) : (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-4">Grant View Access</h2>
-                  <div className="mb-4">
-                    <label className="block text-white text-lg font-medium mb-2">Viewer</label>
-                    <input
-                      type="text"
-                      value={user.username}
-                      disabled
-                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10"
-                      aria-label="Viewer Username (Current User)"
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
-                    <select
-                      id="targetUsername"
-                      value={targetUsername}
-                      onChange={(e) => setTargetUsername(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                      aria-label="Select Target User"
-                    >
-                      <option value="">Select a user</option>
-                      {allUsers.length > 0 ? (
-                        allUsers.map((username) => (
-                          <option key={username} value={username}>
-                            {capitalizeFirstLetter(username)}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="" disabled>No users available</option>
-                      )}
-                    </select>
-                  </div>
-                  <button
-                    onClick={handleGrantAccess}
-                    disabled={!targetUsername}
-                    className={`w-full p-3 rounded-lg text-white ${
-                      targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'
-                    }`}
-                    aria-label="Grant Access"
-                  >
-                    Grant Access
-                  </button>
-                  {message && (
-                    <p className={`text-center text-sm mt-2 ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                      {message}
-                    </p>
-                  )}
-                </div>
-                <div className="pt-6 border-t border-white/10">
-                  <h2 className="text-xl font-semibold text-white mb-4">Current Access Permissions</h2>
-                  {accessList.length === 0 ? (
-                    <p className="text-white text-center">No access permissions granted.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="text-gray-300">
-                            <th className="p-3">Viewer</th>
-                            <th className="p-3">Target</th>
-                            <th className="p-3">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {accessList.map((access, index) => (
-                            <tr key={index} className="border-t border-white/10">
-                              <td className="p-3">{capitalizeFirstLetter(access.viewer)}</td>
-                              <td className="p-3">{capitalizeFirstLetter(access.target)}</td>
-                              <td className="p-3">
-                                <button
-                                  onClick={() => handleRevokeAccess(access.viewer, access.target)}
-                                  className="text-red-400 hover:text-red-500"
-                                  aria-label={`Revoke access for ${access.viewer} to ${access.target}`}
-                                >
-                                  Revoke
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setPage('menu')}
-                  className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                  aria-label="Back to Menu"
-                >
-                  Back to Menu
-                </button>
-              </div>
-            )}
-          </section>
-        </main>
-      );
-    };
-
     // App Component
     const App = () => {
       const [user, setUser] = useState(null);
@@ -1665,9 +1633,8 @@
 
       const handleLogin = (userInfo) => {
         setUser(userInfo);
-        const targetPage = userInfo.isAdmin ? 'admin' : 'menu';
-        console.log(`Setting page to ${targetPage} for user:`, userInfo);
-        setPage(targetPage);
+        console.log('Setting page to menu for user:', userInfo);
+        setPage('menu');
       };
 
       const handleLogout = () => {
@@ -1690,7 +1657,6 @@
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'salaryCalculator' && <SalaryCalculator user={user} setPage={setPage} />}
-              {page === 'admin' && <Admin user={user} setPage={setPage} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
