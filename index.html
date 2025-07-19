@@ -134,6 +134,11 @@
     .hamburger-menu {
       display: none;
     }
+    .error-boundary {
+      text-align: center;
+      padding: 2rem;
+      color: #f87171;
+    }
     @media (max-width: 640px) {
       .hamburger-menu {
         display: block;
@@ -158,6 +163,7 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
     const capitalizeFirstLetter = (string) => {
       if (!string) return '';
       return string.charAt(0).toUpperCase() + string.slice(1);
@@ -186,6 +192,37 @@
         hour12: false
       }).replace(/,/, '');
     };
+
+    // Error Boundary Component
+    class ErrorBoundary extends React.Component {
+      state = { hasError: false, errorMessage: '' };
+
+      static getDerivedStateFromError(error) {
+        return { hasError: true, errorMessage: error.message };
+      }
+
+      componentDidCatch(error, errorInfo) {
+        console.error('ErrorBoundary caught an error:', error, errorInfo);
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="error-boundary">
+              <h1>Something went wrong.</h1>
+              <p>{this.state.errorMessage}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+              >
+                Reload Page
+              </button>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
 
     // Navigation Component
     const Navigation = ({ user, setPage, onLogout }) => {
@@ -289,7 +326,7 @@
         e.preventDefault();
         setError('');
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
+          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password }, { timeout: 5000 });
           if (response.data.success) {
             const userInfo = {
               username,
@@ -305,7 +342,7 @@
             setError(response.data.message || 'Login failed.');
           }
         } catch (err) {
-          setError('Error during login. Check server.');
+          setError(err.response?.data?.message || 'Error during login. Check server.');
           console.error('Login error:', err);
         }
       };
@@ -507,7 +544,7 @@
             phone,
             address,
             eventColor,
-          });
+          }, { timeout: 5000 });
           if (response.data.success) {
             setMessage('Profile saved successfully!');
             user.profilePicUrl = urlToSave;
@@ -516,10 +553,10 @@
             user.address = address;
             user.eventColor = eventColor;
           } else {
-            setMessage('Failed to save profile.');
+            setMessage(response.data.message || 'Failed to save profile.');
           }
         } catch (err) {
-          setMessage('Error saving profile.');
+          setMessage(err.response?.data?.message || 'Error saving profile.');
           console.error('Error saving profile:', err);
         }
       };
@@ -543,7 +580,7 @@
             username: user.username,
             currentPassword,
             newPassword
-          });
+          }, { timeout: 5000 });
           if (response.data.success) {
             setPasswordMessage('Password updated successfully!');
             setCurrentPassword('');
@@ -553,7 +590,7 @@
             setPasswordMessage(response.data.message || 'Failed to update password.');
           }
         } catch (err) {
-          setPasswordMessage('Error updating password.');
+          setPasswordMessage(err.response?.data?.message || 'Error updating password.');
           console.error('Error updating password:', err);
         }
       };
@@ -741,6 +778,7 @@
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
             params: { viewer: user.username },
+            timeout: 5000
           });
           if (response.data.success) {
             const accessible = [
@@ -756,7 +794,8 @@
               if (username !== user.username) {
                 try {
                   const profileResponse = await axios.get(
-                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`
+                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`,
+                    { timeout: 5000 }
                   );
                   profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
                 } catch (err) {
@@ -777,6 +816,7 @@
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
             params: { user: user.username },
+            timeout: 5000
           });
           setItems(response.data);
         } catch (err) {
@@ -793,7 +833,7 @@
           date,
         };
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/financial', item);
+          await axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
           await axios.post('https://ourlife.work.gd:8443/api/calendar', {
             user: user.username,
             title: `${description} (${type})`,
@@ -802,7 +842,7 @@
             type,
             amount: parseFloat(amount),
             eventColor: user.eventColor,
-          });
+          }, { timeout: 5000 });
           fetchItems();
           setDescription('');
           setAmount('');
@@ -814,7 +854,7 @@
       };
       const deleteItem = async (id) => {
         try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`);
+          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`, { timeout: 5000 });
           fetchItems();
         } catch (err) {
           console.error('Error deleting financial item:', err);
@@ -840,7 +880,7 @@
         setImportMessage(`Importing ${itemsToImport.length} items...`);
         try {
           const importPromises = itemsToImport.map(item => {
-            const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item);
+            const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
             const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
               user: user.username,
               title: `${item.description} (${item.type})`,
@@ -849,7 +889,7 @@
               type: item.type,
               amount: item.amount,
               eventColor: user.eventColor,
-            });
+            }, { timeout: 5000 });
             return Promise.all([financialPromise, calendarPromise]);
           });
           await Promise.all(importPromises);
@@ -1111,6 +1151,7 @@
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
             params: { viewer: user.username },
+            timeout: 5000
           });
           if (response.data.success) {
             const accessible = [
@@ -1126,7 +1167,8 @@
               if (username !== user.username) {
                 try {
                   const profileResponse = await axios.get(
-                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`
+                    `https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`,
+                    { timeout: 5000 }
                   );
                   profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
                 } catch (err) {
@@ -1148,6 +1190,7 @@
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', {
             params: { user: user.username },
+            timeout: 5000
           });
           setEvents(response.data);
         } catch (err) {
@@ -1165,7 +1208,7 @@
           eventColor: user.eventColor,
         };
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', event);
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', event, { timeout: 5000 });
           fetchEvents();
           setTitle('');
           setDate(getCurrentDateTime());
@@ -1177,7 +1220,7 @@
 
       const deleteEvent = async (id) => {
         try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`);
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
           fetchEvents();
           setShowEventModal(false);
         } catch (err) {
@@ -1377,7 +1420,7 @@
     };
 
     // Admin Component
-    const Admin = ({ user }) => {
+    const Admin = ({ user, setPage }) => {
       const [allUsers, setAllUsers] = useState([]);
       const [targetUsername, setTargetUsername] = useState('');
       const [accessList, setAccessList] = useState([]);
@@ -1387,18 +1430,22 @@
       const fetchAllUsers = async () => {
         setIsLoading(true);
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/users');
-          if (response.data && Array.isArray(response.data)) {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/users', {
+            timeout: 5000
+          });
+          if (Array.isArray(response.data)) {
             const filteredUsers = response.data
-              .filter(u => u.username !== user.username)
+              .filter(u => u.username && u.username !== user.username)
               .map(u => u.username);
             setAllUsers(filteredUsers);
           } else {
             setMessage('Failed to fetch users: Invalid response format.');
+            console.error('Invalid users response:', response.data);
           }
         } catch (err) {
-          setMessage(`Error fetching users: ${err.response ? err.response.data.message || err.message : err.message}`);
-          console.error('Error fetching users:', err.response ? err.response.data : err);
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching users';
+          setMessage(`Error fetching users: ${errorMessage}`);
+          console.error('Error fetching users:', err);
         } finally {
           setIsLoading(false);
         }
@@ -1408,18 +1455,20 @@
         setIsLoading(true);
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', {
-            params: { viewer: user.username },
+            timeout: 5000
           });
-          if (response.data.success) {
+          if (response.data.success && Array.isArray(response.data.accessList)) {
             const userAccessList = response.data.accessList
               .filter(access => access.viewer === user.username && access.target !== user.username);
             setAccessList(userAccessList);
           } else {
-            setMessage(`Failed to fetch access list: ${response.data.message || 'Unknown error'}`);
+            setMessage(`Failed to fetch access list: ${response.data.message || 'Invalid response format'}`);
+            console.error('Invalid access list response:', response.data);
           }
         } catch (err) {
-          setMessage(`Error fetching access list: ${err.response ? err.response.data.message || err.message : err.message}`);
-          console.error('Detailed error:', err.response ? err.response.data : err);
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error fetching access list';
+          setMessage(`Error fetching access list: ${errorMessage}`);
+          console.error('Error fetching access list:', err);
         } finally {
           setIsLoading(false);
         }
@@ -1434,18 +1483,19 @@
         try {
           const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
             viewer: user.username,
-            target: targetUsername,
-          });
+            target: targetUsername
+          }, { timeout: 5000 });
           if (response.data.success) {
             setMessage('Access granted successfully!');
             setTargetUsername('');
-            fetchAccessList();
+            await fetchAccessList();
           } else {
             setMessage(response.data.message || 'Failed to grant access.');
           }
         } catch (err) {
-          setMessage(`Error granting access: ${err.response ? err.response.data.message || err.message : err.message}`);
-          console.error('Error granting access:', err.response ? err.response.data : err);
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error granting access';
+          setMessage(`Error granting access: ${errorMessage}`);
+          console.error('Error granting access:', err);
         }
       };
 
@@ -1454,37 +1504,58 @@
         try {
           const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
             viewer,
-            target,
-          });
+            target
+          }, { timeout: 5000 });
           if (response.data.success) {
             setMessage('Access revoked successfully!');
-            fetchAccessList();
+            await fetchAccessList();
           } else {
             setMessage(response.data.message || 'Failed to revoke access.');
           }
         } catch (err) {
-          setMessage(`Error revoking access: ${err.response ? err.response.data.message || err.message : err.message}`);
-          console.error('Error revoking access:', err.response ? err.response.data : err);
+          const errorMessage = err.response?.data?.message || err.message || 'Unknown error revoking access';
+          setMessage(`Error revoking access: ${errorMessage}`);
+          console.error('Error revoking access:', err);
         }
       };
 
       useEffect(() => {
-        if (user.isAdmin) {
+        if (user?.isAdmin) {
           fetchAllUsers();
           fetchAccessList();
+        } else {
+          setMessage('Unauthorized: Admin access required.');
         }
-      }, [user.isAdmin]);
+      }, [user]);
+
+      if (!user?.isAdmin) {
+        return (
+          <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+            <section className="card p-8">
+              <h1 className="text-2xl font-semibold text-white mb-6">Access Denied</h1>
+              <p className="text-red-400 text-center">You do not have admin privileges.</p>
+              <button
+                onClick={() => setPage('menu')}
+                className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                aria-label="Back to Menu"
+              >
+                Back to Menu
+              </button>
+            </section>
+          </main>
+        );
+      }
 
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
+            <h1 className="text-2xl font-semibold text-white mb-6">Manage User Access</h1>
             {isLoading ? (
               <p className="text-white text-center">Loading...</p>
             ) : (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
+                  <h2 className="text-xl font-semibold text-white mb-4">Grant View Access</h2>
                   <div className="mb-4">
                     <label className="block text-white text-lg font-medium mb-2">Viewer</label>
                     <input
@@ -1505,16 +1576,23 @@
                       aria-label="Select Target User"
                     >
                       <option value="">Select a user</option>
-                      {allUsers.map((username) => (
-                        <option key={username} value={username}>
-                          {capitalizeFirstLetter(username)}
-                        </option>
-                      ))}
+                      {allUsers.length > 0 ? (
+                        allUsers.map((username) => (
+                          <option key={username} value={username}>
+                            {capitalizeFirstLetter(username)}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="" disabled>No users available</option>
+                      )}
                     </select>
                   </div>
                   <button
                     onClick={handleGrantAccess}
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                    disabled={!targetUsername}
+                    className={`w-full p-3 rounded-lg text-white ${
+                      targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'
+                    }`}
                     aria-label="Grant Access"
                   >
                     Grant Access
@@ -1560,6 +1638,13 @@
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => setPage('menu')}
+                  className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                  aria-label="Back to Menu"
+                >
+                  Back to Menu
+                </button>
               </div>
             )}
           </section>
@@ -1574,7 +1659,7 @@
 
       const handleLogin = (userInfo) => {
         setUser(userInfo);
-        setPage('menu');
+        setPage(userInfo.isAdmin ? 'admin' : 'menu');
       };
 
       const handleLogout = () => {
@@ -1583,7 +1668,7 @@
       };
 
       return (
-        <>
+        <ErrorBoundary>
           {user ? (
             <>
               <Navigation user={user} setPage={setPage} onLogout={handleLogout} />
@@ -1592,17 +1677,30 @@
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'salaryCalculator' && <SalaryCalculator user={user} setPage={setPage} />}
-              {page === 'admin' && user.isAdmin && <Admin user={user} />}
+              {page === 'admin' && <Admin user={user} setPage={setPage} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
           )}
-        </>
+        </ErrorBoundary>
       );
     };
 
     // Render the App
-    ReactDOM.render(<App />, document.getElementById('root'));
+    try {
+      ReactDOM.render(<App />, document.getElementById('root'));
+    } catch (err) {
+      console.error('Error rendering app:', err);
+      document.getElementById('root').innerHTML = `
+        <div className="error-boundary">
+          <h1>Application Error</h1>
+          <p>Failed to load the application. Please try again later.</p>
+          <button onclick="window.location.reload()" className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
+            Reload Page
+          </button>
+        </div>
+      `;
+    }
   </script>
 </body>
 </html>
