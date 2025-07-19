@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs').promises;
+const fs = require('fs'); // Import full fs module
+const fsPromises = require('fs').promises; // Import promises API
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -12,8 +13,8 @@ const rateLimit = require('express-rate-limit');
 const execPromise = util.promisify(exec);
 const app = express();
 
-const HTTPS_PORT = 8443; // Standard HTTPS port
-const HTTP_PORT = 9000; // Standard HTTP port for redirect
+const HTTPS_PORT = 8443;
+const HTTP_PORT = 9000;
 const USERS_FILE = path.join(__dirname, 'users.json');
 
 // Increase the body parser limit
@@ -107,7 +108,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
 // Helper functions
 async function readUsers() {
     try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
+        const data = await fsPromises.readFile(USERS_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -120,7 +121,7 @@ async function readUsers() {
 
 async function writeUsers(users) {
     try {
-        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+        await fsPromises.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing users file:', error);
     }
