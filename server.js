@@ -8,6 +8,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const https = require('https');
 const http = require('http');
+const rateLimit = require('express-rate-limit');
 const execPromise = util.promisify(exec);
 const app = express();
 
@@ -18,6 +19,13 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 // Increase the body parser limit
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
+
+// Rate limiting for admin endpoints
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many admin requests from this IP, please try again later.',
+});
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./ourlife.db', (err) => {
@@ -58,6 +66,13 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 viewer TEXT,
                 target TEXT,
                 UNIQUE(viewer, target)
+            )`);
+            db.run(`CREATE TABLE IF NOT EXISTS admin_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user TEXT,
+                action TEXT,
+                target TEXT,
+                timestamp TEXT
             )`);
 
             db.all(`PRAGMA table_info(financial_items)`, (err, columns) => {
@@ -132,36 +147,25 @@ async function getAccessibleUsers(viewer) {
     });
 }
 
-// Authentication and other endpoints
-
-const requireAdmin = async (req, res, next) => {
+// Authentication middleware
+const requireAuth = async (req, res, next) => {
     const { username } = req.body.username ? req.body : req.query;
     if (!username) {
         return res.json({ success: false, message: 'Username is required.' });
     }
     try {
         const users = await readUsers();
-        if (!users[username] || !users[username].isAdmin) {
-            return res.json({ success: false, message: 'Unauthorized: Admin access required.' });
+        if (!users[username]) {
+            return res.json({ success: false, message: 'User does not exist.' });
         }
         next();
     } catch (error) {
-        console.error('Error checking admin access:', error);
-        res.json({ success: false, message: 'Server error checking admin access.' });
+        console.error('Error checking user authentication:', error);
+        res.json({ success: false, message: 'Server error checking user authentication.' });
     }
 };
 
-// Apply to admin endpoints
-app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
-    // Existing code for /api/admin-update-password
-});
-app.post('/api/add-user', requireAdmin, async (req, res) => {
-    // Existing code for /api/add-user
-});
-app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
-    // Existing code for /api/delete-user
-});
-
+// Authentication and other endpoints
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -240,7 +244,7 @@ app.post('/api/update-password', async (req, res) => {
     }
 });
 
-app.post('/api/admin-update-password', async (req, res) => {
+app.post('/api/admin-update-password', requireAuth, adminLimiter, async (req, res) => {
     const { username, newPassword } = req.body;
     if (!username || !newPassword) {
         return res.json({ success: false, message: 'Username and new password are required.' });
@@ -260,148 +264,8 @@ app.post('/api/admin-update-password', async (req, res) => {
     }
 });
 
-app.get('/api/profile-pictures', (req, res) => {
-    const { username } = req.query;
-    db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-        if (err) {
-            console.error('Database error fetching profile pictures:', err.message);
-            res.json({ profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
-        } else {
-            res.json(row || { profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
-        }
-    });
-});
-
-app.post('/api/profile-pictures', (req, res) => {
-    const { username, profilePicUrl, email, phone, address, eventColor } = req.body;
-    db.run(
-        `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor) VALUES (?, ?, ?, ?, ?, ?)`,
-        [username, profilePicUrl, email, phone, address, eventColor],
-        (err) => {
-            if (err) {
-                console.error('Database error saving profile pictures:', err.message);
-                res.json({ success: false });
-            } else {
-                res.json({ success: true });
-            }
-        }
-    );
-});
-
-app.get('/api/financial', async (req, res) => {
-    const { user: viewer } = req.query;
-    try {
-        const accessibleUsers = await getAccessibleUsers(viewer);
-        db.all(
-            `SELECT * FROM financial_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
-            accessibleUsers,
-            (err, rows) => {
-                if (err) {
-                    console.error('Database error fetching financial items:', err.message);
-                    res.json([]);
-                } else {
-                    res.json(rows);
-                }
-            }
-        );
-    } catch (error) {
-        console.error('Error fetching accessible users for financial data:', error);
-        res.json([]);
-    }
-});
-
-app.post('/api/financial', (req, res) => {
-    const { user, description, amount, type, date } = req.body;
-    const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
-    db.run(
-        `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
-        [user, description, amount, type, date, color],
-        function (err) {
-            if (err) {
-                console.error('Database error adding financial item:', err.message);
-                res.json({ success: false });
-            } else {
-                res.json({ id: this.lastID, user, description, amount, type, date, color });
-            }
-        }
-    );
-});
-
-app.delete('/api/financial/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    db.run('DELETE FROM financial_items WHERE id = ?', id, (err) => {
-        if (err) {
-            console.error('Database error deleting financial item:', err.message);
-            res.json({ success: false });
-        } else {
-            res.json({ success: true });
-        }
-    });
-});
-
-app.get('/api/calendar', async (req, res) => {
-    const { user: viewer } = req.query;
-    try {
-        const accessibleUsers = await getAccessibleUsers(viewer);
-        db.all(
-            `SELECT * FROM calendar_events WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
-            accessibleUsers,
-            (err, rows) => {
-                if (err) {
-                    console.error('Database error fetching calendar events:', err.message);
-                    res.json([]);
-                } else {
-                    res.json(rows);
-                }
-            }
-        );
-    } catch (error) {
-        console.error('Error fetching accessible users for calendar events:', error);
-        res.json([]);
-    }
-});
-
-app.post('/api/calendar', (req, res) => {
-    const { user, title, date, financial, type, amount, eventColor } = req.body;
-    db.run(
-        `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [user, title, date, financial ? 1 : 0, type, amount, eventColor],
-        function (err) {
-            if (err) {
-                console.error('Database error adding calendar event:', err.message);
-                res.json({ success: false });
-            } else {
-                res.json({ id: this.lastID, user, title, date, financial, type, amount, eventColor });
-            }
-        }
-    );
-});
-
-app.delete('/api/calendar/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    db.run('DELETE FROM calendar_events WHERE id = ?', id, (err) => {
-        if (err) {
-            console.error('Database error deleting calendar event:', err.message);
-            res.json({ success: false });
-        } else {
-            res.json({ success: true });
-        }
-    });
-});
-
-app.get('/api/users', async (req, res) => {
-    try {
-        const users = await readUsers();
-        const userList = Object.keys(users).map(username => ({ username }));
-        res.json(userList);
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        res.json({ success: false, message: 'Failed to fetch users.' });
-    }
-});
-
-app.post('/api/add-user', async (req, res) => {
-    const { username, password, isAdmin = false } = req.body; // Default isAdmin to false
+app.post('/api/add-user', requireAuth, adminLimiter, async (req, res) => {
+    const { username, password, isAdmin = false } = req.body;
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
@@ -411,7 +275,7 @@ app.post('/api/add-user', async (req, res) => {
             return res.json({ success: false, message: 'User already exists.' });
         }
         const passwordHash = await bcrypt.hash(password, 10);
-        users[username] = { passwordHash, isAdmin }; // Store isAdmin flag
+        users[username] = { passwordHash, isAdmin };
         await writeUsers(users);
         res.json({ success: true, message: 'User added successfully!' });
     } catch (error) {
@@ -420,7 +284,7 @@ app.post('/api/add-user', async (req, res) => {
     }
 });
 
-app.delete('/api/delete-user/:username', async (req, res) => {
+app.delete('/api/delete-user/:username', requireAuth, adminLimiter, async (req, res) => {
     const { username } = req.params;
     try {
         const users = await readUsers();
@@ -446,65 +310,199 @@ app.delete('/api/delete-user/:username', async (req, res) => {
     }
 });
 
-app.get('/api/is-admin', async (req, res) => {
+app.post('/api/profile-pictures', async (req, res) => {
+    const { username, profilePicUrl, email, phone, address, eventColor } = req.body;
+    try {
+        db.run(
+            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor) VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, profilePicUrl, email, phone, address, eventColor],
+            (err) => {
+                if (err) {
+                    console.error('Database error saving profile:', err.message);
+                    res.json({ success: false, message: 'Failed to save profile.' });
+                } else {
+                    res.json({ success: true, message: 'Profile saved successfully!' });
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.get('/api/profile-pictures', async (req, res) => {
     const { username } = req.query;
     if (!username) {
         return res.json({ success: false, message: 'Username is required.' });
     }
     try {
-        const users = await readUsers();
-        const isAdmin = users[username]?.isAdmin || false;
-        res.json({ success: true, isAdmin });
-    } catch (error) {
-        console.error('Error checking admin status:', error);
-        res.json({ success: false, message: 'Failed to check admin status.' });
-    }
-});
-
-app.get('/api/pam-users', async (req, res) => {
-    try {
-        const { stdout } = await execPromise('getent passwd');
-        const pamUsers = stdout
-            .split('\n')
-            .filter(line => line)
-            .map(line => {
-                const [username, , uid] = line.split(':');
-                return { username, uid: parseInt(uid) };
-            })
-            .filter(user => user.uid >= 1000)
-            .map(user => user.username);
-        const users = await readUsers();
-        const appUsers = Object.keys(users);
-        const comparison = {
-            pamUsers: pamUsers,
-            appUsers: appUsers,
-            commonUsers: appUsers.filter(user => pamUsers.includes(user)),
-            appOnlyUsers: appUsers.filter(user => !pamUsers.includes(user)),
-            pamOnlyUsers: pamUsers.filter(user => !appUsers.includes(user))
-        };
-        res.json({ success: true, ...comparison });
-    } catch (error) {
-        console.error('Error fetching PAM users:', error);
-        res.json({ success: false, message: 'Failed to fetch PAM users.' });
-    }
-});
-
-app.get('/api/get-access', (req, res) => {
-    db.all(
-        `SELECT viewer, target FROM user_access`,
-        [],
-        (err, rows) => {
+        db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
             if (err) {
-                console.error('Database error fetching user access:', err.message);
-                res.json({ success: false, accessList: [] });
+                console.error('Database error fetching profile:', err.message);
+                res.json({ success: false, message: 'Failed to fetch profile.' });
+            } else if (row) {
+                res.json({ success: true, ...row });
+            } else {
+                res.json({ success: false, message: 'Profile not found.' });
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.post('/api/financial', async (req, res) => {
+    const { user, description, amount, type, date } = req.body;
+    if (!user || !description || !amount || !type || !date) {
+        return res.json({ success: false, message: 'All fields are required.' });
+    }
+    try {
+        const color = type === 'income' ? '#00FF00' : '#FF0000';
+        db.run(
+            `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
+            [user, description, amount, type, date, color],
+            function(err) {
+                if (err) {
+                    console.error('Database error adding financial item:', err.message);
+                    res.json({ success: false, message: 'Failed to add financial item.' });
+                } else {
+                    res.json({ success: true, id: this.lastID });
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Error adding financial item:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.get('/api/financial', requireAuth, async (req, res) => {
+    const { user } = req.query;
+    try {
+        const accessibleUsers = await getAccessibleUsers(user);
+        db.all(
+            `SELECT * FROM financial_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
+            accessibleUsers,
+            (err, rows) => {
+                if (err) {
+                    console.error('Database error fetching financial items:', err.message);
+                    res.json({ success: false, message: 'Failed to fetch financial items.' });
+                } else {
+                    res.json(rows);
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Error fetching financial items:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.delete('/api/financial/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        db.run(`DELETE FROM financial_items WHERE id = ?`, [id], (err) => {
+            if (err) {
+                console.error('Database error deleting financial item:', err.message);
+                res.json({ success: false, message: 'Failed to delete financial item.' });
+            } else {
+                db.run(`DELETE FROM calendar_events WHERE financial = 1 AND id = ?`, [id], (err) => {
+                    if (err) {
+                        console.error('Database error deleting related calendar event:', err.message);
+                    }
+                    res.json({ success: true, message: 'Financial item deleted successfully!' });
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error deleting financial item:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.post('/api/calendar', async (req, res) => {
+    const { user, title, date, financial, type, amount, eventColor } = req.body;
+    if (!user || !title || !date) {
+        return res.json({ success: false, message: 'User, title, and date are required.' });
+    }
+    try {
+        db.run(
+            `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [user, title, date, financial ? 1 : 0, type || null, amount || null, eventColor || '#3b82f6'],
+            function(err) {
+                if (err) {
+                    console.error('Database error adding calendar event:', err.message);
+                    res.json({ success: false, message: 'Failed to add calendar event.' });
+                } else {
+                    res.json({ success: true, id: this.lastID });
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Error adding calendar event:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.get('/api/calendar', requireAuth, async (req, res) => {
+    const { user } = req.query;
+    try {
+        const accessibleUsers = await getAccessibleUsers(user);
+        db.all(
+            `SELECT * FROM calendar_events WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
+            accessibleUsers,
+            (err, rows) => {
+                if (err) {
+                    console.error('Database error fetching calendar events:', err.message);
+                    res.json({ success: false, message: 'Failed to fetch calendar events.' });
+                } else {
+                    res.json(rows);
+                }
+            }
+        );
+    } catch (error) {
+        console.error('Error fetching calendar events:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.delete('/api/calendar/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        db.run(`DELETE FROM calendar_events WHERE id = ?`, [id], (err) => {
+            if (err) {
+                console.error('Database error deleting calendar event:', err.message);
+                res.json({ success: false, message: 'Failed to delete calendar event.' });
+            } else {
+                res.json({ success: true, message: 'Calendar event deleted successfully!' });
+            }
+        });
+    } catch (error) {
+        console.error('Error deleting calendar event:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
+});
+
+app.get('/api/get-access', requireAuth, async (req, res) => {
+    const { viewer } = req.query;
+    try {
+        db.all(`SELECT * FROM user_access WHERE viewer = ?`, [viewer], (err, rows) => {
+            if (err) {
+                console.error('Database error fetching access list:', err.message);
+                res.json({ success: false, message: 'Failed to fetch access list.' });
             } else {
                 res.json({ success: true, accessList: rows });
             }
-        }
-    );
+        });
+    } catch (error) {
+        console.error('Error fetching access list:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
 });
 
-app.post('/api/grant-access', (req, res) => {
+app.post('/api/grant-access', adminLimiter, async (req, res) => {
     const { viewer, target } = req.body;
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
@@ -512,64 +510,108 @@ app.post('/api/grant-access', (req, res) => {
     if (viewer === target) {
         return res.json({ success: false, message: 'Cannot grant access to self.' });
     }
-    db.run(
-        `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
-        [viewer, target],
-        (err) => {
-            if (err) {
-                console.error('Database error granting access:', err.message);
-                res.json({ success: false, message: 'Failed to grant access.' });
-            } else {
-                res.json({ success: true, message: `Access granted: ${viewer} can view ${target}'s data.` });
+    try {
+        db.run(
+            `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
+            [viewer, target],
+            (err) => {
+                if (err) {
+                    console.error('Database error granting access:', err.message);
+                    res.json({ success: false, message: 'Failed to grant access.' });
+                } else {
+                    db.run(
+                        `INSERT INTO admin_logs (user, action, target, timestamp) VALUES (?, ?, ?, ?)`,
+                        [viewer, 'grant_access', target, new Date().toISOString()],
+                        (logErr) => {
+                            if (logErr) {
+                                console.error('Error logging admin action:', logErr.message);
+                            }
+                            res.json({ success: true, message: `Access granted: ${viewer} can view ${target}'s data.` });
+                        }
+                    );
+                }
             }
-        }
-    );
+        );
+    } catch (error) {
+        console.error('Error granting access:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
 });
 
-app.post('/api/revoke-access', (req, res) => {
+app.delete('/api/revoke-access', adminLimiter, async (req, res) => {
     const { viewer, target } = req.body;
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
     }
-    db.run(
-        `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
-        [viewer, target],
-        (err) => {
-            if (err) {
-                console.error('Database error revoking access:', err.message);
-                res.json({ success: false, message: 'Failed to revoke access.' });
-            } else {
-                res.json({ success: true, message: `Access revoked: ${viewer} can no longer view ${target}'s data.` });
+    try {
+        db.run(
+            `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
+            [viewer, target],
+            (err) => {
+                if (err) {
+                    console.error('Database error revoking access:', err.message);
+                    res.json({ success: false, message: 'Failed to revoke access.' });
+                } else {
+                    db.run(
+                        `INSERT INTO admin_logs (user, action, target, timestamp) VALUES (?, ?, ?, ?)`,
+                        [viewer, 'revoke_access', target, new Date().toISOString()],
+                        (logErr) => {
+                            if (logErr) {
+                                console.error('Error logging admin action:', logErr.message);
+                            }
+                            res.json({ success: true, message: `Access revoked: ${viewer} can no longer view ${target}'s data.` });
+                        }
+                    );
+                }
             }
-        }
-    );
+        );
+    } catch (error) {
+        console.error('Error revoking access:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
+    }
 });
 
-// Load SSL certificates asynchronously
-async function startServer() {
+app.get('/api/get-all-access', adminLimiter, async (req, res) => {
     try {
-        const sslOptions = {
-            key: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem', 'utf8'),
-            cert: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem', 'utf8')
-        };
-
-        // Create HTTPS server
-        https.createServer(sslOptions, app).listen(HTTPS_PORT, () => {
-            console.log(`HTTPS Server running on https://ourlife.work.gd:${HTTPS_PORT}`);
-        });
-
-        // Create HTTP server to redirect to HTTPS
-        http.createServer((req, res) => {
-            res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
-            res.end();
-        }).listen(HTTP_PORT, () => {
-            console.log(`HTTP Server running on port ${HTTP_PORT}, redirecting to HTTPS`);
+        db.all(`SELECT * FROM user_access`, (err, rows) => {
+            if (err) {
+                console.error('Database error fetching all access:', err.message);
+                res.json({ success: false, message: 'Failed to fetch access list.' });
+            } else {
+                res.json({ success: true, accessList: rows });
+            }
         });
     } catch (error) {
-        console.error('Error starting server with SSL:', error);
-        process.exit(1);
+        console.error('Error fetching all access:', error);
+        res.json({ success: false, message: 'An internal server error occurred.' });
     }
-}
+});
 
-// Start the server
-startServer();
+// HTTPS server setup
+const httpsOptions = {
+    cert: fs.readFileSync(path.join(__dirname, 'ssl', 'server.crt')),
+    key: fs.readFileSync(path.join(__dirname, 'ssl', 'server.key')),
+};
+https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
+    console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
+});
+
+// HTTP server for redirecting to HTTPS
+http.createServer((req, res) => {
+    res.writeHead(301, { Location: `https://${req.headers.host.split(':')[0]}:${HTTPS_PORT}${req.url}` });
+    res.end();
+}).listen(HTTP_PORT, () => {
+    console.log(`HTTP Server running on port ${HTTP_PORT} and redirecting to HTTPS`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Closing servers...');
+    db.close((err) => {
+        if (err) {
+            console.error('Error closing database:', err.message);
+        }
+        console.log('Database connection closed.');
+        process.exit(0);
+    });
+});
