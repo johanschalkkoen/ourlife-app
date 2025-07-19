@@ -1,23 +1,23 @@
 OurLife Website
 
-Project Overview
-OurLife is a platform empowering professionals with transparent workplace reviews and career resources. This repository contains the front-end and back-end code for the website, starting with a user-friendly, responsive homepage. The goal is to foster community engagement and informed career decisions through a modern, accessible interface.
+Overview
+OurLife is a platform that empowers professionals with transparent workplace reviews and career resources. This repository contains the front-end and back-end code for the website, starting with a modern, responsive homepage. The goal is to foster community engagement and informed career decisions through an accessible, user-friendly interface.
 Homepage Wireframe
-The homepage is designed for usability, engagement, and trust, using a single-column layout optimized for desktop and mobile.
+The homepage prioritizes usability, engagement, and trust with a single-column layout optimized for desktop and mobile.
 Header (Sticky)
 
 Logo: Top-left, clickable (150x50px, e.g., "OurLife").
-Navigation: Top-right, horizontal links: Home, Reviews, Resources, About, Submit Review. Hamburger menu on mobile.
-Primary CTA: "Share Your Review" button (contrasting color, e.g., blue).
-Search Icon: Magnifying glass for quick search access.
+Navigation: Top-right, links: Home, Reviews, Resources, About, Submit Review. Hamburger menu on mobile.
+Primary CTA: "Share Your Review" button (e.g., blue).
+Search Icon: Magnifying glass for search functionality.
 
 Hero Section
 
 Background: Subtle workplace image with text overlay.
-Headline: "Discover Transparent Workplace Reviews" (H1, 32px, sans-serif, e.g., Roboto).
+Headline: "Discover Transparent Workplace Reviews" (H1, 32px, Roboto).
 Subheadline: "Read and share honest reviews to make informed career decisions" (18px).
 CTAs:
-Primary: "Browse Reviews" (links to reviews page).
+Primary: "Browse Reviews" (links to reviews).
 Secondary: "Submit a Review" (links to submission form).
 
 
@@ -36,22 +36,22 @@ Resources Section
 
 Title: "Career Resources & Tools" (H2, 24px).
 Content: Grid of 3 cards (e.g., "Salary Calculator", "Career Quiz", "Interview Tips").
-Card: Icon/image, title, short description, "Explore" link.
+Card: Icon/image, title, description, "Explore" link.
 
 
 CTA: "See All Resources" button.
 
 Call-to-Action Banner
 
-Background: Contrasting color (e.g., light gray).
+Background: Light gray.
 Text: "Join our community to shape better workplaces!" (18px).
 CTA: "Get Started" button (links to sign-up/submission).
-Visual: Small icon (e.g., handshake).
+Visual: Icon (e.g., handshake).
 
 Footer
 
-Links: Columns for About Us, Contact, Privacy Policy, Terms.
-Social Icons: LinkedIn, X, etc.
+Links: About Us, Contact, Privacy Policy, Terms.
+Social Icons: LinkedIn, X.
 Newsletter: Email input with "Subscribe" button.
 Copyright: "© 2025 OurLife. All rights reserved."
 
@@ -60,49 +60,50 @@ Design Specifications
 Colors: Navy blue, white, light gray, teal accent.
 Typography: Open Sans (body), Montserrat (headings).
 Accessibility: WCAG 2.1 AA, alt text, keyboard navigation.
-Responsive: Media queries for mobile (stacked), tablet (2-column), desktop (3-column).
-Performance: Image optimization (<200KB), lazy loading, minified CSS/JS.
+Responsive: Mobile (stacked), tablet (2-column), desktop (3-column).
+Performance: Images <200KB, lazy loading, minified CSS/JS.
 
 Getting Started
 Prerequisites
 
-OS: Ubuntu 24.10 (or compatible Linux distribution).
-Node.js: Version 18.x or later (for http-server and server.js).
-pm2: Process manager for Node.js applications.
-Nginx: Web server for reverse proxy and SSL.
-Git: For cloning the repository.
-Certbot: For Let’s Encrypt SSL certificates.
+OS: Ubuntu 24.10 (or compatible Linux).
+Node.js: v18.x or later (for http-server and server.js).
+pm2: Node.js process manager.
+Nginx: Reverse proxy and SSL.
+Git: For cloning.
+Certbot: For Let’s Encrypt SSL.
 
 Installation
-1. Clone the Repository
+
+Clone the Repository
 git clone https://github.com/username/ourlife-app.git
 cd ourlife-app
 
-2. Install Node.js and npm
-On Ubuntu 24.10, install Node.js and npm:
+
+Install Node.js and npm
 sudo apt update
 sudo apt install -y nodejs npm
 
-3. Install pm2
-Install pm2 globally to manage the web and API servers:
+
+Install pm2
 sudo npm install -g pm2
 
-4. Install http-server
-Install http-server for serving the front-end:
+
+Install http-server
 sudo npm install -g http-server
 
-5. Install Project Dependencies
-If the project has a package.json for the API server, install its dependencies:
+
+Install Project DependenciesIf a package.json exists for the API server:
 npm install
 
-6. Install and Configure Nginx
-Install Nginx to act as a reverse proxy and handle SSL:
+
+Install and Configure NginxInstall Nginx:
 sudo apt install -y nginx
 
-Create an Nginx configuration file for ourlife.work.gd:
+Create the Nginx configuration:
 sudo nano /etc/nginx/sites-available/ourlife.work.gd
 
-Add the following configuration:
+Add:
 server {
     listen 80;
     server_name ourlife.work.gd www.ourlife.work.gd;
@@ -132,53 +133,55 @@ Test and restart Nginx:
 sudo nginx -t
 sudo systemctl restart nginx
 
-7. Install Certbot for SSL
-Install Certbot to obtain Let’s Encrypt SSL certificates:
+
+Install Certbot for SSL
 sudo apt install -y certbot python3-certbot-nginx
 
-Obtain and install SSL certificates:
+Obtain SSL certificates:
 sudo certbot --nginx -d ourlife.work.gd -d www.ourlife.work.gd
 
-Follow prompts to configure SSL. This updates the Nginx configuration to enable HTTPS.
-8. Run the Application
-Start the web server (port 8080) and API server using the provided startup.sh:
+Follow prompts to enable HTTPS.
+
+Run the Application
 chmod +x startup.sh
 ./startup.sh
 
-This runs:
+Runs:
 
-http-server on port 8080, serving the front-end from /root/ourlife-app with live reloading (--watch --watch-delay 1000).
-The Node.js API server (server.js) with live reloading.
+http-server on port 8080 (front-end, live reloading).
+server.js (Node.js API, live reloading).
 
-9. Access the Site
-Visit https://ourlife.work.gd (SSL-enabled) or http://159.223.3.108:8080 (direct, non-SSL).
+
+Access the SiteVisit https://ourlife.work.gd (SSL) or http://159.223.3.108:8080 (non-SSL).
+
+
 Notes
 
-Ensure ports 80 and 443 are open:sudo ufw allow 80
+Open ports 80 and 443:sudo ufw allow 80
 sudo ufw allow 443
 
 
-Update proxy_pass in the Nginx config if using a different IP or port.
-Uncomment return 301 in the port 80 block to enforce HTTPS in production.
-Set up automatic certificate renewal:sudo crontab -e
+Update proxy_pass if using a different IP/port.
+Uncomment return 301 in the Nginx port 80 block for HTTPS redirection in production.
+Automate certificate renewal:sudo crontab -e
 
 Add: 0 0 * * * certbot renew --quiet
 
 Implementation
 
-Tech Stack: HTML, CSS (Tailwind CSS), JavaScript (front-end); Node.js (back-end, server.js); Nginx (reverse proxy, SSL).
-Tools: Figma/Canva for mockups, Google Fonts, Unsplash for images.
+Tech Stack: HTML, CSS (Tailwind CSS), JavaScript; Node.js (server.js); Nginx.
+Tools: Figma/Canva, Google Fonts, Unsplash.
 SEO: Meta tags, schema markup for reviews.
 
 Next Steps
 
-Implement backend logic for review submissions and search in server.js.
-Add analytics (e.g., Google Analytics).
+Add backend logic in server.js for reviews and search.
+Integrate analytics (e.g., Google Analytics).
 Test accessibility with WAVE or Lighthouse.
 
 Contributing
-See CONTRIBUTING.md for guidelines.
+See CONTRIBUTING.md for details.
 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License
 
 Built with transparency and community in mind.
