@@ -1531,7 +1531,7 @@
         }
       };
 
-      const fetchEvents = async () => {
+     const fetchEvents = async () => {
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', {
             params: { user: user.username },
@@ -1539,4 +1539,282 @@
           });
           setEvents(response.data);
         } catch (err) {
-          console
+          console.error('Error fetching calendar events:', err);
+        }
+      };
+
+      const addEvent = async () => {
+        if (!title || !date) return;
+        const event = {
+          user: user.username,
+          title,
+          date,
+          financial: false,
+          eventColor: user.eventColor,
+        };
+        try {
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', event, { timeout: 5000 });
+          fetchEvents();
+          setTitle('');
+          setDate(getCurrentDateTime());
+          setShowAddEventForm(false);
+        } catch (err) {
+          console.error('Error adding calendar event:', err);
+        }
+      };
+
+      const deleteEvent = async (id) => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
+          fetchEvents();
+          setShowEventModal(false);
+        } catch (err) {
+          console.error('Error deleting calendar event:', err);
+        }
+      };
+
+      const toggleUser = (username) => {
+        setSelectedUsers(prev =>
+          prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+        );
+      };
+
+      useEffect(() => {
+        fetchAccessibleUsers();
+        fetchEvents();
+      }, []);
+
+      useEffect(() => {
+        if (calendarRef.current) {
+          const calendarEl = calendarRef.current;
+          const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            events: events
+              .filter(event => selectedUsers.includes(event.user))
+              .filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter(event => filterType === 'all' || (filterType === 'financial' ? event.financial : !event.financial))
+              .map(event => ({
+                id: event.id,
+                title: event.title,
+                start: event.date,
+                backgroundColor: event.eventColor || DEFAULT_EVENT_COLOR,
+                borderColor: event.eventColor || DEFAULT_EVENT_COLOR,
+                extendedProps: { user: event.user, financial: event.financial, type: event.type, amount: event.amount },
+              })),
+            eventContent: (arg) => {
+              return {
+                html: `
+                  <div class="fc-event-main">
+                    <div class="fc-event-title">${arg.event.title}</div>
+                    <div class="fc-event-user flex items-center gap-2">
+                      <div class="event-profile-pic-container">
+                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" class="event-profile-pic" />
+                      </div>
+                      ${capitalizeFirstLetter(arg.event.extendedProps.user)}
+                    </div>
+                    ${arg.event.extendedProps.financial ? `<div>Amount: ${arg.event.extendedProps.amount}</div>` : ''}
+                  </div>
+                `,
+              };
+            },
+            eventClick: (info) => {
+              setSelectedEvent({
+                id: info.event.id,
+                title: info.event.title,
+                date: info.event.start,
+                user: info.event.extendedProps.user,
+                financial: info.event.extendedProps.financial,
+                type: info.event.extendedProps.type,
+                amount: info.event.extendedProps.amount,
+              });
+              setShowEventModal(true);
+            },
+          });
+          calendar.render();
+          return () => calendar.destroy();
+        }
+      }, [events, selectedUsers, userProfiles, searchQuery, filterType]);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <div className="profile-pic-container">
+                <img
+                  src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL}
+                  alt={`${user.username}'s profile`}
+                  className="profile-pic"
+                />
+              </div>
+              <span>Calendar</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <button
+                onClick={() => setShowAddEventForm(!showAddEventForm)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                aria-label={showAddEventForm ? 'Hide Add Event Form' : 'Show Add Event Form'}
+              >
+                {showAddEventForm ? 'Hide Form' : 'Add Event'}
+              </button>
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Search by title"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Search calendar events"
+                />
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
+                  aria-label="Filter by event type"
+                >
+                  <option value="all">All Events</option>
+                  <option value="financial">Financial</option>
+                  <option value="non-financial">Non-Financial</option>
+                </select>
+              </div>
+            </div>
+            {showAddEventForm && (
+              <div className="mb-6 p-4 card">
+                <input
+                  type="text"
+                  placeholder="Event Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Event title"
+                />
+                <input
+                  type="datetime-local"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
+                  aria-label="Event date"
+                />
+                <button
+                  onClick={addEvent}
+                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                  aria-label="Add Calendar Event"
+                >
+                  Add Event
+                </button>
+              </div>
+            )}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map((username) => (
+                  <label key={username} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(username)}
+                      onChange={() => toggleUser(username)}
+                      className="rounded text-teal-500 focus:ring-teal-400"
+                      aria-label={`Filter by ${username}`}
+                    />
+                    <div className="event-profile-pic-container">
+                      <img
+                        src={userProfiles[username] || DEFAULT_PROFILE_PIC_URL}
+                        alt={`${username}'s profile`}
+                        className="event-profile-pic"
+                      />
+                    </div>
+                    <span>{capitalizeFirstLetter(username)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div ref={calendarRef} className="card p-4"></div>
+            {showEventModal && selectedEvent && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="card p-6 max-w-sm w-full modal show">
+                  <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
+                  <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                  <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
+                  {selectedEvent.financial && (
+                    <>
+                      <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
+                      <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
+                    </>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowEventModal(false)}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                      aria-label="Close event modal"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => deleteEvent(selectedEvent.id)}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      aria-label={`Delete event ${selectedEvent.title}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
+    // App Component
+    const App = () => {
+      const [user, setUser] = useState(null);
+      const [page, setPage] = useState('login');
+
+      const handleLogin = (userInfo) => {
+        setUser(userInfo);
+        setPage('menu');
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        setPage('login');
+      };
+
+      return (
+        <ErrorBoundary>
+          {user ? (
+            <>
+              <Navigation user={user} setPage={setPage} onLogout={handleLogout} />
+              {page === 'menu' && <Menu user={user} setPage={setPage} />}
+              {page === 'financial' && <Financial user={user} setPage={setPage} />}
+              {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
+              {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
+              {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
+              {page === 'about' && <About setPage={setPage} />}
+              {page === 'support' && <Support setPage={setPage} />}
+              {page === 'contact' && <Contact setPage={setPage} />}
+            </>
+          ) : (
+            <Login onLogin={handleLogin} />
+          )}
+        </ErrorBoundary>
+      );
+    };
+
+    // Render the App
+    try {
+      ReactDOM.render(<App />, document.getElementById('root'));
+    } catch (err) {
+      console.error('Error rendering app:', err);
+      document.getElementById('root').innerHTML = `
+        <div class="error-boundary">
+          <h1>Application Error</h1>
+          <p>Failed to load the application. Please try again later.</p>
+          <button onclick="window.location.reload()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
+            Reload Page
+          </button>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
