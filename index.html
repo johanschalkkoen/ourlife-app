@@ -301,6 +301,14 @@
             >
               Budget Calculator
             </button>
+             <button
+              onClick={() => handleNavClick('about')}
+              onKeyDown={(e) => handleKeyDown(e, 'about')}
+              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
+              tabIndex={0}
+            >
+              About
+            </button>
             <button
               onClick={onLogout}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onLogout(); }}
@@ -404,7 +412,7 @@
               </div>
               <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
             </h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <button
                 onClick={() => setPage('financial')}
                 className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
@@ -433,6 +441,13 @@
               >
                 Use Budget Calculator
               </button>
+               <button
+                onClick={() => setPage('about')}
+                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
+                aria-label="About OurLife"
+              >
+                About OurLife
+              </button>
             </div>
             <div className="text-center mb-6">
               <h2 className="text-xl font-semibold text-white mb-2">Trusted by Users</h2>
@@ -441,6 +456,40 @@
             <div className="card p-4 text-center">
               <p className="text-white italic">"{testimonials[currentTestimonial].quote}"</p>
               <p className="text-gray-300 mt-2">— {testimonials[currentTestimonial].author}</p>
+            </div>
+          </section>
+        </main>
+      );
+    };
+    
+    // About Component
+    const About = ({ setPage }) => {
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8 text-center">
+            <h1 className="text-2xl font-semibold text-white mb-4">About OurLife</h1>
+            <p className="text-gray-300 mb-4">
+              OurLife is a financial and calendar partner app designed to help you organize your life seamlessly.
+            </p>
+            <p className="text-gray-300 mb-6">
+              Created and developed by Johan Koen.
+            </p>
+            <a
+              href="https://www.linkedin.com/in/johan-koen-12a11b234/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6"
+            >
+              Connect on LinkedIn
+            </a>
+            <div>
+              <button
+                onClick={() => setPage('menu')}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                aria-label="Back to Menu"
+              >
+                Back to Menu
+              </button>
             </div>
           </section>
         </main>
@@ -1719,6 +1768,7 @@
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
+              {page === 'about' && <About setPage={setPage} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
