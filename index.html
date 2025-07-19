@@ -249,14 +249,16 @@
             >
               Profile
             </button>
-            <button
-              onClick={() => handleNavClick('admin')}
-              onKeyDown={(e) => handleKeyDown(e, 'admin')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Admin
-            </button>
+            {user.isAdmin && (
+              <button
+                onClick={() => handleNavClick('admin')}
+                onKeyDown={(e) => handleKeyDown(e, 'admin')}
+                className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
+                tabIndex={0}
+              >
+                Admin
+              </button>
+            )}
             <button
               onClick={() => handleNavClick('salaryCalculator')}
               onKeyDown={(e) => handleKeyDown(e, 'salaryCalculator')}
@@ -1404,9 +1406,6 @@
           setMessage('Viewer and target cannot be the same.');
           return;
         }
-        if (!window.confirm(`Grant ${viewerUsername} access to ${targetUsername}'s data?`)) {
-          return;
-        }
         setMessage('Granting access...');
         try {
           const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
@@ -1428,9 +1427,6 @@
       };
 
       const handleRevokeAccess = async (viewer, target) => {
-        if (!window.confirm(`Revoke ${viewer}'s access to ${target}'s data?`)) {
-          return;
-        }
         setMessage('Revoking access...');
         try {
           const response = await axios.delete('https://ourlife.work.gd:8443/api/revoke-access', {
@@ -1449,8 +1445,10 @@
       };
 
       useEffect(() => {
-        fetchAccessList();
-      }, []);
+        if (user.isAdmin) {
+          fetchAccessList();
+        }
+      }, [user.isAdmin]);
 
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -1550,7 +1548,7 @@
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'salaryCalculator' && <SalaryCalculator user={user} setPage={setPage} />}
-              {page === 'admin' && <Admin user={user} />}
+              {page === 'admin' && user.isAdmin && <Admin user={user} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
