@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 #
-for i in `ps aux | grep node | grep -v grep | awk '{print $2}' ; ` ; do kill -9 $i ; done
-sleep 1
+/root/ourlife-app/kill.sh
 node server.js &
-npx serve --listen 80 & 
+npx serve --listen 8080 & 
