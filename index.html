@@ -145,7 +145,7 @@
       padding: 2rem;
       color: #f87171;
     }
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .hamburger-menu {
         display: block;
       }
@@ -161,6 +161,7 @@
         right: 0;
         background: #1e293b;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 40;
       }
     }
   </style>
@@ -235,7 +236,6 @@
       const [isMenuOpen, setIsMenuOpen] = useState(false);
       const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
       const handleNavClick = (page) => {
-        console.log(`Navigating to page: ${page}, User isAdmin: ${user.isAdmin}`);
         setPage(page);
         setIsMenuOpen(false);
       };
@@ -251,7 +251,7 @@
             <h1 className="text-xl font-semibold text-white">OurLife Dashboard</h1>
           </div>
           <button
-            className="hamburger-menu sm:hidden text-white focus:outline-none"
+            className="hamburger-menu md:hidden text-white focus:outline-none"
             onClick={toggleMenu}
             tabIndex={0}
             aria-label="Toggle navigation menu"
@@ -260,63 +260,16 @@
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
           </button>
-          <div className={`nav-links flex space-x-4 sm:flex ${isMenuOpen ? 'open' : ''}`}>
-            <button
-              onClick={() => handleNavClick('menu')}
-              onKeyDown={(e) => handleKeyDown(e, 'menu')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Home
-            </button>
-            <button
-              onClick={() => handleNavClick('financial')}
-              onKeyDown={(e) => handleKeyDown(e, 'financial')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Finances
-            </button>
-            <button
-              onClick={() => handleNavClick('calendar')}
-              onKeyDown={(e) => handleKeyDown(e, 'calendar')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Calendar
-            </button>
-            <button
-              onClick={() => handleNavClick('profileSettings')}
-              onKeyDown={(e) => handleKeyDown(e, 'profileSettings')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Profile
-            </button>
-            <button
-              onClick={() => handleNavClick('budgetCalculator')}
-              onKeyDown={(e) => handleKeyDown(e, 'budgetCalculator')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              Budget Calculator
-            </button>
-             <button
-              onClick={() => handleNavClick('about')}
-              onKeyDown={(e) => handleKeyDown(e, 'about')}
-              className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
-              tabIndex={0}
-            >
-              About
-            </button>
-            <button
-              onClick={onLogout}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onLogout(); }}
-              className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              tabIndex={0}
-            >
-              Sign Out
-            </button>
+          <div className={`nav-links flex-col md:flex-row md:flex space-x-0 md:space-x-2 ${isMenuOpen ? 'open' : ''}`}>
+            <button onClick={() => handleNavClick('menu')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Home</button>
+            <button onClick={() => handleNavClick('financial')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Finances</button>
+            <button onClick={() => handleNavClick('calendar')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Calendar</button>
+            <button onClick={() => handleNavClick('profileSettings')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Profile</button>
+            <button onClick={() => handleNavClick('budgetCalculator')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget</button>
+            <button onClick={() => handleNavClick('about')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">About</button>
+            <button onClick={() => handleNavClick('support')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Support</button>
+            <button onClick={() => handleNavClick('contact')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Contact</button>
+            <button onClick={onLogout} className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 w-full text-left md:w-auto">Sign Out</button>
           </div>
         </nav>
       );
@@ -342,14 +295,12 @@
               eventColor: response.data.eventColor || DEFAULT_EVENT_COLOR,
               isAdmin: response.data.isAdmin || false
             };
-            console.log('Login successful, userInfo:', userInfo);
             onLogin(userInfo);
           } else {
             setError(response.data.message || 'Login failed.');
           }
         } catch (err) {
           setError(err.response?.data?.message || 'Error during login. Check server.');
-          console.error('Login error:', err);
         }
       };
       return (
@@ -412,42 +363,14 @@
               </div>
               <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
             </h1>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <button
-                onClick={() => setPage('financial')}
-                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="Add Financial Item"
-              >
-                Add Financial Item
-              </button>
-              <button
-                onClick={() => setPage('calendar')}
-                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="Add Calendar Event"
-              >
-                Add Calendar Event
-              </button>
-              <button
-                onClick={() => setPage('profileSettings')}
-                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="Update Profile"
-              >
-                Update Profile
-              </button>
-              <button
-                onClick={() => setPage('budgetCalculator')}
-                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="Use Budget Calculator"
-              >
-                Use Budget Calculator
-              </button>
-               <button
-                onClick={() => setPage('about')}
-                className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="About OurLife"
-              >
-                About OurLife
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+              <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Finances</button>
+              <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
+              <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
+              <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
+              <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
+              <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
+              <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
             </div>
             <div className="text-center mb-6">
               <h2 className="text-xl font-semibold text-white mb-2">Trusted by Users</h2>
@@ -466,34 +389,142 @@
     const About = ({ setPage }) => {
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8 text-center">
-            <h1 className="text-2xl font-semibold text-white mb-4">About OurLife</h1>
+          <section className="card p-8 text-left">
+            <h1 className="text-2xl font-semibold text-white mb-4 text-center">About OurLife</h1>
             <p className="text-gray-300 mb-4">
-              OurLife is a financial and calendar partner app designed to help you organize your life seamlessly.
+              Welcome to <strong>OurLife</strong>, your comprehensive digital solution for managing personal and shared finances and schedules. In today's fast-paced world, staying organized is key to achieving your goals, and OurLife is designed to be the ultimate partner on your journey to financial clarity and a well-planned life.
             </p>
-            <p className="text-gray-300 mb-6">
-              Created and developed by Johan Koen.
+            <p className="text-gray-300 mb-4">
+              Our platform provides a secure, intuitive, and collaborative environment where users can track income and expenses, manage budgets, and coordinate events on a shared calendar. Whether you are managing your personal finances, coordinating with a partner, or keeping the family on the same page, OurLife offers the tools you need to succeed.
             </p>
-            <a
-              href="https://www.linkedin.com/in/johan-koen-12a11b234/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6"
-            >
-              Connect on LinkedIn
-            </a>
-            <div>
-              <button
-                onClick={() => setPage('menu')}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                aria-label="Back to Menu"
-              >
-                Back to Menu
-              </button>
+             <p className="text-gray-300 mb-6">
+              OurLife was created and developed by <strong>Johan Koen</strong>, a forward-thinking developer passionate about creating technology that makes a tangible difference in people's lives. You can connect with him on LinkedIn to learn more about his work.
+            </p>
+            <div className="text-center">
+                <a
+                  href="https://www.linkedin.com/in/johan-koen-12a11b234/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6"
+                >
+                  Connect on LinkedIn
+                </a>
+                <div>
+                  <button
+                    onClick={() => setPage('menu')}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                    aria-label="Back to Menu"
+                  >
+                    Back to Menu
+                  </button>
+                </div>
             </div>
           </section>
         </main>
       );
+    };
+    
+    // Support Component
+    const Support = ({ setPage }) => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [message, setMessage] = useState('');
+        const [submitted, setSubmitted] = useState(false);
+        
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            // In a real app, you would send this data to a server
+            console.log({ name, email, message });
+            setSubmitted(true);
+        };
+
+        return (
+            <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+                <section className="card p-8">
+                    <h1 className="text-2xl font-semibold text-white mb-6 text-center">Support & FAQ</h1>
+                    <div className="space-y-4 mb-8 text-left">
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">How do I add a financial item?</h3>
+                            <p className="text-gray-300">Navigate to the "Finances" page and use the "Add Item" button to open the form. Fill in the details and click "Add Item" to save it. The item will also automatically appear on your calendar.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">Can I share my data with another user?</h3>
+                            <p className="text-gray-300">Yes, if you have admin privileges. Go to "Profile Settings" and use the "Manage User Access" section to grant another user view access to your financial and calendar data.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400">How do I change my password?</h3>
+                            <p className="text-gray-300">In "Profile Settings", you'll find a "Change Password" section. You'll need to enter your current password and a new password to update it.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="border-t border-white/10 pt-8">
+                        <h2 className="text-xl font-semibold text-white mb-4 text-center">Submit a Support Ticket</h2>
+                        {submitted ? (
+                            <p className="text-green-400 text-center">Thank you! Your request has been submitted.</p>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your Email" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Describe your issue..." rows="4" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required></textarea>
+                                <button type="submit" className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Submit</button>
+                            </form>
+                        )}
+                    </div>
+
+                    <div className="text-center mt-8">
+                        <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Back to Menu</button>
+                    </div>
+                </section>
+            </main>
+        );
+    };
+
+    // Contact Component
+    const Contact = ({ setPage }) => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [message, setMessage] = useState('');
+        const [submitted, setSubmitted] = useState(false);
+
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            console.log({ name, email, message });
+            setSubmitted(true);
+        };
+
+        return (
+            <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+                <section className="card p-8">
+                    <h1 className="text-2xl font-semibold text-white mb-6 text-center">Contact Us</h1>
+                    <div className="grid md:grid-cols-2 gap-8 mb-8 text-left">
+                        <div>
+                            <h3 className="font-semibold text-lg text-teal-400 mb-2">Get in Touch</h3>
+                            <p className="text-gray-300">Have a question, feedback, or a business inquiry? We'd love to hear from you. Use the form or contact us directly.</p>
+                            <div className="mt-4 space-y-2">
+                                <p className="text-gray-300"><strong>Email:</strong> support@ourlife.work.gd</p>
+                                <p className="text-gray-300"><strong>Phone:</strong> +27 (11) 555-0123</p>
+                                <p className="text-gray-300"><strong>Location:</strong> Alberton, Gauteng, South Africa</p>
+                            </div>
+                        </div>
+                        <div>
+                            {submitted ? (
+                                <p className="text-green-400 text-center md:text-left">Thank you for your message! We'll get back to you shortly.</p>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your Email" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required />
+                                    <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Your Message..." rows="4" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" required></textarea>
+                                    <button type="submit" className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Send Message</button>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                     <div className="text-center mt-8">
+                        <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Back to Menu</button>
+                    </div>
+                </section>
+            </main>
+        );
     };
 
     // Budget Calculator Component
@@ -1744,19 +1775,13 @@
 
       const handleLogin = (userInfo) => {
         setUser(userInfo);
-        console.log('Setting page to menu for user:', userInfo);
         setPage('menu');
       };
 
       const handleLogout = () => {
-        console.log('Logging out, resetting user and page');
         setUser(null);
         setPage('login');
       };
-
-      useEffect(() => {
-        console.log('Current page:', page, 'User:', user);
-      }, [page, user]);
 
       return (
         <ErrorBoundary>
@@ -1769,6 +1794,8 @@
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
               {page === 'about' && <About setPage={setPage} />}
+              {page === 'support' && <Support setPage={setPage} />}
+              {page === 'contact' && <Contact setPage={setPage} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
