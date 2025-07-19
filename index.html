@@ -288,12 +288,12 @@
               Profile
             </button>
             <button
-              onClick={() => handleNavClick('salaryCalculator')}
-              onKeyDown={(e) => handleKeyDown(e, 'salaryCalculator')}
+              onClick={() => handleNavClick('budgetCalculator')}
+              onKeyDown={(e) => handleKeyDown(e, 'budgetCalculator')}
               className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg"
               tabIndex={0}
             >
-              Salary Calculator
+              Budget Calculator
             </button>
             <button
               onClick={onLogout}
@@ -421,11 +421,11 @@
                 Update Profile
               </button>
               <button
-                onClick={() => setPage('salaryCalculator')}
+                onClick={() => setPage('budgetCalculator')}
                 className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center"
-                aria-label="Use Salary Calculator"
+                aria-label="Use Budget Calculator"
               >
-                Use Salary Calculator
+                Use Budget Calculator
               </button>
             </div>
             <div className="text-center mb-6">
@@ -441,46 +441,102 @@
       );
     };
 
-    // Salary Calculator Component
-    const SalaryCalculator = ({ user, setPage }) => {
-      const [grossSalary, setGrossSalary] = useState('');
-      const [netSalary, setNetSalary] = useState(null);
-      const calculateNetSalary = () => {
-        const gross = parseFloat(grossSalary);
-        if (isNaN(gross) || gross <= 0) {
-          setNetSalary(null);
-          return;
-        }
-        const taxRate = 0.3; // Simplified 30% tax rate
-        const net = gross * (1 - taxRate);
-        setNetSalary(net.toFixed(2));
-      };
+    // Budget Calculator Component
+    const BudgetCalculator = ({ user, setPage }) => {
+      const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
+      const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState('');
+      const [currentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+
+      useEffect(() => {
+        const fetchFinancialData = async () => {
+          setIsLoading(true);
+          setError('');
+          try {
+            const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+              params: { user: user.username },
+              timeout: 5000
+            });
+            
+            const userItems = response.data.filter(item =>
+              item.user === user.username && item.date.startsWith(currentMonth)
+            );
+
+            const income = userItems
+              .filter(item => item.type === 'income')
+              .reduce((sum, item) => sum + item.amount, 0);
+
+            const expense = userItems
+              .filter(item => item.type === 'expense')
+              .reduce((sum, item) => sum + item.amount, 0);
+
+            setSummary({ income, expense, balance: income - expense });
+          } catch (err) {
+            setError('Failed to load financial data.');
+            console.error('Error fetching financial data for budget:', err);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        fetchFinancialData();
+      }, [user.username, currentMonth]);
+
+      const expensePercentage = summary.income > 0 ? (summary.expense / summary.income) * 100 : 0;
+
       return (
         <main className="p-4 sm:p-6 max-w-4xl mx-auto">
           <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Salary Calculator</h1>
-            <div className="space-y-4">
-              <input
-                type="number"
-                placeholder="Enter Gross Salary (ZAR)"
-                value={grossSalary}
-                onChange={(e) => setGrossSalary(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                aria-label="Gross Salary"
-              />
-              <button
-                onClick={calculateNetSalary}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                aria-label="Calculate Net Salary"
-              >
-                Calculate
-              </button>
-              {netSalary && (
-                <p className="text-white text-center">
-                  Estimated Net Salary: R{netSalary} (after 30% tax)
-                </p>
-              )}
-            </div>
+            <h1 className="text-2xl font-semibold text-white mb-6">Monthly Budget Calculator</h1>
+            {isLoading ? (
+              <p className="text-white text-center">Calculating...</p>
+            ) : error ? (
+              <p className="text-red-400 text-center">{error}</p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Summary for {new Date(currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                  <div className="card p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-green-400 font-semibold">Total Income:</span>
+                      <span className="text-green-400">R{summary.income.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-400 font-semibold">Total Expenses:</span>
+                      <span className="text-red-400">R{summary.expense.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-white/10 my-2"></div>
+                    <div className="flex justify-between items-center font-bold text-xl">
+                      <span className="text-white">Net Balance:</span>
+                      <span className={summary.balance >= 0 ? 'text-teal-400' : 'text-orange-400'}>
+                        R{summary.balance.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Expense Breakdown</h2>
+                  <div className="w-full bg-gray-700 rounded-full h-6">
+                    <div
+                      className="bg-red-500 h-6 rounded-full text-center text-white text-sm flex items-center justify-center"
+                      style={{ width: `${Math.min(expensePercentage, 100)}%` }}
+                    >
+                      {expensePercentage > 5 ? `${expensePercentage.toFixed(0)}%` : ''}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-2 text-center">
+                    You have spent {expensePercentage.toFixed(0)}% of your income.
+                  </p>
+                </div>
+                 <button
+                    onClick={() => setPage('menu')}
+                    className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                    aria-label="Back to Menu"
+                  >
+                    Back to Menu
+                  </button>
+              </div>
+            )}
           </section>
         </main>
       );
@@ -1466,11 +1522,11 @@
             eventContent: (arg) => {
               return {
                 html: `
-                  <div className="fc-event-main">
-                    <div className="fc-event-title">${arg.event.title}</div>
-                    <div className="fc-event-user flex items-center gap-2">
-                      <div className="event-profile-pic-container">
-                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" className="event-profile-pic" />
+                  <div class="fc-event-main">
+                    <div class="fc-event-title">${arg.event.title}</div>
+                    <div class="fc-event-user flex items-center gap-2">
+                      <div class="event-profile-pic-container">
+                        <img src="${userProfiles[arg.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${arg.event.extendedProps.user}'s profile" class="event-profile-pic" />
                       </div>
                       ${capitalizeFirstLetter(arg.event.extendedProps.user)}
                     </div>
@@ -1656,7 +1712,7 @@
               {page === 'financial' && <Financial user={user} setPage={setPage} />}
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
-              {page === 'salaryCalculator' && <SalaryCalculator user={user} setPage={setPage} />}
+              {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
             </>
           ) : (
             <Login onLogin={handleLogin} />
@@ -1671,10 +1727,10 @@
     } catch (err) {
       console.error('Error rendering app:', err);
       document.getElementById('root').innerHTML = `
-        <div className="error-boundary">
+        <div class="error-boundary">
           <h1>Application Error</h1>
           <p>Failed to load the application. Please try again later.</p>
-          <button onclick="window.location.reload()" className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
+          <button onclick="window.location.reload()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
             Reload Page
           </button>
         </div>
