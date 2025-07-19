@@ -229,6 +229,7 @@
       const [isMenuOpen, setIsMenuOpen] = useState(false);
       const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
       const handleNavClick = (page) => {
+        console.log(`Navigating to page: ${page}, User isAdmin: ${user.isAdmin}`);
         setPage(page);
         setIsMenuOpen(false);
       };
@@ -337,6 +338,7 @@
               eventColor: response.data.eventColor || DEFAULT_EVENT_COLOR,
               isAdmin: response.data.isAdmin || false
             };
+            console.log('Login successful, userInfo:', userInfo);
             onLogin(userInfo);
           } else {
             setError(response.data.message || 'Login failed.');
@@ -1438,6 +1440,7 @@
               .filter(u => u.username && u.username !== user.username)
               .map(u => u.username);
             setAllUsers(filteredUsers);
+            console.log('Fetched users:', filteredUsers);
           } else {
             setMessage('Failed to fetch users: Invalid response format.');
             console.error('Invalid users response:', response.data);
@@ -1461,6 +1464,7 @@
             const userAccessList = response.data.accessList
               .filter(access => access.viewer === user.username && access.target !== user.username);
             setAccessList(userAccessList);
+            console.log('Fetched access list:', userAccessList);
           } else {
             setMessage(`Failed to fetch access list: ${response.data.message || 'Invalid response format'}`);
             console.error('Invalid access list response:', response.data);
@@ -1521,10 +1525,12 @@
 
       useEffect(() => {
         if (user?.isAdmin) {
+          console.log('Admin user detected, fetching data...');
           fetchAllUsers();
           fetchAccessList();
         } else {
           setMessage('Unauthorized: Admin access required.');
+          console.log('Non-admin user detected:', user);
         }
       }, [user]);
 
@@ -1659,13 +1665,20 @@
 
       const handleLogin = (userInfo) => {
         setUser(userInfo);
-        setPage(userInfo.isAdmin ? 'admin' : 'menu');
+        const targetPage = userInfo.isAdmin ? 'admin' : 'menu';
+        console.log(`Setting page to ${targetPage} for user:`, userInfo);
+        setPage(targetPage);
       };
 
       const handleLogout = () => {
+        console.log('Logging out, resetting user and page');
         setUser(null);
         setPage('login');
       };
+
+      useEffect(() => {
+        console.log('Current page:', page, 'User:', user);
+      }, [page, user]);
 
       return (
         <ErrorBoundary>
