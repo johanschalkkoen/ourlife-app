@@ -18,6 +18,7 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 // Increase the body parser limit
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
+app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public folder
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./ourlife.db', (err) => {
@@ -150,6 +151,11 @@ const requireAdmin = async (req, res, next) => {
         res.json({ success: false, message: 'Server error checking admin access.' });
     }
 };
+
+// Admin page route
+app.get('/admin', requireAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 // Apply to admin endpoints
 app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
