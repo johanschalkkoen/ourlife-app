@@ -1,14 +1,15 @@
 OurLife Website
+
 Project Overview
-OurLife is a platform designed to empower professionals with transparent workplace reviews and career resources. This repository contains the front-end and back-end code for the website, starting with the homepage. The goal is to create a user-friendly, responsive, and accessible site that encourages community engagement and informed career decisions.
+OurLife is a platform empowering professionals with transparent workplace reviews and career resources. This repository contains the front-end and back-end code for the website, starting with a user-friendly, responsive homepage. The goal is to foster community engagement and informed career decisions through a modern, accessible interface.
 Homepage Wireframe
-The homepage is structured to prioritize usability, engagement, and trust. Below is the wireframe layout for a modern, single-column design optimized for desktop and mobile.
+The homepage is designed for usability, engagement, and trust, using a single-column layout optimized for desktop and mobile.
 Header (Sticky)
 
 Logo: Top-left, clickable (150x50px, e.g., "OurLife").
-Navigation: Top-right, horizontal links: "Home", "Reviews", "Resources", "About", "Submit Review". Hamburger menu on mobile.
+Navigation: Top-right, horizontal links: Home, Reviews, Resources, About, Submit Review. Hamburger menu on mobile.
 Primary CTA: "Share Your Review" button (contrasting color, e.g., blue).
-Search Icon: Magnifying glass for quick access to search functionality.
+Search Icon: Magnifying glass for quick search access.
 
 Hero Section
 
@@ -49,7 +50,7 @@ Visual: Small icon (e.g., handshake).
 
 Footer
 
-Links: Columns for "About Us", "Contact", "Privacy Policy", "Terms".
+Links: Columns for About Us, Contact, Privacy Policy, Terms.
 Social Icons: LinkedIn, X, etc.
 Newsletter: Email input with "Subscribe" button.
 Copyright: "© 2025 OurLife. All rights reserved."
@@ -124,25 +125,23 @@ server {
     }
 }
 
-Enable the configuration by linking it:
+Enable the configuration:
 sudo ln -s /etc/nginx/sites-available/ourlife.work.gd /etc/nginx/sites-enabled/
 
-Test the Nginx configuration:
+Test and restart Nginx:
 sudo nginx -t
-
-Restart Nginx to apply changes:
 sudo systemctl restart nginx
 
 7. Install Certbot for SSL
 Install Certbot to obtain Let’s Encrypt SSL certificates:
 sudo apt install -y certbot python3-certbot-nginx
 
-Obtain and install SSL certificates for ourlife.work.gd and www.ourlife.work.gd:
+Obtain and install SSL certificates:
 sudo certbot --nginx -d ourlife.work.gd -d www.ourlife.work.gd
 
-Follow the prompts to configure SSL. This will update the Nginx configuration to enable HTTPS and store certificates in /etc/letsencrypt/live/ourlife.work.gd/.
+Follow prompts to configure SSL. This updates the Nginx configuration to enable HTTPS.
 8. Run the Application
-Use the provided startup.sh script to start both the web server (port 8080) and API server:
+Start the web server (port 8080) and API server using the provided startup.sh:
 chmod +x startup.sh
 ./startup.sh
 
@@ -152,16 +151,16 @@ http-server on port 8080, serving the front-end from /root/ourlife-app with live
 The Node.js API server (server.js) with live reloading.
 
 9. Access the Site
-Open a browser and navigate to https://ourlife.work.gd (SSL-enabled) or http://159.223.3.108:8080 (direct, non-SSL).
+Visit https://ourlife.work.gd (SSL-enabled) or http://159.223.3.108:8080 (direct, non-SSL).
 Notes
 
-Ensure port 80 and 443 are open in your firewall for Nginx:sudo ufw allow 80
+Ensure ports 80 and 443 are open:sudo ufw allow 80
 sudo ufw allow 443
 
 
-The Nginx configuration proxies requests to http://159.223.3.108:8080. Update proxy_pass if using a different IP or port.
-The commented return 301 in the port 80 block suggests HTTP-to-HTTPS redirection is disabled. Uncomment it to enforce HTTPS after testing.
-Renew Let’s Encrypt certificates automatically by setting up a cron job:sudo crontab -e
+Update proxy_pass in the Nginx config if using a different IP or port.
+Uncomment return 301 in the port 80 block to enforce HTTPS in production.
+Set up automatic certificate renewal:sudo crontab -e
 
 Add: 0 0 * * * certbot renew --quiet
 
@@ -173,11 +172,13 @@ SEO: Meta tags, schema markup for reviews.
 
 Next Steps
 
-Add backend logic for review submissions and search in server.js.
-Implement analytics (e.g., Google Analytics).
+Implement backend logic for review submissions and search in server.js.
+Add analytics (e.g., Google Analytics).
 Test accessibility with WAVE or Lighthouse.
 
 Contributing
 See CONTRIBUTING.md for guidelines.
+License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 Built with transparency and community in mind.
