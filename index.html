@@ -168,31 +168,14 @@
         try {
           const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
           if (response.data.success) {
-            let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
-            let eventColor = DEFAULT_EVENT_COLOR;
-            let email = '';
-            let phone = '';
-            let address = '';
-            let isAdmin = false;
-            try {
-              const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-              profilePicUrl = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-              eventColor = profileResponse.data.eventColor || DEFAULT_EVENT_COLOR;
-              email = profileResponse.data.email || '';
-              phone = profileResponse.data.phone || '';
-              address = profileResponse.data.address || '';
-              isAdmin = profileResponse.data.isAdmin || false;
-            } catch (profileErr) {
-              console.error('Error fetching profile data:', profileErr);
-            }
             const userInfo = {
               username,
-              profilePicUrl,
-              email,
-              phone,
-              address,
-              eventColor,
-              isAdmin,
+              profilePicUrl: response.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL,
+              email: response.data.email || '',
+              phone: response.data.phone || '',
+              address: response.data.address || '',
+              eventColor: response.data.eventColor || DEFAULT_EVENT_COLOR,
+              isAdmin: response.data.isAdmin || false
             };
             onLogin(userInfo);
           } else {
@@ -236,6 +219,7 @@
         </div>
       );
     };
+
     const Menu = ({ user, setPage, onLogout }) => {
       return (
         <div className="flex items-center justify-center min-h-screen px-4">
@@ -287,6 +271,7 @@
         </div>
       );
     };
+
     const ProfileSettings = ({ user, setPage, onLogout }) => {
       const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
       const [selectedFile, setSelectedFile] = useState(null);
@@ -1285,11 +1270,13 @@
         </div>
       );
     };
+
     const Admin = ({ user, setPage, onLogout }) => {
       const [users, setUsers] = useState([]);
       const [newUsername, setNewUsername] = useState('');
       const [newPassword, setNewPassword] = useState('');
       const [confirmNewPassword, setConfirmNewPassword] = useState('');
+      const [isAdmin, setIsAdmin] = useState(false);
       const [message, setMessage] = useState('');
       const [pamComparison, setPamComparison] = useState(null);
       const [selectedUser, setSelectedUser] = useState('');
@@ -1300,8 +1287,7 @@
       const [accessTarget, setAccessTarget] = useState('');
       const [accessMessage, setAccessMessage] = useState('');
       const [accessList, setAccessList] = useState([]);
-      const [adminUser, setAdminUser] = useState('');
-      const [adminMessage, setAdminMessage] = useState('');
+
       const fetchUsers = async () => {
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/users');
@@ -1315,6 +1301,7 @@
           console.error('Error fetching users:', err);
         }
       };
+
       const fetchPamUsers = async () => {
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/pam-users');
@@ -1328,6 +1315,7 @@
           console.error('Error fetching PAM users:', err);
         }
       };
+
       const fetchAccessList = async () => {
         try {
           const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
@@ -1341,11 +1329,13 @@
           console.error('Error fetching access list:', err);
         }
       };
+
       useEffect(() => {
         fetchUsers();
         fetchPamUsers();
         fetchAccessList();
       }, []);
+
       const handleAddUser = async (e) => {
         e.preventDefault();
         setMessage('');
@@ -1364,13 +1354,15 @@
         try {
           const response = await axios.post('https://ourlife.work.gd:8443/api/add-user', {
             username: newUsername,
-            password: newPassword
+            password: newPassword,
+            isAdmin
           });
           if (response.data.success) {
             setMessage('User added successfully!');
             setNewUsername('');
             setNewPassword('');
             setConfirmNewPassword('');
+            setIsAdmin(false);
             fetchUsers();
             fetchPamUsers();
           } else {
@@ -1381,12 +1373,13 @@
           console.error('Error adding user:', err);
         }
       };
+
       const handleDeleteUser = async (username) => {
         if (username === user.username) {
           setMessage('Cannot delete your own account.');
           return;
         }
-        if (confirm(`Delete user ${username}?`)) {
+        if (window.confirm(`Delete user ${username}?`)) {
           try {
             const response = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${username}`);
             if (response.data.success) {
@@ -1403,6 +1396,7 @@
           }
         }
       };
+
       const handleUpdatePassword = async (e) => {
         e.preventDefault();
         setUpdateMessage('');
@@ -1444,6 +1438,7 @@
           console.error('Error updating password:', err);
         }
       };
+
       const handleGrantAccess = async (e) => {
         e.preventDefault();
         setAccessMessage('');
@@ -1473,8 +1468,9 @@
           console.error('Error granting access:', err);
         }
       };
+
       const handleRevokeAccess = async (viewer, target) => {
-        if (confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
+        if (window.confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
           try {
             const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
               viewer,
@@ -1492,52 +1488,7 @@
           }
         }
       };
-      const handleGrantAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
-        try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-admin', { username: adminUser });
-          if (response.data.success) {
-            setAdminMessage(`Admin access granted to ${adminUser}!`);
-            setAdminUser('');
-            fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to grant admin access.');
-          }
-        } catch (err) {
-          setAdminMessage('Error granting admin access. Check server logs.');
-          console.error('Error granting admin access:', err, 'Response:', err.response?.data);
-        }
-      };
-      const handleRevokeAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
-        try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-admin', { username: adminUser });
-          if (response.data.success) {
-            setAdminMessage(`Admin access revoked for ${adminUser}!`);
-            setAdminUser('');
-            fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to revoke admin access.');
-          }
-        } catch (err) {
-          setAdminMessage('Error revoking admin access.');
-          console.error('Error revoking admin access:', err);
-        }
-      };
+
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
@@ -1581,6 +1532,16 @@
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
                   />
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isAdmin"
+                      checked={isAdmin}
+                      onChange={(e) => setIsAdmin(e.target.checked)}
+                      className="form-checkbox h-5 w-5 text-teal-500 rounded"
+                    />
+                    <label htmlFor="isAdmin" className="text-white">Grant Admin Access?</label>
+                  </div>
                   <button
                     type="submit"
                     className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
@@ -1599,7 +1560,7 @@
                 <div className="space-y-3">
                   {users.map((u) => (
                     <div key={u.username} className="flex justify-between items-center p-4 card">
-                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
+                      <span>{u.username}</span>
                       <button
                         onClick={() => handleDeleteUser(u.username)}
                         className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
@@ -1649,40 +1610,6 @@
                     {updateMessage}
                   </p>
                 )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
-                <div className="space-y-4">
-                  <select
-                    value={adminUser}
-                    onChange={(e) => setAdminUser(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleGrantAdmin}
-                      className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                    >
-                      Grant Admin Access
-                    </button>
-                    <button
-                      onClick={handleRevokeAdmin}
-                      className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                    >
-                      Revoke Admin Access
-                    </button>
-                  </div>
-                  {adminMessage && (
-                    <p className={`mt-3 text-center text-sm ${adminMessage.includes('success') || adminMessage.includes('granted') || adminMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
-                      {adminMessage}
-                    </p>
-                  )}
-                </div>
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
@@ -1757,17 +1684,55 @@
         </div>
       );
     };
+
     const App = () => {
       const [page, setPage] = useState('login');
       const [user, setUser] = useState(null);
+
+      useEffect(() => {
+        const checkSession = async () => {
+          const username = localStorage.getItem('username');
+          if (username) {
+            try {
+              const response = await axios.get(`https://ourlife.work.gd:8443/api/is-admin?username=${username}`);
+              if (response.data.success && response.data.isAdmin) {
+                const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
+                setUser({
+                  username,
+                  profilePicUrl: profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL,
+                  email: profileResponse.data.email || '',
+                  phone: profileResponse.data.phone || '',
+                  address: profileResponse.data.address || '',
+                  eventColor: profileResponse.data.eventColor || DEFAULT_EVENT_COLOR,
+                  isAdmin: response.data.isAdmin || false
+                });
+                setPage('menu');
+              } else {
+                localStorage.removeItem('username');
+                setPage('login');
+              }
+            } catch (err) {
+              console.error('Error checking session:', err);
+              localStorage.removeItem('username');
+              setPage('login');
+            }
+          }
+        };
+        checkSession();
+      }, []);
+
       const handleLogin = (userInfo) => {
+        localStorage.setItem('username', userInfo.username);
         setUser(userInfo);
         setPage('menu');
       };
+
       const handleLogout = () => {
+        localStorage.removeItem('username');
         setUser(null);
         setPage('login');
       };
+
       return (
         <div>
           {page === 'login' && <Login onLogin={handleLogin} />}
@@ -1781,6 +1746,7 @@
         </div>
       );
     };
+
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
