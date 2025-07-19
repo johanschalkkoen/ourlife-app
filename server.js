@@ -133,6 +133,35 @@ async function getAccessibleUsers(viewer) {
 }
 
 // Authentication and other endpoints
+
+const requireAdmin = async (req, res, next) => {
+    const { username } = req.body.username ? req.body : req.query;
+    if (!username) {
+        return res.json({ success: false, message: 'Username is required.' });
+    }
+    try {
+        const users = await readUsers();
+        if (!users[username] || !users[username].isAdmin) {
+            return res.json({ success: false, message: 'Unauthorized: Admin access required.' });
+        }
+        next();
+    } catch (error) {
+        console.error('Error checking admin access:', error);
+        res.json({ success: false, message: 'Server error checking admin access.' });
+    }
+};
+
+// Apply to admin endpoints
+app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
+    // Existing code for /api/admin-update-password
+});
+app.post('/api/add-user', requireAdmin, async (req, res) => {
+    // Existing code for /api/add-user
+});
+app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
+    // Existing code for /api/delete-user
+});
+
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -151,7 +180,7 @@ app.post('/api/login', async (req, res) => {
                         return res.json({ success: false, message: 'Database error during login.' });
                     }
                     if (row) {
-                        res.json({ success: true, ...row });
+                        res.json({ success: true, isAdmin: storedUser.isAdmin || false, ...row });
                     } else {
                         const defaultUserData = {
                             username,
@@ -169,7 +198,7 @@ app.post('/api/login', async (req, res) => {
                                     console.error('Database error inserting new user into SQLite:', insertErr.message);
                                     return res.json({ success: false, message: 'Database error creating new user profile.' });
                                 }
-                                res.json({ success: true, ...defaultUserData });
+                                res.json({ success: true, isAdmin: storedUser.isAdmin || false, ...defaultUserData });
                             }
                         );
                     }
@@ -372,7 +401,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 app.post('/api/add-user', async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, isAdmin = false } = req.body; // Default isAdmin to false
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
@@ -382,7 +411,7 @@ app.post('/api/add-user', async (req, res) => {
             return res.json({ success: false, message: 'User already exists.' });
         }
         const passwordHash = await bcrypt.hash(password, 10);
-        users[username] = { passwordHash };
+        users[username] = { passwordHash, isAdmin }; // Store isAdmin flag
         await writeUsers(users);
         res.json({ success: true, message: 'User added successfully!' });
     } catch (error) {
@@ -414,6 +443,21 @@ app.delete('/api/delete-user/:username', async (req, res) => {
     } catch (error) {
         console.error('Error deleting user:', error);
         res.json({ success: false, message: 'Failed to delete user.' });
+    }
+});
+
+app.get('/api/is-admin', async (req, res) => {
+    const { username } = req.query;
+    if (!username) {
+        return res.json({ success: false, message: 'Username is required.' });
+    }
+    try {
+        const users = await readUsers();
+        const isAdmin = users[username]?.isAdmin || false;
+        res.json({ success: true, isAdmin });
+    } catch (error) {
+        console.error('Error checking admin status:', error);
+        res.json({ success: false, message: 'Failed to check admin status.' });
     }
 });
 
