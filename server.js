@@ -16,10 +16,14 @@ const HTTPS_PORT = 8443;
 const HTTP_PORT = 9000;
 const USERS_FILE = path.join(__dirname, 'users.json');
 const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+const ASSET_DIR = path.join(__dirname, 'public', 'assets');
 
-// Ensure upload directory exists
+// Ensure upload and assets directories exist
 fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(err => {
     console.error('Error creating upload directory:', err);
+});
+fs.mkdir(ASSET_DIR, { recursive: true }).catch(err => {
+    console.error('Error creating assets directory:', err);
 });
 
 // Multer configuration for file uploads
@@ -420,7 +424,7 @@ app.post('/api/transactions', (req, res) => {
                             }
                         );
                     });
-                }-else {
+                } else {
                     res.json({ id: transactionId, user, description, amount, type, date, color });
                 }
             }
