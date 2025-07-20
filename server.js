@@ -11,22 +11,38 @@ const http = require('http');
 const execPromise = util.promisify(exec);
 const app = express();
 
-const HTTPS_PORT = 8443; // Standard HTTPS port
-const HTTP_PORT = 9000; // Standard HTTP port for redirect
+const HTTPS_PORT = 8443;
+const HTTP_PORT = 9000;
 const USERS_FILE = path.join(__dirname, 'users.json');
 
-// Increase the body parser limit
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public folder
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize SQLite database
 const db = new sqlite3.Database('./ourlife.db', (err) => {
     if (err) {
         console.error('Error connecting to database:', err.message);
     } else {
         console.log('Connected to the SQLite database.');
         db.serialize(() => {
+            // Rename financial_items to transactions if it exists
+            db.all(`SELECT name FROM sqlite_master WHERE type='table' AND name='financial_items'`, (err, tables) => {
+                if (err) {
+                    console.error('Error checking for financial_items table:', err.message);
+                    return;
+                }
+                if (tables.length > 0) {
+                    db.run(`ALTER TABLE financial_items RENAME TO transactions`, (renameErr) => {
+                        if (renameErr) {
+                            console.error('Error renaming financial_items to transactions:', renameErr.message);
+                        } else {
+                            console.log('Renamed financial_items to transactions.');
+                        }
+                    });
+                }
+            });
+
+            // Create tables
             db.run(`CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY,
                 profilePicUrl TEXT,
@@ -35,7 +51,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 address TEXT,
                 eventColor TEXT
             )`);
-            db.run(`CREATE TABLE IF NOT EXISTS financial_items (
+            db.run(`CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user TEXT,
                 description TEXT,
@@ -61,23 +77,24 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 UNIQUE(viewer, target)
             )`);
 
-            db.all(`PRAGMA table_info(financial_items)`, (err, columns) => {
+            // Add color column to transactions if missing
+            db.all(`PRAGMA table_info(transactions)`, (err, columns) => {
                 if (err) {
-                    console.error('Error checking financial_items schema:', err.message);
+                    console.error('Error checking transactions schema:', err.message);
                     return;
                 }
                 const hasColorColumn = columns.some(col => col.name === 'color');
                 if (!hasColorColumn) {
-                    db.run(`ALTER TABLE financial_items ADD COLUMN color TEXT`, (alterErr) => {
+                    db.run(`ALTER TABLE transactions ADD COLUMN color TEXT`, (alterErr) => {
                         if (alterErr) {
-                            console.error('Error adding color column to financial_items:', alterErr.message);
+                            console.error('Error adding color column to transactions:', alterErr.message);
                         } else {
-                            console.log('Added color column to financial_items table.');
-                            db.run(`UPDATE financial_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
+                            console.log('Added color column to transactions table.');
+                            db.run(`UPDATE transactions SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
                                 if (updateErr) {
-                                    console.error('Error updating existing financial items with color:', updateErr.message);
+                                    console.error('Error updating existing transactions with color:', updateErr.message);
                                 } else {
-                                    console.log('Updated existing financial items with color values.');
+                                    console.log('Updated existing transactions with color values.');
                                 }
                             });
                         }
@@ -134,7 +151,6 @@ async function getAccessibleUsers(viewer) {
 }
 
 // Authentication and other endpoints
-
 const requireAdmin = async (req, res, next) => {
     const { username } = req.body.username ? req.body : req.query;
     if (!username) {
@@ -155,17 +171,6 @@ const requireAdmin = async (req, res, next) => {
 // Admin page route
 app.get('/admin', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// Apply to admin endpoints
-app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
-    // Existing code for /api/admin-update-password
-});
-app.post('/api/add-user', requireAdmin, async (req, res) => {
-    // Existing code for /api/add-user
-});
-app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
-    // Existing code for /api/delete-user
 });
 
 app.post('/api/login', async (req, res) => {
@@ -294,16 +299,16 @@ app.post('/api/profile-pictures', (req, res) => {
     );
 });
 
-app.get('/api/financial', async (req, res) => {
+app.get('/api/transactions', async (req, res) => {
     const { user: viewer } = req.query;
     try {
         const accessibleUsers = await getAccessibleUsers(viewer);
         db.all(
-            `SELECT * FROM financial_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
+            `SELECT * FROM transactions WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
             accessibleUsers,
             (err, rows) => {
                 if (err) {
-                    console.error('Database error fetching financial items:', err.message);
+                    console.error('Database error fetching transactional data:', err.message);
                     res.json([]);
                 } else {
                     res.json(rows);
@@ -311,20 +316,20 @@ app.get('/api/financial', async (req, res) => {
             }
         );
     } catch (error) {
-        console.error('Error fetching accessible users for financial data:', error);
+        console.error('Error fetching accessible users for transactional data:', error);
         res.json([]);
     }
 });
 
-app.post('/api/financial', (req, res) => {
+app.post('/api/transactions', (req, res) => {
     const { user, description, amount, type, date } = req.body;
     const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
     db.run(
-        `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
         [user, description, amount, type, date, color],
         function (err) {
             if (err) {
-                console.error('Database error adding financial item:', err.message);
+                console.error('Database error adding transactional data:', err.message);
                 res.json({ success: false });
             } else {
                 res.json({ id: this.lastID, user, description, amount, type, date, color });
@@ -333,11 +338,11 @@ app.post('/api/financial', (req, res) => {
     );
 });
 
-app.delete('/api/financial/:id', (req, res) => {
+app.delete('/api/transactions/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    db.run('DELETE FROM financial_items WHERE id = ?', id, (err) => {
+    db.run('DELETE FROM transactions WHERE id = ?', id, (err) => {
         if (err) {
-            console.error('Database error deleting financial item:', err.message);
+            console.error.('Database error deleting transactional data:', err.message);
             res.json({ success: false });
         } else {
             res.json({ success: true });
@@ -368,16 +373,37 @@ app.get('/api/calendar', async (req, res) => {
 });
 
 app.post('/api/calendar', (req, res) => {
-    const { user, title, date, financial, type, amount, eventColor } = req.body;
+    const { user, title, date, financial, type, amount, eventColor, description } = req.body;
     db.run(
         `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [user, title, date, financial ? 1 : 0, type, amount, eventColor],
         function (err) {
             if (err) {
                 console.error('Database error adding calendar event:', err.message);
-                res.json({ success: false });
+                return res.json({ success: false, message: 'Failed to add calendar event.' });
+            }
+            const eventId = this.lastID;
+            if (financial && description && amount && type) {
+                const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
+                db.run(
+                    `INSERT INTO transactions (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [user, description, amount, type, date, color],
+                    function (err) {
+                        if (err) {
+                            console.error('Database error adding transactional data:', err.message);
+                            // Rollback calendar event
+                            db.run('DELETE FROM calendar_events WHERE id = ?', eventId, (rollbackErr) => {
+                                if (rollbackErr) {
+                                    console.error('Error rolling back calendar event:', rollbackErr.message);
+                                }
+                            });
+                            return res.json({ success: false, message: 'Failed to add transactional data.' });
+                        }
+                        res.json({ id: eventId, user, title, date, financial, type, amount, eventColor, transactionId: this.lastID });
+                    }
+                );
             } else {
-                res.json({ id: this.lastID, user, title, date, financial, type, amount, eventColor });
+                res.json({ id: eventId, user, title, date, financial, type, amount, eventColor });
             }
         }
     );
@@ -385,13 +411,26 @@ app.post('/api/calendar', (req, res) => {
 
 app.delete('/api/calendar/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    db.run('DELETE FROM calendar_events WHERE id = ?', id, (err) => {
+    db.get('SELECT financial, type, amount, date, user FROM calendar_events WHERE id = ?', id, (err, event) => {
         if (err) {
-            console.error('Database error deleting calendar event:', err.message);
-            res.json({ success: false });
-        } else {
-            res.json({ success: true });
+            console.error('Database error fetching calendar event for deletion:', err.message);
+            return res.json({ success: false });
         }
+        if (event && event.financial) {
+            db.run('DELETE FROM transactions WHERE user = ? AND type = ? AND amount = ? AND date = ?', [event.user, event.type, event.amount, event.date], (transErr) => {
+                if (transErr) {
+                    console.error('Database error deleting linked transactional data:', transErr.message);
+                }
+            });
+        }
+        db.run('DELETE FROM calendar_events WHERE id = ?', id, (err) => {
+            if (err) {
+                console.error('Database error deleting calendar event:', err.message);
+                res.json({ success: false });
+            } else {
+                res.json({ success: true });
+            }
+        });
     });
 });
 
@@ -407,7 +446,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 app.post('/api/add-user', async (req, res) => {
-    const { username, password, isAdmin = false } = req.body; // Default isAdmin to false
+    const { username, password, isAdmin = false } = req.body;
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
@@ -417,7 +456,7 @@ app.post('/api/add-user', async (req, res) => {
             return res.json({ success: false, message: 'User already exists.' });
         }
         const passwordHash = await bcrypt.hash(password, 10);
-        users[username] = { passwordHash, isAdmin }; // Store isAdmin flag
+        users[username] = { passwordHash, isAdmin };
         await writeUsers(users);
         res.json({ success: true, message: 'User added successfully!' });
     } catch (error) {
@@ -551,7 +590,6 @@ app.post('/api/revoke-access', (req, res) => {
     );
 });
 
-// Load SSL certificates asynchronously
 async function startServer() {
     try {
         const sslOptions = {
@@ -559,12 +597,10 @@ async function startServer() {
             cert: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem', 'utf8')
         };
 
-        // Create HTTPS server
         https.createServer(sslOptions, app).listen(HTTPS_PORT, () => {
             console.log(`HTTPS Server running on https://ourlife.work.gd:${HTTPS_PORT}`);
         });
 
-        // Create HTTP server to redirect to HTTPS
         http.createServer((req, res) => {
             res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
             res.end();
@@ -577,5 +613,4 @@ async function startServer() {
     }
 }
 
-// Start the server
 startServer();
