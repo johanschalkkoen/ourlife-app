@@ -2,18 +2,50 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
 const https = require('https');
 const http = require('http');
+const multer = require('multer');
 const execPromise = util.promisify(exec);
 const app = express();
 
 const HTTPS_PORT = 8443;
 const HTTP_PORT = 9000;
 const USERS_FILE = path.join(__dirname, 'users.json');
+const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+
+// Ensure upload directory exists
+fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(err => {
+    console.error('Error creating upload directory:', err);
+});
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, UPLOAD_DIR);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `${req.body.username}-${Date.now()}${ext}`);
+    }
+});
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only JPEG and PNG images are allowed.'));
+        }
+    }
+});
 
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
@@ -22,7 +54,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const db = new sqlite3.Database('./ourlife.db', (err) => {
     if (err) {
         console.error('Error connecting to database:', err.message);
-        process.exit(1); // Exit on database connection failure
+        process.exit(1);
     } else {
         console.log('Connected to the SQLite database.');
         db.serialize(() => {
@@ -115,7 +147,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
 // Helper functions
 async function readUsers() {
     try {
-        const data = await fs.promises.readFile(USERS_FILE, 'utf8');
+        const data = await fs.readFile(USERS_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -128,7 +160,7 @@ async function readUsers() {
 
 async function writeUsers(users) {
     try {
-        await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing users file:', error);
     }
@@ -155,7 +187,7 @@ async function getAccessibleUsers(viewer) {
     });
 }
 
-// Authentication and other endpoints
+// Authentication middleware
 const requireAdmin = async (req, res, next) => {
     const { username } = req.body.username ? req.body : req.query;
     if (!username) {
@@ -178,6 +210,27 @@ app.get('/admin', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Profile picture upload endpoint
+app.post('/api/upload-profile-pic', upload.single('profilePic'), async (req, res) => {
+    const { username } = req.body;
+    if (!username || !req.file) {
+        return res.json({ success: false, message: 'Username and profile picture are required.' });
+    }
+    try {
+        const users = await readUsers();
+        if (!users[username]) {
+            return res.json({ success: false, message: 'User not found.' });
+        }
+        // Construct URL for the uploaded file
+        const profilePicUrl = `/uploads/${req.file.filename}`;
+        res.json({ success: true, profilePicUrl });
+    } catch (error) {
+        console.error('Error uploading profile picture:', error.message);
+        res.json({ success: false, message: error.message || 'Failed to upload profile picture.' });
+    }
+});
+
+// Authentication and other endpoints
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -200,7 +253,7 @@ app.post('/api/login', async (req, res) => {
                     } else {
                         const defaultUserData = {
                             username,
-                            profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=U',
+                            profilePicUrl: '/uploads/default-profile.png', // Use a default image
                             email: '',
                             phone: '',
                             address: '',
@@ -283,7 +336,7 @@ app.get('/api/profile-pictures', (req, res) => {
             console.error('Database error fetching profile pictures:', err.message);
             res.json({ profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
         } else {
-            res.json(row || { profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
+            res.json(row || { profilePicUrl: '/uploads/default-profile.png', email: '', phone: '', address: '', eventColor: '#3b82f6' });
         }
     });
 });
@@ -342,7 +395,6 @@ app.post('/api/transactions', (req, res) => {
                     db.get('SELECT eventColor FROM users WHERE username = ?', [user], (err, row) => {
                         if (err) {
                             console.error('Database error fetching user eventColor:', err.message);
-                            // Rollback transaction
                             db.run('DELETE FROM transactions WHERE id = ?', transactionId, (rollbackErr) => {
                                 if (rollbackErr) {
                                     console.error('Error rolling back transaction:', rollbackErr.message);
@@ -357,7 +409,6 @@ app.post('/api/transactions', (req, res) => {
                             function (err) {
                                 if (err) {
                                     console.error('Database error adding calendar event:', err.message);
-                                    // Rollback transaction
                                     db.run('DELETE FROM transactions WHERE id = ?', transactionId, (rollbackErr) => {
                                         if (rollbackErr) {
                                             console.error('Error rolling back transaction:', rollbackErr.message);
@@ -369,7 +420,7 @@ app.post('/api/transactions', (req, res) => {
                             }
                         );
                     });
-                } else {
+                }-else {
                     res.json({ id: transactionId, user, description, amount, type, date, color });
                 }
             }
@@ -443,7 +494,6 @@ app.post('/api/calendar', (req, res) => {
                     function (err) {
                         if (err) {
                             console.error('Database error adding transaction:', err.message);
-                            // Rollback calendar event
                             db.run('DELETE FROM calendar_events WHERE id = ?', eventId, (rollbackErr) => {
                                 if (rollbackErr) {
                                     console.error('Error rolling back calendar event:', rollbackErr.message);
