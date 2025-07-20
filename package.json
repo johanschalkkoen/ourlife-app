@@ -3,6 +3,9 @@
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "mongoose": "^8.16.4",
+    "multer": "^2.0.2",
+    "require-in-the-middle": "^7.5.2",
     "sqlite3": "^5.1.7"
   }
 }
