@@ -79,7 +79,7 @@
           </button>
           <div className={`nav-links flex-col md:flex-row md:flex space-x-0 md:space-x-2 ${isMenuOpen ? 'open' : ''}`}>
             {['menu', 'transactions', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
-              <button key={p} onClick={() => handleNavClick(p)} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">{p === 'menu' ? 'Home' : p === 'transactions' ? 'Transactions' : capitalizeFirstLetter(p)}</button>
+              <button key={p} onClick={() => handleNavClick(p)} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">{p === 'menu' ? 'Home' : capitalizeFirstLetter(p)}</button>
             ))}
             <button onClick={onLogout} className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 w-full text-left md:w-auto">Sign Out</button>
           </div>
@@ -120,7 +120,7 @@
     const Menu = ({ user, setPage }) => (
       <main className="p-4 sm:p-6 max-w-4xl mx-auto">
         <section className="card p-8">
-          <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+          <h1 className="text-2xl font-semibold Hose text-white mb-6 text-center flex items-center justify-center gap-3">
             <div className="profile-pic-container welcome-pic-container">
               <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" />
             </div>
@@ -128,7 +128,7 @@
           </h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             {['transactions', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
-              <button key={p} onClick={() => setPage(p)} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">{p === 'transactions' ? 'Transactions' : capitalizeFirstLetter(p)}</button>
+              <button key={p} onClick={() => setPage(p)} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">{capitalizeFirstLetter(p)}</button>
             ))}
           </div>
         </section>
@@ -141,6 +141,8 @@
       const [amount, setAmount] = useState('');
       const [type, setType] = useState('income');
       const [date, setDate] = useState(getCurrentDateTime());
+      const [addToCalendar, setAddToCalendar] = useState(false);
+      const [eventTitle, setEventTitle] = useState('');
       const [showAddItemForm, setShowAddItemForm] = useState(false);
       const [accessibleUsers, setAccessibleUsers] = useState([]);
       const [selectedUsers, setSelectedUsers] = useState([user.username]);
@@ -177,12 +179,15 @@
       const addItem = async () => {
         if (!description || !amount || !date) return;
         try {
-          const { data } = await axios.post('https://ourlife.work.gd:8443/api/transactions', { user: user.username, description, amount: parseFloat(amount), type, date }, { timeout: 5000 });
+          const transactionData = { user: user.username, description, amount: parseFloat(amount), type, date, eventTitle: addToCalendar ? eventTitle || description : null };
+          const { data } = await axios.post('https://ourlife.work.gd:8443/api/transactions', transactionData, { timeout: 5000 });
           setItems([...items, data]);
           setDescription('');
           setAmount('');
           setType('income');
           setDate(getCurrentDateTime());
+          setEventTitle('');
+          setAddToCalendar(false);
           setShowAddItemForm(false);
         } catch (err) {}
       };
@@ -225,6 +230,13 @@
                   <option value="expense">Expense</option>
                 </select>
                 <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Date" />
+                <label className="flex items-center gap-2 mb-4">
+                  <input type="checkbox" checked={addToCalendar} onChange={e => setAddToCalendar(e.target.checked)} className="rounded text-teal-500 focus:ring-teal-400" aria-label="Add to Calendar" />
+                  <span className="text-white">Add to Calendar</span>
+                </label>
+                {addToCalendar && (
+                  <input type="text" placeholder="Event Title (optional)" value={eventTitle} onChange={e => setEventTitle(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event Title" />
+                )}
                 <button onClick={addItem} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Add Transaction">Add Transaction</button>
               </div>
             )}
@@ -269,7 +281,7 @@
       const [events, setEvents] = useState([]);
       const [title, setTitle] = useState('');
       const [date, setDate] = useState(getCurrentDateTime());
-      const [isFinancial, setIsFinancial] = useState(false);
+      const [isTransaction, setIsTransaction] = useState(false);
       const [description, setDescription] = useState('');
       const [amount, setAmount] = useState('');
       const [type, setType] = useState('income');
@@ -312,12 +324,12 @@
       const addEvent = async () => {
         if (!title || !date) return;
         try {
-          const eventData = { user: user.username, title, date, financial: isFinancial, type: isFinancial ? type : null, amount: isFinancial ? parseFloat(amount) : null, eventColor: user.eventColor, description: isFinancial ? description : null };
+          const eventData = { user: user.username, title, date, transaction: isTransaction, type: isTransaction ? type : null, amount: isTransaction ? parseFloat(amount) : null, eventColor: user.eventColor, description: isTransaction ? description : null };
           await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData, { timeout: 5000 });
           fetchEvents();
           setTitle('');
           setDate(getCurrentDateTime());
-          setIsFinancial(false);
+          setIsTransaction(false);
           setDescription('');
           setAmount('');
           setType('income');
@@ -342,16 +354,16 @@
           const calendar = new FullCalendar.Calendar(calendarRef.current, {
             initialView: 'dayGridMonth',
             events: events
-              .filter(e => selectedUsers.includes(e.user) && e.title.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || (filterType === 'financial' ? e.financial : !e.financial)))
+              .filter(e => selectedUsers.includes(e.user) && e.title.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || (filterType === 'transaction' ? e.transaction : !e.transaction)))
               .map(e => ({
                 id: e.id, title: e.title, start: e.date, backgroundColor: e.eventColor || DEFAULT_EVENT_COLOR, borderColor: e.eventColor || DEFAULT_EVENT_COLOR,
-                extendedProps: { user: e.user, financial: e.financial, type: e.type, amount: e.amount }
+                extendedProps: { user: e.user, transaction: e.transaction, type: e.type, amount: e.amount }
               })),
             eventContent: ({ event }) => ({
-              html: `<div class="fc-event-main"><div class="fc-event-title">${event.title}</div><div class="fc-event-user flex items-center gap-2"><div class="event-profile-pic-container"><img src="${userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${event.extendedProps.user}'s profile" class="event-profile-pic" /></div>${capitalizeFirstLetter(event.extendedProps.user)}</div>${event.extendedProps.financial ? `<div>Amount: ${event.extendedProps.amount}</div>` : ''}</div>`
+              html: `<div class="fc-event-main"><div class="fc-event-title">${event.title}</div><div class="fc-event-user flex items-center gap-2"><div class="event-profile-pic-container"><img src="${userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${event.extendedProps.user}'s profile" class="event-profile-pic" /></div>${capitalizeFirstLetter(event.extendedProps.user)}</div>${event.extendedProps.transaction ? `<div>Amount: ${event.extendedProps.amount}</div>` : ''}</div>`
             }),
             eventClick: ({ event }) => {
-              setSelectedEvent({ id: event.id, title: event.title, date: event.start, user: event.extendedProps.user, financial: event.extendedProps.financial, type: event.extendedProps.type, amount: event.extendedProps.amount });
+              setSelectedEvent({ id: event.id, title: event.title, date: event.start, user: event.extendedProps.user, transaction: event.extendedProps.transaction, type: event.extendedProps.type, amount: event.extendedProps.amount });
               setShowEventModal(true);
             }
           });
@@ -373,8 +385,8 @@
                 <input type="text" placeholder="Search by title" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Search events" />
                 <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Filter by event type">
                   <option value="all">All Events</option>
-                  <option value="financial">Financial</option>
-                  <option value="non-financial">Non-Financial</option>
+                  <option value="transaction">Transaction</option>
+                  <option value="non-transaction">Non-Transaction</option>
                 </select>
               </div>
             </div>
@@ -383,10 +395,10 @@
                 <input type="text" placeholder="Event Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event title" />
                 <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event date" />
                 <label className="flex items-center gap-2 mb-4">
-                  <input type="checkbox" checked={isFinancial} onChange={e => setIsFinancial(e.target.checked)} className="rounded text-teal-500 focus:ring-teal-400" aria-label="Is Financial Event" />
-                  <span className="text-white">Include Transactional Data</span>
+                  <input type="checkbox" checked={isTransaction} onChange={e => setIsTransaction(e.target.checked)} className="rounded text-teal-500 focus:ring-teal-400" aria-label="Is Transaction Event" />
+                  <span className="text-white">Include Transaction Data</span>
                 </label>
-                {isFinancial && (
+                {isTransaction && (
                   <>
                     <input type="text" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Transaction Description" />
                     <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Transaction Amount" />
@@ -418,7 +430,7 @@
                   <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
                   <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
                   <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
-                  {selectedEvent.financial && (
+                  {selectedEvent.transaction && (
                     <>
                       <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
                       <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
@@ -600,7 +612,7 @@
             const expense = userItems.filter(item => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
             setSummary({ income, expense, balance: income - expense });
           } catch (err) {
-            setError('Failed to load transactional data.');
+            setError('Failed to load transaction data.');
           }
           setIsLoading(false);
         };
@@ -647,7 +659,7 @@
       <main className="p-4 sm:p-6 max-w-4xl mx-auto">
         <section className="card p-8 text-left">
           <h1 className="text-2xl font-semibold text-white mb-4 text-center">About OurLife</h1>
-          <p className="text-gray-300 mb-4">OurLife is your digital solution for managing personal and shared transactional data and schedules, offering a secure, intuitive platform for tracking income, expenses, budgets, and shared calendars.</p>
+          <p className="text-gray-300 mb-4">OurLife is your digital solution for managing personal and shared transaction data and schedules, offering a secure, intuitive platform for tracking income, expenses, budgets, and shared calendars.</p>
           <p className="text-gray-300 mb-6">Created by <strong>Johan Koen</strong>, a developer passionate about impactful technology. Connect with him on LinkedIn.</p>
           <div className="text-center">
             <a href="https://www.linkedin.com/in/johan-koen-12a11b234/" target="_blank" rel="noopener noreferrer" className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6">Connect on LinkedIn</a>
@@ -673,8 +685,8 @@
             <h1 className="text-2xl font-semibold text-white mb-6 text-center">Support & FAQ</h1>
             <div className="space-y-4 mb-8 text-left">
               <div>
-                <h3 className="font-semibold text-lg text-teal-400">Add Transactional Data</h3>
-                <p className="text-gray-300">Go to "Transactions", click "Add Item", fill details, and save. Or, add via "Calendar" by including transactional data when creating an event.</p>
+                <h3 className="font-semibold text-lg text-teal-400">Add Transaction Data</h3>
+                <p className="text-gray-300">Go to "Transactions", click "Add Item", fill details, and save. Optionally, add to calendar. Or, add via "Calendar" by including transaction data when creating an event.</p>
               </div>
               <div>
                 <h3 className="font-semibold text-lg text-teal-400">Share Data</h3>
