@@ -14,6 +14,15 @@ Welcome to the **OurLife Dashboard**, a full-stack, single-page web application 
 
 ---
 
+## 🚀 Change Logs
+* **Rename all financial-related terms to "transactions" and update descriptions to relate to financial**
+* **Rename Budget to Budget Calculator as it was intended originally**
+* **Period Tracker to be added**
+* **Re-instate add calendar from transactions and visa-vera this was somehow removed**
+* **Add Google and Facebook authentication**
+* **Add Administator secion - still not working**
+* **Import Iphone of goole calendar entries to Our Life Calendar**
+  
 ## 🛠️ Technology Stack
 
 The application is built with a modern, full-stack architecture.
