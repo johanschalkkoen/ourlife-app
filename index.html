@@ -262,10 +262,10 @@
           </button>
           <div className={`nav-links flex-col md:flex-row md:flex space-x-0 md:space-x-2 ${isMenuOpen ? 'open' : ''}`}>
             <button onClick={() => handleNavClick('menu')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Home</button>
-            <button onClick={() => handleNavClick('financial')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget</button>
+            <button onClick={() => handleNavClick('transactions')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Transactions</button>
             <button onClick={() => handleNavClick('calendar')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Calendar</button>
             <button onClick={() => handleNavClick('profileSettings')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Profile</button>
-            <button onClick={() => handleNavClick('budgetCalculator')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget</button>
+            <button onClick={() => handleNavClick('budgetCalculator')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Budget Calculator</button>
             <button onClick={() => handleNavClick('about')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">About</button>
             <button onClick={() => handleNavClick('support')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Support</button>
             <button onClick={() => handleNavClick('contact')} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">Contact</button>
@@ -352,10 +352,10 @@ const Menu = ({ user, setPage }) => {
           <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
         </h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <button onClick={() => setPage('financial')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Transactions</button>
+          <button onClick={() => setPage('transactions')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Transactions</button>
           <button onClick={() => setPage('calendar')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Calendar</button>
           <button onClick={() => setPage('profileSettings')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Profile</button>
-          <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget</button>
+          <button onClick={() => setPage('budgetCalculator')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Budget Calculator</button>
           <button onClick={() => setPage('about')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">About</button>
           <button onClick={() => setPage('support')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">Support</button>
           <button onClick={() => setPage('contact')} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center sm:col-start-2 md:col-start-auto">Contact</button>
@@ -372,7 +372,7 @@ const Menu = ({ user, setPage }) => {
           <section className="card p-8 text-left">
             <h1 className="text-2xl font-semibold text-white mb-4 text-center">About OurLife</h1>
             <p className="text-gray-300 mb-4">
-              Welcome to <strong>OurLife</strong>, your comprehensive digital solution for managing personal and shared finances and schedules. In today's fast-paced world, staying organized is key to achieving your goals, and OurLife is designed to be the ultimate partner on your journey to financial clarity and a well-planned life.
+              Welcome to <strong>OurLife</strong>, your comprehensive digital solution for managing personal and shared finances and schedules. In today's fast-paced world, staying organized is key to achieving your goals, and OurLife is designed to be the ultimate partner on your journey to transactions clarity and a well-planned life.
             </p>
             <p className="text-gray-300 mb-4">
               Our platform provides a secure, intuitive, and collaborative environment where users can track income and expenses, manage budgets, and coordinate events on a shared calendar. Whether you are managing your personal finances, coordinating with a partner, or keeping the family on the same page, OurLife offers the tools you need to succeed.
@@ -424,12 +424,12 @@ const Menu = ({ user, setPage }) => {
                     <h1 className="text-2xl font-semibold text-white mb-6 text-center">Support & FAQ</h1>
                     <div className="space-y-4 mb-8 text-left">
                         <div>
-                            <h3 className="font-semibold text-lg text-teal-400">How do I add a financial item?</h3>
+                            <h3 className="font-semibold text-lg text-teal-400">How do I add a transactions item?</h3>
                             <p className="text-gray-300">Navigate to the "Transactions" page and use the "Add Item" button to open the form. Fill in the details and click "Add Item" to save it. The item will also automatically appear on your calendar.</p>
                         </div>
                         <div>
                             <h3 className="font-semibold text-lg text-teal-400">Can I share my data with another user?</h3>
-                            <p className="text-gray-300">Yes, if you have admin privileges. Go to "Profile Settings" and use the "Manage User Access" section to grant another user view access to your financial and calendar data.</p>
+                            <p className="text-gray-300">Yes, if you have admin privileges. Go to "Profile Settings" and use the "Manage User Access" section to grant another user view access to your transactions and calendar data.</p>
                         </div>
                         <div>
                             <h3 className="font-semibold text-lg text-teal-400">How do I change my password?</h3>
@@ -515,11 +515,11 @@ const Menu = ({ user, setPage }) => {
       const [currentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
 
       useEffect(() => {
-        const fetchFinancialData = async () => {
+        const fetchtransactionsData = async () => {
           setIsLoading(true);
           setError('');
           try {
-            const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+            const response = await axios.get('https://ourlife.work.gd:8443/api/transactions', {
               params: { user: user.username },
               timeout: 5000
             });
@@ -538,14 +538,14 @@ const Menu = ({ user, setPage }) => {
 
             setSummary({ income, expense, balance: income - expense });
           } catch (err) {
-            setError('Failed to load financial data.');
-            console.error('Error fetching financial data for budget:', err);
+            setError('Failed to load transactions data.');
+            console.error('Error fetching transactions data for budget:', err);
           } finally {
             setIsLoading(false);
           }
         };
 
-        fetchFinancialData();
+        fetchtransactionsData();
       }, [user.username, currentMonth]);
 
       const expensePercentage = summary.income > 0 ? (summary.expense / summary.income) * 100 : 0;
@@ -1049,8 +1049,8 @@ const Menu = ({ user, setPage }) => {
       );
     };
 
-    // Financial Component with Search and Filters
-    const Financial = ({ user, setPage }) => {
+    // transactions Component with Search and Filters
+    const transactions = ({ user, setPage }) => {
       const [items, setItems] = useState([]);
       const [description, setDescription] = useState('');
       const [amount, setAmount] = useState('');
@@ -1143,13 +1143,13 @@ const Menu = ({ user, setPage }) => {
       };
       const fetchItems = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', {
+          const response = await axios.get('https://ourlife.work.gd:8443/api/transactions', {
             params: { user: user.username },
             timeout: 5000
           });
           setItems(response.data);
         } catch (err) {
-          console.error('Error fetching financial items:', err);
+          console.error('Error fetching transactions items:', err);
         }
       };
       const addItem = async () => {
@@ -1162,12 +1162,12 @@ const Menu = ({ user, setPage }) => {
           date,
         };
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
+          await axios.post('https://ourlife.work.gd:8443/api/transactions', item, { timeout: 5000 });
           await axios.post('https://ourlife.work.gd:8443/api/calendar', {
             user: user.username,
             title: `${description} (${type})`,
             date,
-            financial: true,
+            transactions: true,
             type,
             amount: parseFloat(amount),
             eventColor: user.eventColor,
@@ -1178,15 +1178,15 @@ const Menu = ({ user, setPage }) => {
           setDate(getCurrentDateTime());
           setShowAddItemForm(false);
         } catch (err) {
-          console.error('Error adding financial item:', err);
+          console.error('Error adding transactions item:', err);
         }
       };
       const deleteItem = async (id) => {
         try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`, { timeout: 5000 });
+          await axios.delete(`https://ourlife.work.gd:8443/api/transactions/${id}`, { timeout: 5000 });
           fetchItems();
         } catch (err) {
-          console.error('Error deleting financial item:', err);
+          console.error('Error deleting transactions item:', err);
         }
       };
       const handleBulkImport = async () => {
@@ -1209,17 +1209,17 @@ const Menu = ({ user, setPage }) => {
         setImportMessage(`Importing ${itemsToImport.length} items...`);
         try {
           const importPromises = itemsToImport.map(item => {
-            const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item, { timeout: 5000 });
+            const transactionsPromise = axios.post('https://ourlife.work.gd:8443/api/transactions', item, { timeout: 5000 });
             const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
               user: user.username,
               title: `${item.description} (${item.type})`,
               date: item.date,
-              financial: true,
+              transactions: true,
               type: item.type,
               amount: item.amount,
               eventColor: user.eventColor,
             }, { timeout: 5000 });
-            return Promise.all([financialPromise, calendarPromise]);
+            return Promise.all([transactionsPromise, calendarPromise]);
           });
           await Promise.all(importPromises);
           setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
@@ -1292,7 +1292,7 @@ const Menu = ({ user, setPage }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  aria-label="Search financial items"
+                  aria-label="Search transactions items"
                 />
                 <select
                   value={filterType}
@@ -1314,7 +1314,7 @@ const Menu = ({ user, setPage }) => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Financial item description"
+                  aria-label="transactions item description"
                 />
                 <input
                   type="number"
@@ -1322,13 +1322,13 @@ const Menu = ({ user, setPage }) => {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Financial item amount"
+                  aria-label="transactions item amount"
                 />
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Financial item type"
+                  aria-label="transactions item type"
                 >
                   <option value="income">Income</option>
                   <option value="expense">Expense</option>
@@ -1338,12 +1338,12 @@ const Menu = ({ user, setPage }) => {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                  aria-label="Financial item date"
+                  aria-label="transactions item date"
                 />
                 <button
                   onClick={addItem}
                   className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  aria-label="Add Financial Item"
+                  aria-label="Add transactions Item"
                 >
                   Add Item
                 </button>
@@ -1362,7 +1362,7 @@ const Menu = ({ user, setPage }) => {
                 <button
                   onClick={handleBulkImport}
                   className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  aria-label="Import Financial Data"
+                  aria-label="Import transactions Data"
                 >
                   Import Data
                 </button>
@@ -1398,7 +1398,7 @@ const Menu = ({ user, setPage }) => {
               </div>
             </div>
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Financial Summary</h2>
+              <h2 className="text-lg font-semibold text-white mb-2">transactions Summary</h2>
               <p className="text-white">Net Total: {formatAmount(netTotal)}</p>
             </div>
             <div className="overflow-x-auto">
@@ -1439,7 +1439,7 @@ const Menu = ({ user, setPage }) => {
                           <button
                             onClick={() => deleteItem(item.id)}
                             className="text-red-400 hover:text-red-500"
-                            aria-label={`Delete financial item ${item.description}`}
+                            aria-label={`Delete transactions item ${item.description}`}
                           >
                             Delete
                           </button>
@@ -1533,7 +1533,7 @@ const Menu = ({ user, setPage }) => {
           user: user.username,
           title,
           date,
-          financial: false,
+          transactions: false,
           eventColor: user.eventColor,
         };
         try {
@@ -1576,14 +1576,14 @@ const Menu = ({ user, setPage }) => {
             events: events
               .filter(event => selectedUsers.includes(event.user))
               .filter(event => event.title.toLowerCase().includes(searchQuery.toLowerCase()))
-              .filter(event => filterType === 'all' || (filterType === 'financial' ? event.financial : !event.financial))
+              .filter(event => filterType === 'all' || (filterType === 'transactions' ? event.transactions : !event.transactions))
               .map(event => ({
                 id: event.id,
                 title: event.title,
                 start: event.date,
                 backgroundColor: event.eventColor || DEFAULT_EVENT_COLOR,
                 borderColor: event.eventColor || DEFAULT_EVENT_COLOR,
-                extendedProps: { user: event.user, financial: event.financial, type: event.type, amount: event.amount },
+                extendedProps: { user: event.user, transactions: event.transactions, type: event.type, amount: event.amount },
               })),
             eventContent: (arg) => {
               return {
@@ -1596,7 +1596,7 @@ const Menu = ({ user, setPage }) => {
                       </div>
                       ${capitalizeFirstLetter(arg.event.extendedProps.user)}
                     </div>
-                    ${arg.event.extendedProps.financial ? `<div>Amount: ${arg.event.extendedProps.amount}</div>` : ''}
+                    ${arg.event.extendedProps.transactions ? `<div>Amount: ${arg.event.extendedProps.amount}</div>` : ''}
                   </div>
                 `,
               };
@@ -1607,7 +1607,7 @@ const Menu = ({ user, setPage }) => {
                 title: info.event.title,
                 date: info.event.start,
                 user: info.event.extendedProps.user,
-                financial: info.event.extendedProps.financial,
+                transactions: info.event.extendedProps.transactions,
                 type: info.event.extendedProps.type,
                 amount: info.event.extendedProps.amount,
               });
@@ -1656,8 +1656,8 @@ const Menu = ({ user, setPage }) => {
                   aria-label="Filter by event type"
                 >
                   <option value="all">All Events</option>
-                  <option value="financial">Financial</option>
-                  <option value="non-financial">Non-Financial</option>
+                  <option value="transactions">transactions</option>
+                  <option value="non-transactions">Non-transactions</option>
                 </select>
               </div>
             </div>
@@ -1718,7 +1718,7 @@ const Menu = ({ user, setPage }) => {
                   <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
                   <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
                   <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
-                  {selectedEvent.financial && (
+                  {selectedEvent.transactions && (
                     <>
                       <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
                       <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
@@ -1769,7 +1769,7 @@ const Menu = ({ user, setPage }) => {
             <>
               <Navigation user={user} setPage={setPage} onLogout={handleLogout} />
               {page === 'menu' && <Menu user={user} setPage={setPage} />}
-              {page === 'financial' && <Financial user={user} setPage={setPage} />}
+              {page === 'transactions' && <transactions user={user} setPage={setPage} />}
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
               {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
               {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
