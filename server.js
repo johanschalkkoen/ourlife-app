@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs').promises;
+const fs = require('fs'); // Changed from fs.promises to full fs module
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -92,7 +92,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
 // Helper functions
 async function readUsers() {
     try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
+        const data = await fs.promises.readFile(USERS_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -105,7 +105,7 @@ async function readUsers() {
 
 async function writeUsers(users) {
     try {
-        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+        await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing users file:', error);
     }
@@ -114,7 +114,7 @@ async function writeUsers(users) {
 async function getAccessibleUsers(viewer) {
     return new Promise((resolve, reject) => {
         db.all(
-            `SELECT target FROM user_access WHERE10 WHERE viewer = ?`,
+            `SELECT target FROM user_access WHERE viewer = ?`,
             [viewer],
             (err, rows) => {
                 if (err) {
@@ -528,13 +528,17 @@ httpServer.listen(HTTP_PORT, () => {
     console.log(`HTTP Server running on port ${HTTP_PORT}`);
 });
 
-// HTTPS Server setup (assuming self-signed certificates)
-const httpsOptions = {
-    key: fs.readFileSync(path.join(__dirname, 'server.key')),
-    cert: fs.readFileSync(path.join(__dirname, 'server.cert'))
-};
-
-const httpsServer = https.createServer(httpsOptions, app);
-httpsServer.listen(HTTPS_PORT, () => {
-    console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
-});
+// HTTPS Server setup
+try {
+    const httpsOptions = {
+        key: fs.readFileSync(path.join(__dirname, 'server.key')),
+        cert: fs.readFileSync(path.join(__dirname, 'server.cert'))
+    };
+    const httpsServer = https.createServer(httpsOptions, app);
+    httpsServer.listen(HTTPS_PORT, () => {
+        console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
+    });
+} catch (error) {
+    console.error('Failed to start HTTPS server:', error.message);
+    console.log('Falling back to HTTP only. Ensure server.key and server.cert exist and are accessible.');
+}
