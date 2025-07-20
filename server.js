@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs'); // Changed from fs.promises to full fs module
+const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -22,6 +22,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const db = new sqlite3.Database('./ourlife.db', (err) => {
     if (err) {
         console.error('Error connecting to database:', err.message);
+        process.exit(1); // Exit on database connection failure
     } else {
         console.log('Connected to the SQLite database.');
         db.serialize(() => {
@@ -32,7 +33,12 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 phone TEXT,
                 address TEXT,
                 eventColor TEXT
-            )`);
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating users table:', err.message);
+                    process.exit(1);
+                }
+            });
             db.run(`CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user TEXT,
@@ -41,40 +47,57 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 type TEXT,
                 date TEXT,
                 color TEXT
-            )`);
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating transactions table:', err.message);
+                    process.exit(1);
+                }
+            });
             db.run(`CREATE TABLE IF NOT EXISTS calendar_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user TEXT,
                 title TEXT,
                 date TEXT,
-                transaction INTEGER,
+                isTransaction INTEGER,
                 type TEXT,
                 amount REAL,
                 eventColor TEXT
-            )`);
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating calendar_events table:', err.message);
+                    process.exit(1);
+                }
+            });
             db.run(`CREATE TABLE IF NOT EXISTS user_access (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 viewer TEXT,
                 target TEXT,
                 UNIQUE(viewer, target)
-            )`);
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating user_access table:', err.message);
+                    process.exit(1);
+                }
+            });
 
             // Add color column to transactions if missing
             db.all(`PRAGMA table_info(transactions)`, (err, columns) => {
                 if (err) {
                     console.error('Error checking transactions schema:', err.message);
-                    return;
+                    process.exit(1);
                 }
                 const hasColorColumn = columns.some(col => col.name === 'color');
                 if (!hasColorColumn) {
                     db.run(`ALTER TABLE transactions ADD COLUMN color TEXT`, (alterErr) => {
                         if (alterErr) {
                             console.error('Error adding color column to transactions:', alterErr.message);
+                            process.exit(1);
                         } else {
                             console.log('Added color column to transactions table.');
                             db.run(`UPDATE transactions SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
                                 if (updateErr) {
                                     console.error('Error updating existing transactions with color:', updateErr.message);
+                                    process.exit(1);
                                 } else {
                                     console.log('Updated existing transactions with color values.');
                                 }
@@ -329,7 +352,7 @@ app.post('/api/transactions', (req, res) => {
                         }
                         const eventColor = row?.eventColor || '#3b82f6';
                         db.run(
-                            `INSERT INTO calendar_events (user, title, date, transaction, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            `INSERT INTO calendar_events (user, title, date, isTransaction, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                             [user, eventTitle, date, 1, type, amount, eventColor],
                             function (err) {
                                 if (err) {
@@ -362,7 +385,7 @@ app.delete('/api/transactions/:id', (req, res) => {
             return res.json({ success: false });
         }
         if (transaction) {
-            db.run('DELETE FROM calendar_events WHERE user = ? AND type = ? AND amount = ? AND date = ? AND transaction = 1', [transaction.user, transaction.type, transaction.amount, transaction.date], (eventErr) => {
+            db.run('DELETE FROM calendar_events WHERE user = ? AND type = ? AND amount = ? AND date = ? AND isTransaction = 1', [transaction.user, transaction.type, transaction.amount, transaction.date], (eventErr) => {
                 if (eventErr) {
                     console.error('Database error deleting linked calendar event:', eventErr.message);
                 }
@@ -404,7 +427,7 @@ app.get('/api/calendar', async (req, res) => {
 app.post('/api/calendar', (req, res) => {
     const { user, title, date, transaction, type, amount, eventColor, description } = req.body;
     db.run(
-        `INSERT INTO calendar_events (user, title, date, transaction, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO calendar_events (user, title, date, isTransaction, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [user, title, date, transaction ? 1 : 0, type, amount, eventColor],
         function (err) {
             if (err) {
@@ -428,11 +451,11 @@ app.post('/api/calendar', (req, res) => {
                             });
                             return res.json({ success: false, message: 'Failed to add transaction.' });
                         }
-                        res.json({ id: eventId, user, title, date, transaction, type, amount, eventColor, transactionId: this.lastID });
+                        res.json({ id: eventId, user, title, date, isTransaction: transaction, type, amount, eventColor, transactionId: this.lastID });
                     }
                 );
             } else {
-                res.json({ id: eventId, user, title, date, transaction, type, amount, eventColor });
+                res.json({ id: eventId, user, title, date, isTransaction: transaction, type, amount, eventColor });
             }
         }
     );
@@ -440,12 +463,12 @@ app.post('/api/calendar', (req, res) => {
 
 app.delete('/api/calendar/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    db.get('SELECT transaction, type, amount, date, user FROM calendar_events WHERE id = ?', id, (err, event) => {
+    db.get('SELECT isTransaction, type, amount, date, user FROM calendar_events WHERE id = ?', id, (err, event) => {
         if (err) {
             console.error('Database error fetching calendar event for deletion:', err.message);
             return res.json({ success: false, message: 'Failed to fetch calendar event.' });
         }
-        if (event && event.transaction) {
+        if (event && event.isTransaction) {
             db.run('DELETE FROM transactions WHERE user = ? AND type = ? AND amount = ? AND date = ?', [event.user, event.type, event.amount, event.date], (transErr) => {
                 if (transErr) {
                     console.error('Database error deleting linked transaction:', transErr.message);
@@ -528,17 +551,17 @@ httpServer.listen(HTTP_PORT, () => {
     console.log(`HTTP Server running on port ${HTTP_PORT}`);
 });
 
-// HTTPS Server setup
+// HTTPS Server setup using Let's Encrypt certificates
 try {
     const httpsOptions = {
-        key: fs.readFileSync(path.join(__dirname, 'server.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'server.cert'))
+        key: fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem'),
+        cert: fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem')
     };
     const httpsServer = https.createServer(httpsOptions, app);
     httpsServer.listen(HTTPS_PORT, () => {
         console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
     });
 } catch (error) {
-    console.error('Failed to start HTTPS server:', error.message);
-    console.log('Falling back to HTTP only. Ensure server.key and server.cert exist and are accessible.');
+    console.error(`Failed to start HTTPS server: ${error.message}`);
+    console.log('Falling back to HTTP only. Verify that /etc/letsencrypt/live/ourlife.work.gd/privkey.pem and /etc/letsencrypt/live/ourlife.work.gd/fullchain.pem exist and are accessible.');
 }
