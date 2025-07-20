@@ -35,7 +35,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 address TEXT,
                 eventColor TEXT
             )`);
-            db.run(`CREATE TABLE IF NOT EXISTS transactions_items (
+            db.run(`CREATE TABLE IF NOT EXISTS financial_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user TEXT,
                 description TEXT,
@@ -49,7 +49,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 user TEXT,
                 title TEXT,
                 date TEXT,
-                transactions INTEGER,
+                financial INTEGER,
                 type TEXT,
                 amount REAL,
                 eventColor TEXT
@@ -61,23 +61,23 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 UNIQUE(viewer, target)
             )`);
 
-            db.all(`PRAGMA table_info(transactions_items)`, (err, columns) => {
+            db.all(`PRAGMA table_info(financial_items)`, (err, columns) => {
                 if (err) {
-                    console.error('Error checking transactions_items schema:', err.message);
+                    console.error('Error checking financial_items schema:', err.message);
                     return;
                 }
                 const hasColorColumn = columns.some(col => col.name === 'color');
                 if (!hasColorColumn) {
-                    db.run(`ALTER TABLE transactions_items ADD COLUMN color TEXT`, (alterErr) => {
+                    db.run(`ALTER TABLE financial_items ADD COLUMN color TEXT`, (alterErr) => {
                         if (alterErr) {
-                            console.error('Error adding color column to transactions_items:', alterErr.message);
+                            console.error('Error adding color column to financial_items:', alterErr.message);
                         } else {
-                            console.log('Added color column to transactions_items table.');
-                            db.run(`UPDATE transactions_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
+                            console.log('Added color column to financial_items table.');
+                            db.run(`UPDATE financial_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`, (updateErr) => {
                                 if (updateErr) {
-                                    console.error('Error updating existing transactions items with color:', updateErr.message);
+                                    console.error('Error updating existing financial items with color:', updateErr.message);
                                 } else {
-                                    console.log('Updated existing transactions items with color values.');
+                                    console.log('Updated existing financial items with color values.');
                                 }
                             });
                         }
@@ -294,16 +294,16 @@ app.post('/api/profile-pictures', (req, res) => {
     );
 });
 
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/financial', async (req, res) => {
     const { user: viewer } = req.query;
     try {
         const accessibleUsers = await getAccessibleUsers(viewer);
         db.all(
-            `SELECT * FROM transactions_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
+            `SELECT * FROM financial_items WHERE user IN (${accessibleUsers.map(() => '?').join(',')})`,
             accessibleUsers,
             (err, rows) => {
                 if (err) {
-                    console.error('Database error fetching transactions items:', err.message);
+                    console.error('Database error fetching financial items:', err.message);
                     res.json([]);
                 } else {
                     res.json(rows);
@@ -311,20 +311,20 @@ app.get('/api/transactions', async (req, res) => {
             }
         );
     } catch (error) {
-        console.error('Error fetching accessible users for transactions data:', error);
+        console.error('Error fetching accessible users for financial data:', error);
         res.json([]);
     }
 });
 
-app.post('/api/transactions', (req, res) => {
+app.post('/api/financial', (req, res) => {
     const { user, description, amount, type, date } = req.body;
     const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
     db.run(
-        `INSERT INTO transactions_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
         [user, description, amount, type, date, color],
         function (err) {
             if (err) {
-                console.error('Database error adding transactions item:', err.message);
+                console.error('Database error adding financial item:', err.message);
                 res.json({ success: false });
             } else {
                 res.json({ id: this.lastID, user, description, amount, type, date, color });
@@ -333,11 +333,11 @@ app.post('/api/transactions', (req, res) => {
     );
 });
 
-app.delete('/api/transactions/:id', (req, res) => {
+app.delete('/api/financial/:id', (req, res) => {
     const id = parseInt(req.params.id);
-    db.run('DELETE FROM transactions_items WHERE id = ?', id, (err) => {
+    db.run('DELETE FROM financial_items WHERE id = ?', id, (err) => {
         if (err) {
-            console.error('Database error deleting transactions item:', err.message);
+            console.error('Database error deleting financial item:', err.message);
             res.json({ success: false });
         } else {
             res.json({ success: true });
@@ -368,16 +368,16 @@ app.get('/api/calendar', async (req, res) => {
 });
 
 app.post('/api/calendar', (req, res) => {
-    const { user, title, date, transactions, type, amount, eventColor } = req.body;
+    const { user, title, date, financial, type, amount, eventColor } = req.body;
     db.run(
-        `INSERT INTO calendar_events (user, title, date, transactions, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [user, title, date, transactions ? 1 : 0, type, amount, eventColor],
+        `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [user, title, date, financial ? 1 : 0, type, amount, eventColor],
         function (err) {
             if (err) {
                 console.error('Database error adding calendar event:', err.message);
                 res.json({ success: false });
             } else {
-                res.json({ id: this.lastID, user, title, date, transactions, type, amount, eventColor });
+                res.json({ id: this.lastID, user, title, date, financial, type, amount, eventColor });
             }
         }
     );
