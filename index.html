@@ -78,8 +78,8 @@
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
           </button>
           <div className={`nav-links flex-col md:flex-row md:flex space-x-0 md:space-x-2 ${isMenuOpen ? 'open' : ''}`}>
-            {['menu', 'financial', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
-              <button key={p} onClick={() => handleNavClick(p)} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">{p === 'menu' ? 'Home' : capitalizeFirstLetter(p)}</button>
+            {['menu', 'transactions', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
+              <button key={p} onClick={() => handleNavClick(p)} className="px-3 py-2 text-white hover:bg-teal-500 rounded-lg w-full text-left md:w-auto">{p === 'menu' ? 'Home' : p === 'transactions' ? 'Transactions' : capitalizeFirstLetter(p)}</button>
             ))}
             <button onClick={onLogout} className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 w-full text-left md:w-auto">Sign Out</button>
           </div>
@@ -127,19 +127,527 @@
             <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
           </h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-            {['financial', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
-              <button key={p} onClick={() => setPage(p)} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">{capitalizeFirstLetter(p)}</button>
+            {['transactions', 'calendar', 'profileSettings', 'budgetCalculator', 'about', 'support', 'contact'].map(p => (
+              <button key={p} onClick={() => setPage(p)} className="p-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600 text-center">{p === 'transactions' ? 'Transactions' : capitalizeFirstLetter(p)}</button>
             ))}
           </div>
         </section>
       </main>
     );
 
+    const Transactions = ({ user }) => {
+      const [items, setItems] = useState([]);
+      const [description, setDescription] = useState('');
+      const [amount, setAmount] = useState('');
+      const [type, setType] = useState('income');
+      const [date, setDate] = useState(getCurrentDateTime());
+      const [showAddItemForm, setShowAddItemForm] = useState(false);
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const [searchQuery, setSearchQuery] = useState('');
+      const [filterType, setFilterType] = useState('all');
+
+      const fetchAccessibleUsers = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username }, timeout: 5000 });
+          if (data.success) {
+            const accessible = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (const u of accessible) {
+              if (u !== user.username) profiles[u] = (await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`, { timeout: 5000 })).data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+            }
+            setUserProfiles(profiles);
+          }
+        } catch (err) {
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+
+      const fetchItems = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/transactions', { params: { user: user.username }, timeout: 5000 });
+          setItems(data);
+        } catch (err) {}
+      };
+
+      const addItem = async () => {
+        if (!description || !amount || !date) return;
+        try {
+          const { data } = await axios.post('https://ourlife.work.gd:8443/api/transactions', { user: user.username, description, amount: parseFloat(amount), type, date }, { timeout: 5000 });
+          setItems([...items, data]);
+          setDescription('');
+          setAmount('');
+          setType('income');
+          setDate(getCurrentDateTime());
+          setShowAddItemForm(false);
+        } catch (err) {}
+      };
+
+      const deleteItem = async id => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/transactions/${id}`, { timeout: 5000 });
+          setItems(items.filter(item => item.id !== id));
+        } catch (err) {}
+      };
+
+      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
+
+      useEffect(() => { fetchAccessibleUsers(); fetchItems(); }, []);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <div className="profile-pic-container"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" /></div>
+              <span>Transactions</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <button onClick={() => setShowAddItemForm(!showAddItemForm)} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" aria-label={showAddItemForm ? 'Hide Form' : 'Add Item'}>{showAddItemForm ? 'Hide Form' : 'Add Item'}</button>
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <input type="text" placeholder="Search by description" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Search transactions" />
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Filter by type">
+                  <option value="all">All</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+            </div>
+            {showAddItemForm && (
+              <div className="mb-6 p-4 card">
+                <input type="text" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Description" />
+                <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Amount" />
+                <select value={type} onChange={e => setType(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Type">
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+                <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Date" />
+                <button onClick={addItem} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Add Transaction">Add Transaction</button>
+              </div>
+            )}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map(u => (
+                  <label key={u} className="flex items-center gap-2">
+                    <input type="checkbox" checked={selectedUsers.includes(u)} onChange={() => toggleUser(u)} className="rounded text-teal-500 focus:ring-teal-400" aria-label={`Filter by ${u}`} />
+                    <div className="event-profile-pic-container"><img src={userProfiles[u] || DEFAULT_PROFILE_PIC_URL} alt={`${u}'s profile`} className="event-profile-pic" /></div>
+                    <span>{capitalizeFirstLetter(u)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              {items
+                .filter(item => selectedUsers.includes(item.user) && item.description.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || item.type === filterType))
+                .map(item => (
+                  <div key={item.id} className="card p-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="event-profile-pic-container"><img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC_URL} alt={`${item.user}'s profile`} className="event-profile-pic" /></div>
+                      <div>
+                        <p className="font-semibold text-white">{item.description}</p>
+                        <p className="text-sm text-gray-300">{formatDateTimeWithSeconds(item.date)}</p>
+                        <p className="text-sm text-gray-300">User: {capitalizeFirstLetter(item.user)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <p className={`font-semibold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>R{item.amount.toFixed(2)}</p>
+                      <button onClick={() => deleteItem(item.id)} className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600" aria-label={`Delete ${item.description}`}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </section>
+        </main>
+      );
+    };
+
+    const Calendar = ({ user, setPage }) => {
+      const [events, setEvents] = useState([]);
+      const [title, setTitle] = useState('');
+      const [date, setDate] = useState(getCurrentDateTime());
+      const [isFinancial, setIsFinancial] = useState(false);
+      const [description, setDescription] = useState('');
+      const [amount, setAmount] = useState('');
+      const [type, setType] = useState('income');
+      const [showAddEventForm, setShowAddEventForm] = useState(false);
+      const [accessibleUsers, setAccessibleUsers] = useState([]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const [showEventModal, setShowEventModal] = useState(false);
+      const [selectedEvent, setSelectedEvent] = useState(null);
+      const [searchQuery, setSearchQuery] = useState('');
+      const [filterType, setFilterType] = useState('all');
+      const calendarRef = useRef(null);
+
+      const fetchAccessibleUsers = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username }, timeout: 5000 });
+          if (data.success) {
+            const accessible = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
+            setAccessibleUsers(accessible);
+            setSelectedUsers(accessible);
+            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
+            for (const u of accessible) {
+              if (u !== user.username) profiles[u] = (await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`, { timeout: 5000 })).data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+            }
+            setUserProfiles(profiles);
+          }
+        } catch (err) {
+          setAccessibleUsers([user.username]);
+          setSelectedUsers([user.username]);
+        }
+      };
+
+      const fetchEvents = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username }, timeout: 5000 });
+          setEvents(data);
+        } catch (err) {}
+      };
+
+      const addEvent = async () => {
+        if (!title || !date) return;
+        try {
+          const eventData = { user: user.username, title, date, financial: isFinancial, type: isFinancial ? type : null, amount: isFinancial ? parseFloat(amount) : null, eventColor: user.eventColor, description: isFinancial ? description : null };
+          await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData, { timeout: 5000 });
+          fetchEvents();
+          setTitle('');
+          setDate(getCurrentDateTime());
+          setIsFinancial(false);
+          setDescription('');
+          setAmount('');
+          setType('income');
+          setShowAddEventForm(false);
+        } catch (err) {}
+      };
+
+      const deleteEvent = async id => {
+        try {
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
+          fetchEvents();
+          setShowEventModal(false);
+        } catch (err) {}
+      };
+
+      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
+
+      useEffect(() => { fetchAccessibleUsers(); fetchEvents(); }, []);
+
+      useEffect(() => {
+        if (calendarRef.current) {
+          const calendar = new FullCalendar.Calendar(calendarRef.current, {
+            initialView: 'dayGridMonth',
+            events: events
+              .filter(e => selectedUsers.includes(e.user) && e.title.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || (filterType === 'financial' ? e.financial : !e.financial)))
+              .map(e => ({
+                id: e.id, title: e.title, start: e.date, backgroundColor: e.eventColor || DEFAULT_EVENT_COLOR, borderColor: e.eventColor || DEFAULT_EVENT_COLOR,
+                extendedProps: { user: e.user, financial: e.financial, type: e.type, amount: e.amount }
+              })),
+            eventContent: ({ event }) => ({
+              html: `<div class="fc-event-main"><div class="fc-event-title">${event.title}</div><div class="fc-event-user flex items-center gap-2"><div class="event-profile-pic-container"><img src="${userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${event.extendedProps.user}'s profile" class="event-profile-pic" /></div>${capitalizeFirstLetter(event.extendedProps.user)}</div>${event.extendedProps.financial ? `<div>Amount: ${event.extendedProps.amount}</div>` : ''}</div>`
+            }),
+            eventClick: ({ event }) => {
+              setSelectedEvent({ id: event.id, title: event.title, date: event.start, user: event.extendedProps.user, financial: event.extendedProps.financial, type: event.extendedProps.type, amount: event.extendedProps.amount });
+              setShowEventModal(true);
+            }
+          });
+          calendar.render();
+          return () => calendar.destroy();
+        }
+      }, [events, selectedUsers, userProfiles, searchQuery, filterType]);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <div className="profile-pic-container"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" /></div>
+              <span>Calendar</span>
+            </h1>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <button onClick={() => setShowAddEventForm(!showAddEventForm)} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" aria-label={showAddEventForm ? 'Hide Form' : 'Add Event'}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</button>
+              <div className="flex space-x-3 w-full sm:w-auto">
+                <input type="text" placeholder="Search by title" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Search events" />
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Filter by event type">
+                  <option value="all">All Events</option>
+                  <option value="financial">Financial</option>
+                  <option value="non-financial">Non-Financial</option>
+                </select>
+              </div>
+            </div>
+            {showAddEventForm && (
+              <div className="mb-6 p-4 card">
+                <input type="text" placeholder="Event Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event title" />
+                <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event date" />
+                <label className="flex items-center gap-2 mb-4">
+                  <input type="checkbox" checked={isFinancial} onChange={e => setIsFinancial(e.target.checked)} className="rounded text-teal-500 focus:ring-teal-400" aria-label="Is Financial Event" />
+                  <span className="text-white">Include Transactional Data</span>
+                </label>
+                {isFinancial && (
+                  <>
+                    <input type="text" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Transaction Description" />
+                    <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Transaction Amount" />
+                    <select value={type} onChange={e => setType(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Transaction Type">
+                      <option value="income">Income</option>
+                      <option value="expense">Expense</option>
+                    </select>
+                  </>
+                )}
+                <button onClick={addEvent} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Add Event">Add Event</button>
+              </div>
+            )}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
+              <div className="flex flex-wrap gap-2">
+                {accessibleUsers.map(u => (
+                  <label key={u} className="flex items-center gap-2">
+                    <input type="checkbox" checked={selectedUsers.includes(u)} onChange={() => toggleUser(u)} className="rounded text-teal-500 focus:ring-teal-400" aria-label={`Filter by ${u}`} />
+                    <div className="event-profile-pic-container"><img src={userProfiles[u] || DEFAULT_PROFILE_PIC_URL} alt={`${u}'s profile`} className="event-profile-pic" /></div>
+                    <span>{capitalizeFirstLetter(u)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div ref={calendarRef} className="card p-4"></div>
+            {showEventModal && selectedEvent && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="card p-6 max-w-sm w-full modal show">
+                  <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
+                  <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                  <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
+                  {selectedEvent.financial && (
+                    <>
+                      <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
+                      <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
+                    </>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowEventModal(false)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label="Close">Close</button>
+                    <button onClick={() => deleteEvent(selectedEvent.id)} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" aria-label={`Delete ${selectedEvent.title}`}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
+    const ProfileSettings = ({ user, setUser }) => {
+      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
+      const [email, setEmail] = useState(user.email || '');
+      const [phone, setPhone] = useState(user.phone || '');
+      const [address, setAddress] = useState(user.address || '');
+      const [currentPassword, setCurrentPassword] = useState('');
+      const [newPassword, setNewPassword] = useState('');
+      const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
+      const [accessList, setAccessList] = useState([]);
+      const [users, setUsers] = useState([]);
+      const [newViewer, setNewViewer] = useState('');
+      const [isAdmin, setIsAdmin] = useState(user.isAdmin || false);
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+
+      const fetchAccessList = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { timeout: 5000 });
+          if (data.success) setAccessList(data.accessList.filter(a => a.target === user.username));
+        } catch (err) {}
+      };
+
+      const fetchUsers = async () => {
+        try {
+          const { data } = await axios.get('https://ourlife.work.gd:8443/api/users', { timeout: 5000 });
+          setUsers(data);
+        } catch (err) {}
+      };
+
+      const saveProfile = async () => {
+        try {
+          await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', { username: user.username, profilePicUrl, email, phone, address, eventColor }, { timeout: 5000 });
+          setUser({ ...user, profilePicUrl, email, phone, address, eventColor });
+          setSuccess('Profile updated successfully!');
+          setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+          setError('Failed to update profile.');
+        }
+      };
+
+      const changePassword = async () => {
+        if (!currentPassword || !newPassword) {
+          setError('Both current and new passwords are required.');
+          return;
+        }
+        try {
+          const { data } = await axios.post('https://ourlife.work.gd:8443/api/update-password', { username: user.username, currentPassword, newPassword }, { timeout: 5000 });
+          if (data.success) {
+            setSuccess('Password updated successfully!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setTimeout(() => setSuccess(''), 3000);
+          } else {
+            setError(data.message || 'Failed to update password.');
+          }
+        } catch (err) {
+          setError('Error updating password.');
+        }
+      };
+
+      const grantAccess = async () => {
+        if (!newViewer) return;
+        try {
+          const { data } = await axios.post('https://ourlife.work.gd:8443/api/grant-access', { viewer: newViewer, target: user.username }, { timeout: 5000 });
+          if (data.success) {
+            setAccessList([...accessList, { viewer: newViewer, target: user.username }]);
+            setNewViewer('');
+            setSuccess('Access granted successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+          } else {
+            setError(data.message || 'Failed to grant access.');
+          }
+        } catch (err) {
+          setError('Error granting access.');
+        }
+      };
+
+      const revokeAccess = async viewer => {
+        try {
+          const { data } = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', { viewer, target: user.username }, { timeout: 5000 });
+          if (data.success) {
+            setAccessList(accessList.filter(a => a.viewer !== viewer));
+            setSuccess('Access revoked successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+          } else {
+            setError(data.message || 'Failed to revoke access.');
+          }
+        } catch (err) {
+          setError('Error revoking access.');
+        }
+      };
+
+      useEffect(() => {
+        fetchAccessList();
+        if (isAdmin) fetchUsers();
+      }, [isAdmin]);
+
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 text-center">Profile Settings</h1>
+            {error && <p className="text-red-400 text-center mb-4">{error}</p>}
+            {success && <p className="text-green-400 text-center mb-4">{success}</p>}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-2">Profile Information</h2>
+                <div className="space-y-4">
+                  <input type="text" value={profilePicUrl} onChange={e => setProfilePicUrl(e.target.value)} placeholder="Profile Picture URL" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Profile Picture URL" />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Email" />
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Phone" />
+                  <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Address" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Address" />
+                  <input type="color" value={eventColor} onChange={e => setEventColor(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Event Color" />
+                  <button onClick={saveProfile} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Save Profile">Save Profile</button>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-2">Change Password</h2>
+                <div className="space-y-4">
+                  <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="Current Password" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Current Password" />
+                  <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="New Password" />
+                  <button onClick={changePassword} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Change Password">Change Password</button>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-2">Manage Access</h2>
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select value={newViewer} onChange={e => setNewViewer(e.target.value)} className="w-full sm:w-1/2 p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Select user to grant access">
+                      <option value="">Select User</option>
+                      {users.filter(u => u.username !== user.username).map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
+                    </select>
+                    <button onClick={grantAccess} className="w-full sm:w-auto px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Grant Access">Grant Access</button>
+                  </div>
+                  <div className="space-y-2">
+                    {accessList.map(a => (
+                      <div key={a.viewer} className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                        <span className="text-white">{a.viewer}</span>
+                        <button onClick={() => revokeAccess(a.viewer)} className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600" aria-label={`Revoke access for ${a.viewer}`}>Revoke</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      );
+    };
+
+    const BudgetCalculator = ({ user, setPage }) => {
+      const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
+      const [isLoading, setIsLoading] = useState(true);
+      const [error, setError] = useState('');
+      const [currentMonth] = useState(new Date().toISOString().slice(0, 7));
+      useEffect(() => {
+        const fetchData = async () => {
+          setIsLoading(true);
+          try {
+            const { data } = await axios.get('https://ourlife.work.gd:8443/api/transactions', { params: { user: user.username }, timeout: 5000 });
+            const userItems = data.filter(item => item.user === user.username && item.date.startsWith(currentMonth));
+            const income = userItems.filter(item => item.type === 'income').reduce((sum, item) => sum + item.amount, 0);
+            const expense = userItems.filter(item => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+            setSummary({ income, expense, balance: income - expense });
+          } catch (err) {
+            setError('Failed to load transactional data.');
+          }
+          setIsLoading(false);
+        };
+        fetchData();
+      }, [user.username, currentMonth]);
+      const expensePercentage = summary.income > 0 ? (summary.expense / summary.income) * 100 : 0;
+      return (
+        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
+          <section className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6">Monthly Budget</h1>
+            {isLoading ? (
+              <p className="text-white text-center">Calculating...</p>
+            ) : error ? (
+              <p className="text-red-400 text-center">{error}</p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Summary for {new Date(currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                  <div className="card p-4 space-y-3">
+                    <div className="flex justify-between"><span className="text-green-400 font-semibold">Income:</span><span className="text-green-400">R{summary.income.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span className="text-red-400 font-semibold">Expenses:</span><span className="text-red-400">R{summary.expense.toFixed(2)}</span></div>
+                    <div className="border-t border-white/10 my-2"></div>
+                    <div className="flex justify-between font-bold text-xl"><span className="text-white">Balance:</span><span className={summary.balance >= 0 ? 'text-teal-400' : 'text-orange-400'}>R{summary.balance.toFixed(2)}</span></div>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-2">Expense Breakdown</h2>
+                  <div className="w-full bg-gray-700 rounded-full h-4">
+                    <div className="bg-red-400 h-4 rounded-full" style={{ width: `${Math.min(expensePercentage, 100)}%` }}></div>
+                  </div>
+                  <p className="text-white mt-2 text-sm">Expenses: {expensePercentage.toFixed(1)}% of Income</p>
+                </div>
+                <div className="text-center">
+                  <button onClick={() => setPage('menu')} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label="Back to Menu">Back to Menu</button>
+                </div>
+              </div>
+            )}
+          </section>
+        </main>
+      );
+    };
+
     const About = ({ setPage }) => (
       <main className="p-4 sm:p-6 max-w-4xl mx-auto">
         <section className="card p-8 text-left">
           <h1 className="text-2xl font-semibold text-white mb-4 text-center">About OurLife</h1>
-          <p className="text-gray-300 mb-4">OurLife is your digital solution for managing personal and shared finances and schedules, offering a secure, intuitive platform for tracking income, expenses, budgets, and shared calendars.</p>
+          <p className="text-gray-300 mb-4">OurLife is your digital solution for managing personal and shared transactional data and schedules, offering a secure, intuitive platform for tracking income, expenses, budgets, and shared calendars.</p>
           <p className="text-gray-300 mb-6">Created by <strong>Johan Koen</strong>, a developer passionate about impactful technology. Connect with him on LinkedIn.</p>
           <div className="text-center">
             <a href="https://www.linkedin.com/in/johan-koen-12a11b234/" target="_blank" rel="noopener noreferrer" className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-6">Connect on LinkedIn</a>
@@ -165,8 +673,8 @@
             <h1 className="text-2xl font-semibold text-white mb-6 text-center">Support & FAQ</h1>
             <div className="space-y-4 mb-8 text-left">
               <div>
-                <h3 className="font-semibold text-lg text-teal-400">Add Financial Item</h3>
-                <p className="text-gray-300">Go to "Finances", click "Add Item", fill details, and save.</p>
+                <h3 className="font-semibold text-lg text-teal-400">Add Transactional Data</h3>
+                <p className="text-gray-300">Go to "Transactions", click "Add Item", fill details, and save. Or, add via "Calendar" by including transactional data when creating an event.</p>
               </div>
               <div>
                 <h3 className="font-semibold text-lg text-teal-400">Share Data</h3>
@@ -243,609 +751,29 @@
       );
     };
 
-    const BudgetCalculator = ({ user, setPage }) => {
-      const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
-      const [isLoading, setIsLoading] = useState(true);
-      const [error, setError] = useState('');
-      const [currentMonth] = useState(new Date().toISOString().slice(0, 7));
-      useEffect(() => {
-        const fetchData = async () => {
-          setIsLoading(true);
-          try {
-            const { data } = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username }, timeout: 5000 });
-            const userItems = data.filter(item => item.user === user.username && item.date.startsWith(currentMonth));
-            const income = userItems.filter(item => item.type === 'income').reduce((sum, item) => sum + item.amount, 0);
-            const expense = userItems.filter(item => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
-            setSummary({ income, expense, balance: income - expense });
-          } catch (err) {
-            setError('Failed to load financial data.');
-          }
-          setIsLoading(false);
-        };
-        fetchData();
-      }, [user.username, currentMonth]);
-      const expensePercentage = summary.income > 0 ? (summary.expense / summary.income) * 100 : 0;
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2 widok-semibold text-white mb-6">Monthly Budget</h1>
-            {isLoading ? (
-              <p className="text-white text-center">Calculating...</p>
-            ) : error ? (
-              <p className="text-red-400 text-center">{error}</p>
-            ) : (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-lg font-medium text-white mb-2">Summary for {new Date(currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                  <div className="card p-4 space-y-3">
-                    <div className="flex justify-between"><span className="text-green-400 font-semibold">Income:</span><span className="text-green-400">R{summary.income.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span className="text-red-400 font-semibold">Expenses:</span><span className="text-red-400">R{summary.expense.toFixed(2)}</span></div>
-                    <div className="border-t border-white/10 my-2"></div>
-                    <div className="flex justify-between font-bold text-xl"><span className="text-white">Balance:</span><span className={summary.balance >= 0 ? 'text-teal-400' : 'text-orange-400'}>R{summary.balance.toFixed(2)}</span></div>
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-lg font-medium text-white mb-2">Expense Breakdown</h2>
-                  <div className="w-full bg-gray-700 rounded-full h-6">
-                    <div className="bg-red-500 h-6 rounded-full text-center text-white text-sm flex items-center justify-center" style={{ width: `${Math.min(expensePercentage, 100)}%` }}>
-                      {expensePercentage > 5 ? `${expensePercentage.toFixed(0)}%` : ''}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-400 mt-2 text-center">Spent {expensePercentage.toFixed(0)}% of income.</p>
-                </div>
-                <button onClick={() => setPage('menu')} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label="Back to Menu">Back to Menu</button>
-              </div>
-            )}
-          </section>
-        </main>
-      );
-    };
-
-    const ProfileSettings = ({ user, setPage }) => {
-      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
-      const [selectedFile, setSelectedFile] = useState(null);
-      const [message, setMessage] = useState('');
-      const [email, setEmail] = useState(user.email || '');
-      const [phone, setPhone] = useState(user.phone || '');
-      const [address, setAddress] = useState(user.address || '');
-      const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
-      const [currentPassword, setCurrentPassword] = useState('');
-      const [newPassword, setNewPassword] = useState('');
-      const [confirmNewPassword, setConfirmNewPassword] = useState('');
-      const [passwordMessage, setPasswordMessage] = useState('');
-      const [allUsers, setAllUsers] = useState([]);
-      const [targetUsername, setTargetUsername] = useState('');
-      const [accessList, setAccessList] = useState([]);
-      const [accessMessage, setAccessMessage] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
-
-      const handleFileChange = e => {
-        const file = e.target.files[0];
-        if (file) {
-          setSelectedFile(file);
-          const reader = new FileReader();
-          reader.onloadend = () => setProfilePicUrl(reader.result);
-          reader.readAsDataURL(file);
-        } else {
-          setProfilePicUrl(user.profilePicUrl || DEFAULT_PROFILE_PIC_URL);
-        }
-      };
-
-      const handleSaveProfile = async () => {
-        setMessage('Saving...');
-        let urlToSave = profilePicUrl;
-        try {
-          if (selectedFile) urlToSave = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(selectedFile);
-          });
-          else if (!profilePicUrl) urlToSave = DEFAULT_PROFILE_PIC_URL;
-          const { data } = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', { username: user.username, profilePicUrl: urlToSave, email, phone, address, eventColor }, { timeout: 5000 });
-          if (data.success) {
-            setMessage('Profile saved!');
-            Object.assign(user, { profilePicUrl: urlToSave, email, phone, address, eventColor });
-          } else setMessage(data.message || 'Failed to save profile.');
-        } catch (err) {
-          setMessage(err.response?.data?.message || 'Error saving profile.');
-        }
-      };
-
-      const handlePasswordChange = async () => {
-        if (!currentPassword || !newPassword || !confirmNewPassword) return setPasswordMessage('All password fields required.');
-        if (newPassword !== confirmNewPassword) return setPasswordMessage('Passwords do not match.');
-        if (newPassword.length < 6) return setPasswordMessage('Password must be at least 6 characters.');
-        setPasswordMessage('Changing password...');
-        try {
-          const { data } = await axios.post('https://ourlife.work.gd:8443/api/update-password', { username: user.username, currentPassword, newPassword }, { timeout: 5000 });
-          setPasswordMessage(data.success ? 'Password updated!' : data.message || 'Failed to update password.');
-          if (data.success) setCurrentPassword(''), setNewPassword(''), setConfirmNewPassword('');
-        } catch (err) {
-          setPasswordMessage(err.response?.data?.message || 'Error updating password.');
-        }
-      };
-
-      const fetchAllUsers = async () => {
-        setIsLoading(true);
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/users', { timeout: 5000 });
-          setAllUsers(Array.isArray(data) ? data.filter(u => u.username && u.username !== user.username).map(u => u.username) : []);
-        } catch (err) {
-          setAccessMessage(err.response?.data?.message || 'Error fetching users.');
-        }
-        setIsLoading(false);
-      };
-
-      const fetchAccessList = async () => {
-        setIsLoading(true);
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { timeout: 5000 });
-          if (data.success && Array.isArray(data.accessList)) setAccessList(data.accessList.filter(a => a.viewer === user.username && a.target !== user.username));
-          else setAccessMessage(data.message || 'Invalid access list response.');
-        } catch (err) {
-          setAccessMessage(err.response?.data?.message || 'Error fetching access list.');
-        }
-        setIsLoading(false);
-      };
-
-      const handleGrantAccess = async () => {
-        if (!targetUsername) return setAccessMessage('Select a target user.');
-        setAccessMessage('Granting access...');
-        try {
-          const { data } = await axios.post('https://ourlife.work.gd:8443/api/grant-access', { viewer: user.username, target: targetUsername }, { timeout: 5000 });
-          setAccessMessage(data.success ? 'Access granted!' : data.message || 'Failed to grant access.');
-          if (data.success) setTargetUsername(''), fetchAccessList();
-        } catch (err) {
-          setAccessMessage(err.response?.data?.message || 'Error granting access.');
-        }
-      };
-
-      const handleRevokeAccess = async (viewer, target) => {
-        setAccessMessage('Revoking access...');
-        try {
-          const { data } = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', { viewer, target }, { timeout: 5000 });
-          setAccessMessage(data.success ? 'Access revoked!' : data.message || 'Failed to revoke access.');
-          if (data.success) fetchAccessList();
-        } catch (err) {
-          setAccessMessage(err.response?.data?.message || 'Error revoking access.');
-        }
-      };
-
-      useEffect(() => { if (user?.isAdmin) fetchAllUsers(), fetchAccessList(); }, [user]);
-
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-white text-lg font-medium mb-2" htmlFor="profilePic">Profile Picture</label>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="profile-pic-container"><img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" /></div>
-                  <span className="text-white">{user.username}</span>
-                </div>
-                <input id="profilePic" type="file" accept="image/*" onChange={handleFileChange} className="w-full p-3 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600" aria-label="Upload Profile Picture" />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2" htmlFor="email">Email</label>
-                <input id="email" type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Email" />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2" htmlFor="phone">Phone Number</label>
-                <input id="phone" type="tel" placeholder="Enter your phone number" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Phone Number" />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2" htmlFor="address">Address</label>
-                <textarea id="address" placeholder="Enter your address" value={address} onChange={e => setAddress(e.target.value)} rows="3" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Address"></textarea>
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2" htmlFor="eventColor">Event Color</label>
-                <input id="eventColor" type="color" value={eventColor} onChange={e => setEventColor(e.target.value)} className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer" aria-label="Event Color" />
-              </div>
-              {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
-              <button onClick={handleSaveProfile} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Save Profile">Save Profile</button>
-              <div className="pt-6 border-t border-white/10">
-                <h2 className="text-xl font-semibold text-white mb-4">Change Password</h2>
-                <input type="password" placeholder="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Current Password" />
-                <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="New Password" />
-                <input type="password" placeholder="Confirm New Password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Confirm New Password" />
-                {passwordMessage && <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{passwordMessage}</p>}
-                <button onClick={handlePasswordChange} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Change Password">Change Password</button>
-              </div>
-              {user.isAdmin && (
-                <div className="pt-6 border-t border-white/10">
-                  <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
-                  {isLoading ? (
-                    <p className="text-white text-center">Loading...</p>
-                  ) : (
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white mb-2">Grant View Access</h3>
-                        <div className="mb-4">
-                          <label className="block text-white text-lg font-medium mb-2">Viewer</label>
-                          <input type="text" value={user.username} disabled className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/10" aria-label="Viewer Username" />
-                        </div>
-                        <div className="mb-4">
-                          <label className="block text-white text-lg font-medium mb-2" htmlFor="targetUsername">Target User</label>
-                          <select id="targetUsername" value={targetUsername} onChange={e => setTargetUsername(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Select Target User">
-                            <option value="">Select a user</option>
-                            {allUsers.map(u => <option key={u} value={u}>{capitalizeFirstLetter(u)}</option>)}
-                          </select>
-                        </div>
-                        <button onClick={handleGrantAccess} disabled={!targetUsername} className={`w-full p-3 rounded-lg text-white ${targetUsername ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 cursor-not-allowed'}`} aria-label="Grant Access">Grant Access</button>
-                        {accessMessage && <p className={`text-center text-sm mt-2 ${accessMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{accessMessage}</p>}
-                      </div>
-                      <div className="pt-6 border-t border-white/10">
-                        <h3 className="text-lg font-semibold text-white mb-2">Current Access</h3>
-                        {accessList.length === 0 ? (
-                          <p className="text-white text-center">No permissions granted.</p>
-                        ) : (
-                          <table className="w-full text-left">
-                            <thead><tr className="text-gray-300"><th className="p-3">Viewer</th><th className="p-3">Target</th><th className="p-3">Actions</th></tr></thead>
-                            <tbody>
-                              {accessList.map((a, i) => (
-                                <tr key={i} className="border-t border-white/10">
-                                  <td className="p-3">{capitalizeFirstLetter(a.viewer)}</td>
-                                  <td className="p-3">{capitalizeFirstLetter(a.target)}</td>
-                                  <td className="p-3"><button onClick={() => handleRevokeAccess(a.viewer, a.target)} className="text-red-400 hover:text-red-500" aria-label={`Revoke access for ${a.viewer} to ${a.target}`}>Revoke</button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <button onClick={() => setPage('menu')} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label="Back to Menu">Back to Menu</button>
-            </div>
-          </section>
-        </main>
-      );
-    };
-
-    const Financial = ({ user, setPage }) => {
-      const [items, setItems] = useState([]);
-      const [description, setDescription] = useState('');
-      const [amount, setAmount] = useState('');
-      const [type, setType] = useState('income');
-      const [date, setDate] = useState(getCurrentDateTime());
-      const [hideValues, setHideValues] = useState(false);
-      const [currency] = useState('ZAR');
-      const [accessibleUsers, setAccessibleUsers] = useState([]);
-      const [selectedUsers, setSelectedUsers] = useState([user.username]);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const [showAddItemForm, setShowAddItemForm] = useState(false);
-      const [selectedMonth, setSelectedMonth] = useState('07');
-      const [netTotal, setNetTotal] = useState(0);
-      const [bulkData, setBulkData] = useState('');
-      const [importMessage, setImportMessage] = useState('');
-      const [showImportTool, setShowImportTool] = useState(false);
-      const [searchQuery, setSearchQuery] = useState('');
-      const [filterType, setFilterType] = useState('all');
-      const currencyConfig = { USD: { symbol: '$', rate: 1 }, EUR: { symbol: '€', rate: 0.85 }, ZAR: { symbol: 'R', rate: 18.5 } };
-      const months = ['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => ({ value: m, label: new Date(2025, m - 1).toLocaleString('default', { month: 'long' }) }));
-      const formatAmount = a => `${currencyConfig[currency].symbol}${parseFloat(a).toFixed(2)}`;
-      const calculateNetTotal = () => {
-        const total = items
-          .filter(i => selectedUsers.includes(i.user) && i.date.startsWith(`2025-${selectedMonth}`) && i.description.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || i.type === filterType))
-          .reduce((sum, i) => i.type === 'income' ? sum + i.amount : sum - i.amount, 0);
-        setNetTotal(total);
-      };
-      const fetchAccessibleUsers = async () => {
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username }, timeout: 5000 });
-          if (data.success) {
-            const accessible = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
-            setAccessibleUsers(accessible);
-            setSelectedUsers(accessible);
-            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const u of accessible) {
-              if (u !== user.username) profiles[u] = (await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`, { timeout: 5000 })).data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-            }
-            setUserProfiles(profiles);
-          }
-        } catch (err) {
-          setAccessibleUsers([user.username]);
-          setSelectedUsers([user.username]);
-        }
-      };
-      const fetchItems = async () => {
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username }, timeout: 5000 });
-          setItems(data);
-        } catch (err) {}
-      };
-      const addItem = async () => {
-        if (!description || !amount || !date) return;
-        try {
-          await axios.post('https://ourlife.work.gd:8443/api/financial', { user: user.username, description, amount: parseFloat(amount), type, date }, { timeout: 5000 });
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', { user: user.username, title: `${description} (${type})`, date, financial: true, type, amount: parseFloat(amount), eventColor: user.eventColor }, { timeout: 5000 });
-          fetchItems();
-          setDescription('');
-          setAmount('');
-          setDate(getCurrentDateTime());
-          setShowAddItemForm(false);
-        } catch (err) {}
-      };
-      const deleteItem = async id => {
-        try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`, { timeout: 5000 });
-          fetchItems();
-        } catch (err) {}
-      };
-      const handleBulkImport = async () => {
-        if (!bulkData.trim()) return setImportMessage('Paste data into the text box.');
-        const itemsToImport = bulkData.trim().split('\n').filter(l => l.trim()).map(l => {
-          const [description, amount, type, date] = l.split(',').map(f => f.trim());
-          return description && amount && type && date ? { user: user.username, description, amount: parseFloat(amount), type, date } : null;
-        }).filter(Boolean);
-        if (!itemsToImport.length) return setImportMessage('No valid data found.');
-        setImportMessage(`Importing ${itemsToImport.length} items...`);
-        try {
-          await Promise.all(itemsToImport.map(i => Promise.all([
-            axios.post('https://ourlife.work.gd:8443/api/financial', i, { timeout: 5000 }),
-            axios.post('https://ourlife.work.gd:8443/api/calendar', { user: user.username, title: `${i.description} (${i.type})`, date: i.date, financial: true, type: i.type, amount: i.amount, eventColor: user.eventColor }, { timeout: 5000 })
-          ])));
-          setImportMessage(`Imported ${itemsToImport.length} items!`);
-          setBulkData('');
-          setShowImportTool(false);
-          fetchItems();
-        } catch (err) {
-          setImportMessage('Import error.');
-        }
-      };
-      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
-      useEffect(() => { fetchAccessibleUsers(); fetchItems(); }, []);
-      useEffect(() => { calculateNetTotal(); }, [items, selectedUsers, selectedMonth, searchQuery, filterType]);
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <div className="profile-pic-container"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" /></div>
-              <span>Finances</span>
-            </h1>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <div className="flex space-x-3 w-full sm:w-auto">
-                <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Select Month">
-                  {months.map(m => <option key={m.value} value={m.value}>{m.label} 2025</option>)}
-                </select>
-                <button onClick={() => setShowAddItemForm(!showAddItemForm)} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" aria-label={showAddItemForm ? 'Hide Form' : 'Add Item'}>{showAddItemForm ? 'Hide Form' : 'Add Item'}</button>
-                <button onClick={() => setShowImportTool(!showImportTool)} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" aria-label={showImportTool ? 'Hide Import' : 'Bulk Import'}>{showImportTool ? 'Hide Import' : 'Bulk Import'}</button>
-              </div>
-              <div className="flex space-x-3 w-full sm:w-auto">
-                <input type="text" placeholder="Search by description" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Search financial items" />
-                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Filter by type">
-                  <option value="all">All Types</option>
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-              </div>
-            </div>
-            {showAddItemForm && (
-              <div className="mb-6 p-4 card">
-                <input type="text" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Description" />
-                <input type="number" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Amount" />
-                <select value={type} onChange={e => setType(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Type">
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-                <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Date" />
-                <button onClick={addItem} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Add Item">Add Item</button>
-              </div>
-            )}
-            {showImportTool && (
-              <div className="mb-6 p-4 card">
-                <textarea placeholder="Paste CSV data (description,amount,type,date)" value={bulkData} onChange={e => setBulkData(e.target.value)} rows="5" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Bulk import data"></textarea>
-                <button onClick={handleBulkImport} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Import Data">Import Data</button>
-                {importMessage && <p className={`text-center text-sm mt-2 ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{importMessage}</p>}
-              </div>
-            )}
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(u => (
-                  <label key={u} className="flex items-center gap-2">
-                    <input type="checkbox" checked={selectedUsers.includes(u)} onChange={() => toggleUser(u)} className="rounded text-teal-500 focus:ring-teal-400" aria-label={`Filter by ${u}`} />
-                    <div className="event-profile-pic-container"><img src={userProfiles[u] || DEFAULT_PROFILE_PIC_URL} alt={`${u}'s profile`} className="event-profile-pic" /></div>
-                    <span>{capitalizeFirstLetter(u)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Financial Summary</h2>
-              <p className="text-white">Net Total: {formatAmount(netTotal)}</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead><tr className="text-gray-300"><th className="p-3">User</th><th className="p-3">Description</th><th className="p-3">Amount</th><th className="p-3">Type</th><th className="p-3">Date</th><th className="p-3">Actions</th></tr></thead>
-                <tbody>
-                  {items
-                    .filter(i => selectedUsers.includes(i.user) && i.date.startsWith(`2025-${selectedMonth}`) && i.description.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || i.type === filterType))
-                    .map(i => (
-                      <tr key={i.id} className="border-t border-white/10">
-                        <td className="p-3 flex items-center gap-2"><div className="event-profile-pic-container"><img src={userProfiles[i.user] || DEFAULT_PROFILE_PIC_URL} alt={`${i.user}'s profile`} className="event-profile-pic" /></div>{capitalizeFirstLetter(i.user)}</td>
-                        <td className="p-3">{i.description}</td>
-                        <td className="p-3">{hideValues ? '****' : formatAmount(i.amount)}</td>
-                        <td className="p-3">{capitalizeFirstLetter(i.type)}</td>
-                        <td className="p-3">{formatDateTimeWithSeconds(i.date)}</td>
-                        <td className="p-3"><button onClick={() => deleteItem(i.id)} className="text-red-400 hover:text-red-500" aria-label={`Delete ${i.description}`}>Delete</button></td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-            <button onClick={() => setHideValues(!hideValues)} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label={hideValues ? 'Show Values' : 'Hide Values'}>{hideValues ? 'Show Values' : 'Hide Values'}</button>
-          </section>
-        </main>
-      );
-    };
-
-    const Calendar = ({ user, setPage }) => {
-      const [events, setEvents] = useState([]);
-      const [title, setTitle] = useState('');
-      const [date, setDate] = useState(getCurrentDateTime());
-      const [showAddEventForm, setShowAddEventForm] = useState(false);
-      const [accessibleUsers, setAccessibleUsers] = useState([]);
-      const [selectedUsers, setSelectedUsers] = useState([user.username]);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const [showEventModal, setShowEventModal] = useState(false);
-      const [selectedEvent, setSelectedEvent] = useState(null);
-      const [searchQuery, setSearchQuery] = useState('');
-      const [filterType, setFilterType] = useState('all');
-      const calendarRef = useRef(null);
-
-      const fetchAccessibleUsers = async () => {
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username }, timeout: 5000 });
-          if (data.success) {
-            const accessible = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
-            setAccessibleUsers(accessible);
-            setSelectedUsers(accessible);
-            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const u of accessible) {
-              if (u !== user.username) profiles[u] = (await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`, { timeout: 5000 })).data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-            }
-            setUserProfiles(profiles);
-          }
-        } catch (err) {
-          setAccessibleUsers([user.username]);
-          setSelectedUsers([user.username]);
-        }
-      };
-
-      const fetchEvents = async () => {
-        try {
-          const { data } = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username }, timeout: 5000 });
-          setEvents(data);
-        } catch (err) {}
-      };
-
-      const addEvent = async () => {
-        if (!title || !date) return;
-        try {
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', { user: user.username, title, date, financial: false, eventColor: user.eventColor }, { timeout: 5000 });
-          fetchEvents();
-          setTitle('');
-          setDate(getCurrentDateTime());
-          setShowAddEventForm(false);
-        } catch (err) {}
-      };
-
-      const deleteEvent = async id => {
-        try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`, { timeout: 5000 });
-          fetchEvents();
-          setShowEventModal(false);
-        } catch (err) {}
-      };
-
-      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
-
-      useEffect(() => { fetchAccessibleUsers(); fetchEvents(); }, []);
-
-      useEffect(() => {
-        if (calendarRef.current) {
-          const calendar = new FullCalendar.Calendar(calendarRef.current, {
-            initialView: 'dayGridMonth',
-            events: events
-              .filter(e => selectedUsers.includes(e.user) && e.title.toLowerCase().includes(searchQuery.toLowerCase()) && (filterType === 'all' || (filterType === 'financial' ? e.financial : !e.financial)))
-              .map(e => ({
-                id: e.id, title: e.title, start: e.date, backgroundColor: e.eventColor || DEFAULT_EVENT_COLOR, borderColor: e.eventColor || DEFAULT_EVENT_COLOR,
-                extendedProps: { user: e.user, financial: e.financial, type: e.type, amount: e.amount }
-              })),
-            eventContent: ({ event }) => ({
-              html: `<div class="fc-event-main"><div class="fc-event-title">${event.title}</div><div class="fc-event-user flex items-center gap-2"><div class="event-profile-pic-container"><img src="${userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL}" alt="${event.extendedProps.user}'s profile" class="event-profile-pic" /></div>${capitalizeFirstLetter(event.extendedProps.user)}</div>${event.extendedProps.financial ? `<div>Amount: ${event.extendedProps.amount}</div>` : ''}</div>`
-            }),
-            eventClick: ({ event }) => {
-              setSelectedEvent({ id: event.id, title: event.title, date: event.start, user: event.extendedProps.user, financial: event.extendedProps.financial, type: event.extendedProps.type, amount: event.extendedProps.amount });
-              setShowEventModal(true);
-            }
-          });
-          calendar.render();
-          return () => calendar.destroy();
-        }
-      }, [events, selectedUsers, userProfiles, searchQuery, filterType]);
-
-      return (
-        <main className="p-4 sm:p-6 max-w-4xl mx-auto">
-          <section className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <div className="profile-pic-container"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt={`${user.username}'s profile`} className="profile-pic" /></div>
-              <span>Calendar</span>
-            </h1>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <button onClick={() => setShowAddEventForm(!showAddEventForm)} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" aria-label={showAddEventForm ? 'Hide Form' : 'Add Event'}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</button>
-              <div className="flex space-x-3 w-full sm:w-auto">
-                <input type="text" placeholder="Search by title" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Search events" />
-                <select value={filterType} onChange={e => setFilterType(e.target.value)} className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" aria-label="Filter by event type">
-                  <option value="all">All Events</option>
-                  <option value="financial">Financial</option>
-                  <option value="non-financial">Non-Financial</option>
-                </select>
-              </div>
-            </div>
-            {showAddEventForm && (
-              <div className="mb-6 p-4 card">
-                <input type="text" placeholder="Event Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event title" />
-                <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 mb-4" aria-label="Event date" />
-                <button onClick={addEvent} className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600" aria-label="Add Event">Add Event</button>
-              </div>
-            )}
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-white mb-2">Filter by User</h2>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(u => (
-                  <label key={u} className="flex items-center gap-2">
-                    <input type="checkbox" checked={selectedUsers.includes(u)} onChange={() => toggleUser(u)} className="rounded text-teal-500 focus:ring-teal-400" aria-label={`Filter by ${u}`} />
-                    <div className="event-profile-pic-container"><img src={userProfiles[u] || DEFAULT_PROFILE_PIC_URL} alt={`${u}'s profile`} className="event-profile-pic" /></div>
-                    <span>{capitalizeFirstLetter(u)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div ref={calendarRef} className="card p-4"></div>
-            {showEventModal && selectedEvent && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="card p-6 max-w-sm w-full modal show">
-                  <h2 className="text-xl font-semibold text-white mb-4">{selectedEvent.title}</h2>
-                  <p className="text-white mb-2">Date: {formatDateTimeWithSeconds(selectedEvent.date)}</p>
-                  <p className="text-white mb-2">User: {capitalizeFirstLetter(selectedEvent.user)}</p>
-                  {selectedEvent.financial && (
-                    <>
-                      <p className="text-white mb-2">Type: {capitalizeFirstLetter(selectedEvent.type)}</p>
-                      <p className="text-white mb-4">Amount: {selectedEvent.amount}</p>
-                    </>
-                  )}
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setShowEventModal(false)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600" aria-label="Close">Close</button>
-                    <button onClick={() => deleteEvent(selectedEvent.id)} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" aria-label={`Delete ${selectedEvent.title}`}>Delete</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        </main>
-      );
-    };
-
     const App = () => {
       const [user, setUser] = useState(null);
       const [page, setPage] = useState('login');
-      const handleLogin = userInfo => { setUser(userInfo); setPage('menu'); };
-      const handleLogout = () => { setUser(null); setPage('login'); };
+
+      const handleLogin = userData => {
+        setUser(userData);
+        setPage('menu');
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        setPage('login');
+      };
+
       return (
         <ErrorBoundary>
           {user ? (
             <>
               <Navigation user={user} setPage={setPage} onLogout={handleLogout} />
               {page === 'menu' && <Menu user={user} setPage={setPage} />}
-              {page === 'financial' && <Financial user={user} setPage={setPage} />}
+              {page === 'transactions' && <Transactions user={user} />}
               {page === 'calendar' && <Calendar user={user} setPage={setPage} />}
-              {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} />}
+              {page === 'profileSettings' && <ProfileSettings user={user} setUser={setUser} />}
               {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} />}
               {page === 'about' && <About setPage={setPage} />}
               {page === 'support' && <Support setPage={setPage} />}
@@ -858,11 +786,8 @@
       );
     };
 
-    try {
-      ReactDOM.render(<App />, document.getElementById('root'));
-    } catch (err) {
-      document.getElementById('root').innerHTML = `<div class="error-boundary"><h1>Application Error</h1><p>Failed to load app.</p><button onclick="window.location.reload()" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">Reload</button></div>`;
-    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
