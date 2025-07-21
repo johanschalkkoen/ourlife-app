@@ -626,7 +626,7 @@
               </h1>
               <div className="flex space-x-3">
                 <Select options={MONTHS.map(m => ({ ...m, label: `${m.label} 2025` }))} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
-                <Button className="px-4 py-2" onClick={() => setShowAddEventForm(!showAddEventForm)}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</Button>
+                <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={() => setShowAddEventForm(!showAddEventForm)}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</Button>
               </div>
             </div>
             <div className="mb-6">
