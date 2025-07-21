@@ -4,511 +4,286 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OurLife Dashboard</title>
+  <link href="https://demos.creative-tim.com/material-dashboard-bs4/assets/css/material-dashboard.min.css?v=2.1.0" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="https://demos.creative-tim.com/material-dashboard-bs4/assets/js/core/bootstrap-material-design.min.js"></script>
+  <script src="https://demos.creative-tim.com/material-dashboard-bs4/assets/js/plugins/perfect-scrollbar.jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.6/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://demos.creative-tim.com/material-dashboard-bs4/assets/js/material-dashboard.min.js?v=2.1.0"></script>
   <style>
-    body {
-      background: #1e293b;
-      min-height: 100vh;
-      font-family: 'Inter', sans-serif;
-      color: #f1f5f9;
-    }
-    .fc-event {
-      position: relative;
-      cursor: pointer;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-      margin: 4px 6px;
-      transition: transform 0.2s ease, background-color 0.2s ease;
-    }
-    .fc-event:hover {
-      transform: scale(1.03);
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-    .fc-event:active {
-      transform: scale(0.98);
-    }
-    .fc-event-main {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      padding: 8px;
-      background: none;
-      color: #f1f5f9;
-      font-size: 0.875rem;
-    }
-    .fc-event-title {
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      width: 100%;
-    }
-    .fc-event-user {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .modal {
-      transform: scale(0.8);
-      opacity: 0;
-      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    }
-    .modal.show {
-      transform: scale(1);
-      opacity: 1;
-    }
-    .profile-pic-container {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid #2dd4bf;
-      background: #fff;
-    }
-    .profile-pic {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .event-profile-pic-container {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid #fff;
-      background: #fff;
-    }
-    .event-profile-pic {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    input, select, textarea {
-      transition: all 0.2s ease;
-    }
-    input:focus, select:focus, textarea:focus {
-      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
-      border-color: #2dd4bf;
-    }
-    button {
-      transition: all 0.2s ease;
-    }
-    button:hover {
-      transform: scale(1.02);
-    }
-    button:active {
-      transform: scale(0.98);
-    }
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
+    body{font-family:Roboto,sans-serif}.fc-event{position:relative;cursor:pointer;border-radius:4px;margin:4px 6px}.fc-event:hover{transform:scale(1.03)}.fc-event-main{display:flex;flex-direction:column;padding:8px;color:#fff;font-size:.875rem}.fc-event-title{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fc-event-user{font-size:.75rem;opacity:.8}.modal{transform:scale(.8);opacity:0;transition:transform .3s ease,opacity .3s ease}.modal.show{transform:scale(1);opacity:1}.profile-pic-container{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #00acc1;background:#fff}.profile-pic{width:100%;height:100%;border-radius:50%;object-fit:cover}.event-profile-pic-container{width:24px;height:24px;border-radius:50%;border:1px solid #fff;background:#fff}.event-profile-pic{width:100%;height:100%;border-radius:50%;object-fit:cover}.sidebar .nav .nav-item .nav-link{color:#fff}.sidebar .nav .nav-item.active>.nav-link{background:rgba(255,255,255,.23)}.card{box-shadow:0 2px 5px rgba(0,0,0,.1)}.btn-primary{background:#9c27b0;border-color:#9c27b0}.btn-primary:hover{background:#7b1fa2;border-color:#7b1fa2}.btn-secondary{background:#00acc1;border-color:#00acc1}.btn-secondary:hover{background:#00838f;border-color:#00838f}.btn-danger{background:#f44336;border-color:#f44336}.btn-danger:hover{background:#d32f2f;border-color:#d32f2f}.btn-info{background:#00bcd4;border-color:#00bcd4}.btn-info:hover{background:#0097a7;border-color:#0097a7}
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div className="wrapper">
+    <div id="root"></div>
+  </div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
-    const capitalizeFirstLetter = (string) => {
-      if (!string) return '';
-      return string.charAt(0).toUpperCase() + string.slice(1);
-    };
-    const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
-    const DEFAULT_EVENT_COLOR = '#2dd4bf';
+    const DEFAULT_PROFILE_PIC_URL = "https://placehold.co/50x50/808080/FFFFFF?text=U";
+    const DEFAULT_EVENT_COLOR = "#00acc1";
+    const capitalizeFirstLetter = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+    const getCurrentDateTime = () => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 19);
+    const formatDateTimeWithSeconds = s => new Date(s).toLocaleString("en-ZA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/,/, "");
 
-    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm:ss)
-    const getCurrentDateTime = () => {
-      const now = new Date();
-      const offset = now.getTimezoneOffset();
-      now.setMinutes(now.getMinutes() - offset); // Adjust for local timezone
-      return now.toISOString().slice(0, 19); // Format as YYYY-MM-DDTHH:mm:ss
-    };
-
-    // Utility function to format date to include seconds
-    const formatDateTimeWithSeconds = (dateString) => {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-ZA', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).replace(/,/, '');
+    const ErrorBoundary = ({ children }) => {
+      const [hasError, setHasError] = useState(false);
+      if (hasError) return <div className="alert alert-danger">Something went wrong. Please refresh.</div>;
+      return children;
     };
 
     const Login = ({ onLogin }) => {
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [error, setError] = useState('');
-      const handleLogin = async (e) => {
+      const [username, setUsername] = useState("");
+      const [password, setPassword] = useState("");
+      const [error, setError] = useState("");
+      const handleLogin = async e => {
         e.preventDefault();
-        setError('');
+        setError("");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
-          if (response.data.success) {
-            let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
-            let eventColor = DEFAULT_EVENT_COLOR;
-            let email = '';
-            let phone = '';
-            let address = '';
-            let isAdmin = false;
+          const res = await axios.post("https://ourlife.work.gd:8443/api/login", { username, password });
+          if (res.data.success) {
+            let profilePicUrl = DEFAULT_PROFILE_PIC_URL, eventColor = DEFAULT_EVENT_COLOR, email = "", phone = "", address = "", isAdmin = false;
             try {
-              const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-              profilePicUrl = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-              eventColor = profileResponse.data.eventColor || DEFAULT_EVENT_COLOR;
-              email = profileResponse.data.email || '';
-              phone = profileResponse.data.phone || '';
-              address = profileResponse.data.address || '';
-              isAdmin = profileResponse.data.isAdmin || false;
-            } catch (profileErr) {
-              console.error('Error fetching profile data:', profileErr);
-            }
-            const userInfo = {
-              username,
-              profilePicUrl,
-              email,
-              phone,
-              address,
-              eventColor,
-              isAdmin,
-            };
-            onLogin(userInfo);
-          } else {
-            setError(response.data.message || 'Login failed.');
-          }
+              const profile = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
+              profilePicUrl = profile.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+              eventColor = profile.data.eventColor || DEFAULT_EVENT_COLOR;
+              email = profile.data.email || "";
+              phone = profile.data.phone || "";
+              address = profile.data.address || "";
+              isAdmin = profile.data.isAdmin || false;
+            } catch (err) { console.error("Profile fetch error:", err); }
+            onLogin({ username, profilePicUrl, email, phone, address, eventColor, isAdmin });
+          } else setError(res.data.message || "Login failed.");
         } catch (err) {
-          setError('Error during login. Check server.');
-          console.error('Login error:', err);
+          setError("Login error.");
+          console.error("Login error:", err);
         }
       };
       return (
-        <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="card p-8 w-full max-w-md">
-            <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-              />
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-              />
-              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-              <button
-                type="submit"
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Sign In
-              </button>
-            </form>
-          </div>
-        </div>
-      );
-    };
-    const Menu = ({ user, setPage, onLogout }) => {
-      return (
-        <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="card p-8 w-full max-w-md">
-            <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-              <div className="flex flex-col items-center">
-                <div className="profile-pic-container">
-                  <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+        <div className="container">
+          <div className="row justify-content-center align-items-center min-vh-100">
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-header card-header-primary"><h4 className="card-title text-center">Sign In</h4></div>
+                <div className="card-body p-3">
+                  <form onSubmit={handleLogin}>
+                    <div className="form-group bmd-form-group"><label className="bmd-label-floating">Username</label><input type="text" value={username} onChange={e => setUsername(e.target.value)} className="form-control"/></div>
+                    <div className="form-group bmd-form-group"><label className="bmd-label-floating">Password</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} className="form-control"/></div>
+                    {error && <p className="text-danger text-center">{error}</p>}
+                    <button type="submit" className="btn btn-primary btn-block">Sign In</button>
+                  </form>
                 </div>
-                <span className="text-sm text-gray-300 mt-2">{user.username}</span>
               </div>
-              <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
-            </h1>
-            <div className="space-y-3">
-              <button
-                onClick={() => setPage('financial')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Finances
-              </button>
-              <button
-                onClick={() => setPage('calendar')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Calendar
-              </button>
-              <button
-                onClick={() => setPage('profileSettings')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Profile Settings
-              </button>
-              {user.isAdmin && (
-                <button
-                  onClick={() => setPage('admin')}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Admin Panel
-                </button>
-              )}
-              <button
-                onClick={onLogout}
-                className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              >
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
       );
     };
+
+    const Sidebar = ({ user, setPage, onLogout, page }) => (
+      <div className="sidebar" data-color="purple" data-background-color="black">
+        <div className="logo"><a href="#" className="simple-text logo-normal">OurLife Dashboard</a></div>
+        <div className="sidebar-wrapper">
+          <ul className="nav">
+            <li className={`nav-item ${page === "menu" ? "active" : ""}`}><a className="nav-link" onClick={() => setPage("menu")}><i className="material-icons">dashboard</i><p>Dashboard</p></a></li>
+            <li className={`nav-item ${page === "financial" ? "active" : ""}`}><a className="nav-link" onClick={() => setPage("financial")}><i className="material-icons">attach_money</i><p>Finances</p></a></li>
+            <li className={`nav-item ${page === "calendar" ? "active" : ""}`}><a className="nav-link" onClick={() => setPage("calendar")}><i className="material-icons">calendar_today</i><p>Calendar</p></a></li>
+            <li className={`nav-item ${page === "profileSettings" ? "active" : ""}`}><a className="nav-link" onClick={() => setPage("profileSettings")}><i className="material-icons">person</i><p>Profile Settings</p></a></li>
+            {user.isAdmin && <li className={`nav-item ${page === "admin" ? "active" : ""}`}><a className="nav-link" onClick={() => setPage("admin")}><i className="material-icons">admin_panel_settings</i><p>Admin Panel</p></a></li>}
+            <li className="nav-item"><a className="nav-link" onClick={onLogout}><i className="material-icons">exit_to_app</i><p>Sign Out</p></a></li>
+          </ul>
+        </div>
+      </div>
+    );
+
+    const Menu = ({ user, setPage, onLogout }) => (
+      <div className="main-panel">
+        <nav className="navbar navbar-expand-lg navbar-transparent navbar-absolute fixed-top">
+          <div className="container-fluid">
+            <div className="navbar-wrapper"><a className="navbar-brand" href="#">Dashboard</a></div>
+            <button className="navbar-toggler" type="button" data-toggle="collapse" aria-controls="navigation-index" aria-expanded="false" aria-label="Toggle navigation">
+              <span className="sr-only">Toggle navigation</span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span>
+            </button>
+            <div className="collapse navbar-collapse justify-content-end">
+              <ul className="navbar-nav">
+                <li className="nav-item dropdown">
+                  <a className="nav-link" href="#" id="navbarDropdownProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i className="material-icons">person</i></a>
+                  <div className="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownProfile">
+                    <a className="dropdown-item" onClick={() => setPage("profileSettings")}>Profile</a>
+                    <div className="dropdown-divider"></div>
+                    <a className="dropdown-item" onClick={onLogout}>Log out</a>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+        <div className="content">
+          <div className="container-fluid">
+            <div className="row">
+              <div className="col-md-12">
+                <div className="card">
+                  <div className="card-header card-header-primary"><h4 className="card-title">Welcome, {capitalizeFirstLetter(user.username)}!</h4></div>
+                  <div className="card-body text-center">
+                    <div className="profile-pic-container mb-3"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic"/></div>
+                    <p className="text-muted">{user.username}</p>
+                    <div className="mt-4">
+                      <button onClick={() => setPage("financial")} className="btn btn-primary m-2">Finances</button>
+                      <button onClick={() => setPage("calendar")} className="btn btn-primary m-2">Calendar</button>
+                      <button onClick={() => setPage("profileSettings")} className="btn btn-primary m-2">Profile Settings</button>
+                      {user.isAdmin && <button onClick={() => setPage("admin")} className="btn btn-primary m-2">Admin Panel</button>}
+                      <button onClick={onLogout} className="btn btn-danger m-2">Sign Out</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
     const ProfileSettings = ({ user, setPage, onLogout }) => {
-      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
+      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || "");
       const [selectedFile, setSelectedFile] = useState(null);
-      const [message, setMessage] = useState('');
-      const [email, setEmail] = useState(user.email || '');
-      const [phone, setPhone] = useState(user.phone || '');
-      const [address, setAddress] = useState(user.address || '');
+      const [message, setMessage] = useState("");
+      const [email, setEmail] = useState(user.email || "");
+      const [phone, setPhone] = useState(user.phone || "");
+      const [address, setAddress] = useState(user.address || "");
       const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
-      const [currentPassword, setCurrentPassword] = useState('');
-      const [newPassword, setNewPassword] = useState('');
-      const [confirmNewPassword, setConfirmNewPassword] = useState('');
-      const [passwordMessage, setPasswordMessage] = useState('');
-      const handleFileChange = (e) => {
+      const [currentPassword, setCurrentPassword] = useState("");
+      const [newPassword, setNewPassword] = useState("");
+      const [confirmNewPassword, setConfirmNewPassword] = useState("");
+      const [passwordMessage, setPasswordMessage] = useState("");
+      const handleFileChange = e => {
         const file = e.target.files[0];
         if (file) {
           setSelectedFile(file);
-          setMessage('');
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setProfilePicUrl(reader.result);
-          };
-          reader.readAsDataURL(file);
+          setProfilePicUrl(URL.createObjectURL(file));
         } else {
           setSelectedFile(null);
           setProfilePicUrl(user.profilePicUrl || DEFAULT_PROFILE_PIC_URL);
-          setMessage('');
         }
+        setMessage("");
       };
       const handleSaveProfile = async () => {
-        setMessage('Saving...');
-        let urlToSave = profilePicUrl;
+        setMessage("Saving...");
+        let url = profilePicUrl;
         try {
           if (selectedFile) {
-            urlToSave = await new Promise((resolve, reject) => {
+            url = await new Promise((resolve, reject) => {
               const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result);
               reader.onerror = reject;
               reader.readAsDataURL(selectedFile);
             });
-          } else if (!profilePicUrl) {
-            urlToSave = DEFAULT_PROFILE_PIC_URL;
           }
-          const response = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', {
-            username: user.username,
-            profilePicUrl: urlToSave,
-            email,
-            phone,
-            address,
-            eventColor,
+          const res = await axios.post("https://ourlife.work.gd:8443/api/profile-pictures", {
+            username: user.username, profilePicUrl: url || DEFAULT_PROFILE_PIC_URL, email, phone, address, eventColor
           });
-          if (response.data.success) {
-            setMessage('Profile saved successfully!');
-            user.profilePicUrl = urlToSave;
-            user.email = email;
-            user.phone = phone;
-            user.address = address;
-            user.eventColor = eventColor;
-          } else {
-            setMessage('Failed to save profile.');
-          }
+          if (res.data.success) {
+            setMessage("Profile saved!");
+            Object.assign(user, { profilePicUrl: url, email, phone, address, eventColor });
+          } else setMessage("Failed to save profile.");
         } catch (err) {
-          setMessage('Error saving profile.');
-          console.error('Error saving profile:', err);
+          setMessage("Error saving profile.");
+          console.error("Save profile error:", err);
         }
       };
       const handlePasswordChange = async () => {
-        setPasswordMessage('');
-        if (!currentPassword || !newPassword || !confirmNewPassword) {
-          setPasswordMessage('All password fields are required.');
-          return;
-        }
-        if (newPassword !== confirmNewPassword) {
-          setPasswordMessage('Passwords do not match.');
-          return;
-        }
-        if (newPassword.length < 6) {
-          setPasswordMessage('Password must be at least 6 characters.');
-          return;
-        }
-        setPasswordMessage('Changing password...');
+        setPasswordMessage("");
+        if (!currentPassword || !newPassword || !confirmNewPassword) return setPasswordMessage("All password fields required.");
+        if (newPassword !== confirmNewPassword) return setPasswordMessage("Passwords do not match.");
+        if (newPassword.length < 6) return setPasswordMessage("Password must be at least 6 characters.");
+        setPasswordMessage("Changing password...");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/update-password', {
-            username: user.username,
-            currentPassword,
-            newPassword
-          });
-          if (response.data.success) {
-            setPasswordMessage('Password updated successfully!');
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-          } else {
-            setPasswordMessage(response.data.message || 'Failed to update password.');
-          }
+          const res = await axios.post("https://ourlife.work.gd:8443/api/update-password", { username: user.username, currentPassword, newPassword });
+          if (res.data.success) {
+            setPasswordMessage("Password updated!");
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmNewPassword("");
+          } else setPasswordMessage(res.data.message || "Failed to update password.");
         } catch (err) {
-          setPasswordMessage('Error updating password.');
-          console.error('Error updating password:', err);
+          setPasswordMessage("Error updating password.");
+          console.error("Password change error:", err);
         }
       };
       return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
-          </div>
-          <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Profile Picture</label>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="profile-pic-container">
-                    <img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                  </div>
-                  <span className="text-white">{user.username}</span>
-                </div>
-                <input
-                  id="profileUpload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600"
-                />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  placeholder="Enter your phone number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Address</label>
-                <textarea
-                  name="address"
-                  placeholder="Enter your address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows="3"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                ></textarea>
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Event Color</label>
-                <input
-                  type="color"
-                  name="eventColor"
-                  value={eventColor}
-                  onChange={(e) => setEventColor(e.target.value)}
-                  className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer"
-                />
-              </div>
-              {message && (
-                <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                  {message}
-                </p>
-              )}
-              <button
-                onClick={handleSaveProfile}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Save Profile
+        <div className="main-panel">
+          <nav className="navbar navbar-expand-lg navbar-transparent navbar-absolute fixed-top">
+            <div className="container-fluid">
+              <div className="navbar-wrapper"><a className="navbar-brand" href="#">Profile Settings</a></div>
+              <button className="navbar-toggler" type="button" data-toggle="collapse" aria-controls="navigation-index" aria-expanded="false" aria-label="Toggle navigation">
+                <span className="sr-only">Toggle navigation</span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span>
               </button>
-              <div className="pt-6 border-t border-white/10">
-                <h2 className="text-xl font-semibold text-white mb-4">Change Password</h2>
-                <input
-                  type="password"
-                  placeholder="Current Password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                <input
-                  type="password"
-                  placeholder="New Password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                <input
-                  type="password"
-                  placeholder="Confirm New Password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                {passwordMessage && (
-                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {passwordMessage}
-                  </p>
-                )}
-                <button
-                  onClick={handlePasswordChange}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Change Password
-                </button>
+              <div className="collapse navbar-collapse justify-content-end">
+                <ul className="navbar-nav">
+                  <li className="nav-item dropdown">
+                    <a className="nav-link" href="#" id="navbarDropdownProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i className="material-icons">person</i></a>
+                    <div className="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownProfile">
+                      <a className="dropdown-item" onClick={() => setPage("profileSettings")}>Profile</a>
+                      <div className="dropdown-divider"></div>
+                      <a className="dropdown-item" onClick={onLogout}>Log out</a>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </nav>
+          <div className="content">
+            <div className="container-fluid">
+              <div className="row">
+                <div className="col-md-12">
+                  <div className="card">
+                    <div className="card-header card-header-primary"><h4 className="card-title">Profile Settings</h4></div>
+                    <div className="card-body">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <div className="form-group bmd-form-group">
+                            <label className="bmd-label-floating">Profile Picture</label>
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="profile-pic-container mr-3"><img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic"/></div>
+                              <span>{user.username}</span>
+                            </div>
+                            <input type="file" accept="image/*" onChange={handleFileChange} className="form-control-file"/>
+                          </div>
+                        </div>
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="form-control"/></div></div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Phone Number</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="form-control"/></div></div>
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Address</label><textarea value={address} onChange={e => setAddress(e.target.value)} rows="3" className="form-control"></textarea></div></div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Event Color</label><input type="color" value={eventColor} onChange={e => setEventColor(e.target.value)} className="form-control" style={{ height: "38px" }}/></div></div>
+                      </div>
+                      {message && <p className={`text-center ${message.includes("success") ? "text-success" : "text-danger"}`}>{message}</p>}
+                      <button onClick={handleSaveProfile} className="btn btn-primary btn-block">Save Profile</button>
+                      <hr className="my-4"/>
+                      <h4 className="card-title">Change Password</h4>
+                      <div className="row">
+                        <div className="col-md-12"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Current Password</label><input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="form-control"/></div></div>
+                      </div>
+                      <div className="row">
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">New Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="form-control"/></div></div>
+                        <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Confirm New Password</label><input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} className="form-control"/></div></div>
+                      </div>
+                      {passwordMessage && <p className={`text-center ${passwordMessage.includes("success") ? "text-success" : "text-danger"}`}>{passwordMessage}</p>}
+                      <button onClick={handlePasswordChange} className="btn btn-primary btn-block">Change Password</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -518,374 +293,193 @@
 
     const Financial = ({ user, setPage, onLogout }) => {
       const [items, setItems] = useState([]);
-      const [description, setDescription] = useState('');
-      const [amount, setAmount] = useState('');
-      const [type, setType] = useState('income');
+      const [description, setDescription] = useState("");
+      const [amount, setAmount] = useState("");
+      const [type, setType] = useState("income");
       const [date, setDate] = useState(getCurrentDateTime());
       const [hideValues, setHideValues] = useState(false);
-      const [currency, setCurrency] = useState('ZAR');
+      const [currency] = useState("ZAR");
       const [accessibleUsers, setAccessibleUsers] = useState([]);
       const [selectedUsers, setSelectedUsers] = useState([user.username]);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
       const [showAddItemForm, setShowAddItemForm] = useState(false);
-      const [selectedMonth, setSelectedMonth] = useState('07');
+      const [selectedMonth, setSelectedMonth] = useState("07");
       const [netTotal, setNetTotal] = useState(0);
-      const [bulkData, setBulkData] = useState('');
-      const [importMessage, setImportMessage] = useState('');
+      const [bulkData, setBulkData] = useState("");
+      const [importMessage, setImportMessage] = useState("");
       const [showImportTool, setShowImportTool] = useState(false);
-
-      const currencyConfig = {
-        USD: { symbol: '$', rate: 1 },
-        EUR: { symbol: '€', rate: 0.85 },
-        ZAR: { symbol: 'R', rate: 18.5 },
-      };
-      const months = [
-        { value: '01', label: 'January' },
-        { value: '02', label: 'February' },
-        { value: '03', label: 'March' },
-        { value: '04', label: 'April' },
-        { value: '05', label: 'May' },
-        { value: '06', label: 'June' },
-        { value: '07', label: 'July' },
-        { value: '08', label: 'August' },
-        { value: '09', label: 'September' },
-        { value: '10', label: 'October' },
-        { value: '11', label: 'November' },
-        { value: '12', label: 'December' },
-      ];
-      const formatAmount = (amount) => {
-        return `${currencyConfig['ZAR'].symbol}${parseFloat(amount).toFixed(2)}`;
-      };
+      const currencyConfig = { USD: { symbol: "$", rate: 1 }, EUR: { symbol: "€", rate: 0.85 }, ZAR: { symbol: "R", rate: 18.5 } };
+      const months = [{ value: "01", label: "January" }, { value: "02", label: "February" }, { value: "03", label: "March" }, { value: "04", label: "April" }, { value: "05", label: "May" }, { value: "06", label: "June" }, { value: "07", label: "July" }, { value: "08", label: "August" }, { value: "09", label: "September" }, { value: "10", label: "October" }, { value: "11", label: "November" }, { value: "12", label: "December" }];
+      const formatAmount = e => `${currencyConfig.ZAR.symbol}${parseFloat(e).toFixed(2)}`;
       const calculateNetTotal = () => {
-        const filteredItems = items
-          .filter(item => selectedUsers.includes(item.user))
-          .filter(item => item.date.startsWith(`2025-${selectedMonth}`));
-        const total = filteredItems.reduce((sum, item) => {
-          return item.type === 'income' ? sum + item.amount : sum - item.amount;
-        }, 0);
+        const total = items.filter(i => selectedUsers.includes(i.user) && i.date.startsWith(`2025-${selectedMonth}`)).reduce((sum, i) => i.type === "income" ? sum + i.amount : sum - i.amount, 0);
         setNetTotal(total);
       };
       const fetchAccessibleUsers = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
-          if (response.data.success) {
-            const accessible = [user.username, ...response.data.accessList
-              .filter(access => access.viewer === user.username)
-              .map(access => access.target)];
+          const res = await axios.get("https://ourlife.work.gd:8443/api/get-access", { params: { viewer: user.username } });
+          if (res.data.success) {
+            const accessible = [user.username, ...res.data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
             setAccessibleUsers(accessible);
             setSelectedUsers(accessible);
             const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const username of accessible) {
-              if (username !== user.username) {
+            for (const u of accessible) {
+              if (u !== user.username) {
                 try {
-                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-                } catch (err) {
-                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
-                  console.error(`Error fetching profile for ${username}:`, err);
-                }
+                  const p = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`);
+                  profiles[u] = p.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) { profiles[u] = DEFAULT_PROFILE_PIC_URL; }
               }
             }
             setUserProfiles(profiles);
-            console.log('Fetched user profiles:', profiles);
+          } else {
+            setAccessibleUsers([user.username]);
+            setSelectedUsers([user.username]);
           }
         } catch (err) {
-          console.error('Error fetching accessible users:', err);
           setAccessibleUsers([user.username]);
           setSelectedUsers([user.username]);
+          console.error("Error fetching accessible users:", err);
         }
       };
       const fetchItems = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username } });
-          setItems(response.data);
-        } catch (err) {
-          console.error('Error fetching financial items:', err);
-        }
+          const res = await axios.get("https://ourlife.work.gd:8443/api/financial", { params: { user: user.username } });
+          setItems(res.data);
+        } catch (err) { console.error("Error fetching financial items:", err); }
       };
       const addItem = async () => {
         if (!description || !amount || !date) return;
-        const item = { user: user.username, description, amount: parseFloat(amount), type, date };
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/financial', item);
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
-            user: user.username,
-            title: `${description} (${type})`,
-            date,
-            financial: true,
-            type,
-            amount: parseFloat(amount),
-            eventColor: user.eventColor,
-          });
+          const item = { user: user.username, description, amount: parseFloat(amount), type, date };
+          await axios.post("https://ourlife.work.gd:8443/api/financial", item);
+          await axios.post("https://ourlife.work.gd:8443/api/calendar", { user: user.username, title: `${description} (${type})`, date, financial: true, type, amount: parseFloat(amount), eventColor: user.eventColor });
           fetchItems();
-          setDescription('');
-          setAmount('');
+          setDescription("");
+          setAmount("");
           setDate(getCurrentDateTime());
           setShowAddItemForm(false);
-        } catch (err) {
-          console.error('Error adding financial item:', err);
-        }
+        } catch (err) { console.error("Error adding financial item:", err); }
       };
-      const deleteItem = async (id) => {
+      const deleteItem = async id => {
         try {
           await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`);
           fetchItems();
-        } catch (err) {
-          console.error('Error deleting financial item:', err);
-        }
+        } catch (err) { console.error("Error deleting financial item:", err); }
       };
       const handleBulkImport = async () => {
-        if (!bulkData.trim()) {
-            setImportMessage('Please paste data into the text box.');
-            return;
-        }
-
-        const lines = bulkData.trim().split('\n').filter(line => line.trim() !== '');
-        const itemsToImport = lines.map(line => {
-            const [description, amount, type, date] = line.split(',').map(field => field.trim());
-            if (!description || !amount || !type || !date) {
-                return null;
-            }
-            return { user: user.username, description, amount: parseFloat(amount), type, date };
-        }).filter(Boolean);
-
-        if (itemsToImport.length === 0) {
-            setImportMessage('No valid data found. Please check the format.');
-            return;
-        }
-
-        setImportMessage(`Importing ${itemsToImport.length} items...`);
-
+        if (!bulkData.trim()) return setImportMessage("Paste data into the text box.");
+        const items = bulkData.trim().split("\n").filter(l => l.trim()).map(l => l.split(",").map(f => f.trim())).filter(([d, a, t, dt]) => d && a && t && dt).map(([d, a, t, dt]) => ({ user: user.username, description: d, amount: parseFloat(a), type: t, date: dt }));
+        if (!items.length) return setImportMessage("No valid data. Check format.");
+        setImportMessage(`Importing ${items.length} items...`);
         try {
-            const importPromises = itemsToImport.map(item => {
-                const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item);
-                const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
-                    user: user.username,
-                    title: `${item.description} (${item.type})`,
-                    date: item.date,
-                    financial: true,
-                    type: item.type,
-                    amount: item.amount,
-                    eventColor: user.eventColor,
-                });
-                return Promise.all([financialPromise, calendarPromise]);
-            });
-
-            await Promise.all(importPromises);
-
-            setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
-            setBulkData('');
-            setShowImportTool(false);
-            fetchItems();
+          await Promise.all(items.map(i => Promise.all([
+            axios.post("https://ourlife.work.gd:8443/api/financial", i),
+            axios.post("https://ourlife.work.gd:8443/api/calendar", { user: user.username, title: `${i.description} (${i.type})`, date: i.date, financial: true, type: i.type, amount: i.amount, eventColor: user.eventColor })
+          ])));
+          setImportMessage(`Imported ${items.length} items!`);
+          setBulkData("");
+          setShowImportTool(false);
+          fetchItems();
         } catch (err) {
-            setImportMessage('An error occurred during import. Please check the data and try again.');
-            console.error('Bulk import error:', err);
+          setImportMessage("Import error. Check data.");
+          console.error("Bulk import error:", err);
         }
       };
-      const toggleUser = (username) => {
-        setSelectedUsers(prev =>
-          prev.includes(username)
-            ? prev.filter(u => u !== username)
-            : [...prev, username]
-        );
-      };
-      useEffect(() => {
-        fetchAccessibleUsers();
-        fetchItems();
-      }, []);
-      useEffect(() => {
-        fetchItems();
-      }, [selectedUsers]);
-      useEffect(() => {
-        calculateNetTotal();
-      }, [items, selectedUsers, selectedMonth]);
-      
+      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
+      useEffect(() => { fetchAccessibleUsers(); fetchItems(); }, []);
+      useEffect(() => { fetchItems(); }, [selectedUsers]);
+      useEffect(() => { calculateNetTotal(); }, [items, selectedUsers, selectedMonth]);
       return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
-          </div>
-          <div className="card p-8">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-              <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="profile-pic-container">
-                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                  </div>
-                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
-                </div>
-                <span>Finances</span>
-              </h1>
-              <div className="flex space-x-3 mt-4 sm:mt-0">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  {months.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label} 2025
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAddItemForm(!showAddItemForm)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  {showAddItemForm ? 'Hide Form' : 'Add Item'}
-                </button>
-                <button
-                  onClick={() => setShowImportTool(!showImportTool)}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                >
-                  {showImportTool ? 'Hide Import' : 'Bulk Import'}
-                </button>
-              </div>
-            </div>
-            <div className="card p-6 mb-6">
-              <h2 className="text-xl font-semibold text-white mb-2">
-                Net Total for {months.find(m => m.value === selectedMonth)?.label} 2025
-              </h2>
-              <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {hideValues ? '****' : formatAmount(netTotal)}
-              </p>
-            </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(username => (
-                  <button
-                    key={username}
-                    onClick={() => toggleUser(username)}
-                    className={`px-3 py-2 rounded-lg text-white ${
-                      selectedUsers.includes(username)
-                        ? 'bg-teal-500 hover:bg-teal-600'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {username}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {showImportTool && (
-                <div className="card p-6 mb-6 space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
-                    <p className="text-gray-300 text-sm">
-                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)
-                    </p>
-                    <textarea
-                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00"
-                        value={bulkData}
-                        onChange={(e) => setBulkData(e.target.value)}
-                        rows="8"
-                        className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                    ></textarea>
-                    <button
-                        onClick={handleBulkImport}
-                        className="w-full p-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                        Import Pasted Data
-                    </button>
-                    {importMessage && (
-                        <p className={`text-center text-sm ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                            {importMessage}
-                        </p>
-                    )}
-                </div>
-            )}
-            {showAddItemForm && (
-              <div className="card p-6 mb-6 space-y-4">
-                <h2 className="text-xl font-semibold text-white">Add Financial Item</h2>
-                <input
-                  type="text"
-                  name="description"
-                  placeholder="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <input
-                  type="number"
-                  name="amount"
-                  placeholder="Amount (in ZAR)"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <select
-                  name="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-                <input
-                  type="datetime-local"
-                  name="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  step="1"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <button
-                  onClick={addItem}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Add Item
-                </button>
-              </div>
-            )}
-            <div className="space-y-4 mb-6">
-              <button
-                onClick={() => setHideValues(!hideValues)}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                {hideValues ? 'Show Values' : 'Hide Values'}
+        <div className="main-panel">
+          <nav className="navbar navbar-expand-lg navbar-transparent navbar-absolute fixed-top">
+            <div className="container-fluid">
+              <div className="navbar-wrapper"><a className="navbar-brand" href="#">Finances</a></div>
+              <button className="navbar-toggler" type="button" data-toggle="collapse" aria-controls="navigation-index" aria-expanded="false" aria-label="Toggle navigation">
+                <span className="sr-only">Toggle navigation</span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span>
               </button>
+              <div className="collapse navbar-collapse justify-content-end">
+                <ul className="navbar-nav">
+                  <li className="nav-item dropdown">
+                    <a className="nav-link" href="#" id="navbarDropdownProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i className="material-icons">person</i></a>
+                    <div className="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownProfile">
+                      <a className="dropdown-item" onClick={() => setPage("profileSettings")}>Profile</a>
+                      <div className="dropdown-divider"></div>
+                      <a className="dropdown-item" onClick={onLogout}>Log out</a>
+                    </div>
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div className="space-y-3">
-              {items
-                .filter(item => selectedUsers.includes(item.user))
-                .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
-                .map((item) => (
-                  <div key={item.id} className="flex justify-between p-4 card items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container">
-                        <img
-                          src={userProfiles[item.user] || DEFAULT_PROFILE_PIC_URL}
-                          alt={item.user}
-                          className="event-profile-pic"
-                        />
+          </nav>
+          <div className="content">
+            <div className="container-fluid">
+              <div className="row">
+                <div className="col-md-12">
+                  <ErrorBoundary>
+                    <div className="card">
+                      <div className="card-header card-header-primary d-flex align-items-center">
+                        <div className="profile-pic-container mr-3"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic"/></div>
+                        <h4 className="card-title">Finances</h4>
                       </div>
-                      <span>{item.description} ({item.type}) - {formatDateTimeWithSeconds(item.date)} ({item.user})</span>
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between mb-3">
+                          <h5>Net Total for {months.find(m => m.value === selectedMonth)?.label} 2025</h5>
+                          <div>
+                            <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="form-control mr-2" style={{ width: "auto" }}>
+                              {months.map(m => <option key={m.value} value={m.value}>{m.label} 2025</option>)}
+                            </select>
+                            <button onClick={() => setShowAddItemForm(!showAddItemForm)} className="btn btn-secondary mr-2">{showAddItemForm ? "Hide Form" : "Add Item"}</button>
+                            <button onClick={() => setShowImportTool(!showImportTool)} className="btn btn-info">{showImportTool ? "Hide Import" : "Bulk Import"}</button>
+                          </div>
+                        </div>
+                        <div className="card mb-3"><div className="card-body"><h5 className="card-title">Net Total</h5><p className={`h3 ${netTotal >= 0 ? "text-success" : "text-danger"}`}>{hideValues ? "****" : formatAmount(netTotal)}</p></div></div>
+                        <div className="mb-3"><h5 className="card-title">View Data For:</h5><div className="d-flex flex-wrap">{accessibleUsers.map(u => <button key={u} onClick={() => toggleUser(u)} className={`btn btn-sm m-1 ${selectedUsers.includes(u) ? "btn-primary" : "btn-secondary"}`}>{u}</button>)}</div></div>
+                        {showImportTool && (
+                          <div className="card mb-3">
+                            <div className="card-body">
+                              <h5 className="card-title">Bulk Import Tool</h5>
+                              <p className="text-muted small">Paste CSV: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)</p>
+                              <textarea placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00" value={bulkData} onChange={e => setBulkData(e.target.value)} rows="8" className="form-control mb-3"></textarea>
+                              <button onClick={handleBulkImport} className="btn btn-info btn-block">Import Data</button>
+                              {importMessage && <p className={`text-center small ${importMessage.includes("success") ? "text-success" : "text-danger"}`}>{importMessage}</p>}
+                            </div>
+                          </div>
+                        )}
+                        {showAddItemForm && (
+                          <div className="card mb-3">
+                            <div className="card-body">
+                              <h5 className="card-title">Add Financial Item</h5>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} className="form-control"/></div>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Amount (ZAR)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="form-control"/></div>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Type</label><select value={type} onChange={e => setType(e.target.value)} className="form-control"><option value="income">Income</option><option value="expense">Expense</option></select></div>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Date</label><input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} step="1" className="form-control"/></div>
+                              <button onClick={addItem} className="btn btn-primary btn-block">Add Item</button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="mb-3"><button onClick={() => setHideValues(!hideValues)} className="btn btn-primary btn-block">{hideValues ? "Show Values" : "Hide Values"}</button></div>
+                        <div className="table-responsive">
+                          <table className="table">
+                            <thead className="text-primary"><tr><th>User</th><th>Description</th><th>Date</th><th>Amount</th><th>Actions</th></tr></thead>
+                            <tbody>
+                              {items.filter(i => selectedUsers.includes(i.user) && i.date.startsWith(`2025-${selectedMonth}`)).map(i => (
+                                <tr key={i.id}>
+                                  <td><div className="d-flex align-items-center"><div className="event-profile-pic-container mr-2"><img src={userProfiles[i.user] || DEFAULT_PROFILE_PIC_URL} alt={i.user} className="event-profile-pic"/></div>{i.user}</div></td>
+                                  <td>{i.description} ({i.type})</td>
+                                  <td>{formatDateTimeWithSeconds(i.date)}</td>
+                                  <td>{hideValues ? "****" : formatAmount(i.amount)}</td>
+                                  <td>{i.user === user.username && <button onClick={() => deleteItem(i.id)} className="btn btn-danger btn-sm">Delete</button>}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
-                      {item.user === user.username && (
-                        <button
-                          onClick={() => deleteItem(item.id)}
-                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  </ErrorBoundary>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -894,13 +488,13 @@
 
     const Calendar = ({ user, setPage, onLogout }) => {
       const [events, setEvents] = useState([]);
-      const [selectedMonth, setSelectedMonth] = useState('07');
+      const [selectedMonth, setSelectedMonth] = useState("07");
       const [showAddEventForm, setShowAddEventForm] = useState(false);
-      const [newEventTitle, setNewEventTitle] = useState('');
+      const [newEventTitle, setNewEventTitle] = useState("");
       const [newEventDate, setNewEventDate] = useState(getCurrentDateTime());
       const [isFinancialEvent, setIsFinancialEvent] = useState(false);
-      const [newEventAmount, setNewEventAmount] = useState('');
-      const [newEventCategory, setNewEventCategory] = useState('income');
+      const [newEventAmount, setNewEventAmount] = useState("");
+      const [newEventCategory, setNewEventCategory] = useState("income");
       const [accessibleUsers, setAccessibleUsers] = useState([]);
       const [selectedUsers, setSelectedUsers] = useState([user.username]);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL });
@@ -908,190 +502,117 @@
       const [selectedEvent, setSelectedEvent] = useState(null);
       const calendarRef = useRef(null);
       const fullCalendarInstance = useRef(null);
-      const modalRef = useRef(null);
-      const months = [
-        { value: '01', label: 'January' },
-        { value: '02', label: 'February' },
-        { value: '03', label: 'March' },
-        { value: '04', label: 'April' },
-        { value: '05', label: 'May' },
-        { value: '06', label: 'June' },
-        { value: '07', label: 'July' },
-        { value: '08', label: 'August' },
-        { value: '09', label: 'September' },
-        { value: '10', label: 'October' },
-        { value: '11', label: 'November' },
-        { value: '12', label: 'December' },
-      ];
+      const months = [{ value: "01", label: "January" }, { value: "02", label: "February" }, { value: "03", label: "March" }, { value: "04", label: "April" }, { value: "05", label: "May" }, { value: "06", label: "June" }, { value: "07", label: "July" }, { value: "08", label: "August" }, { value: "09", label: "September" }, { value: "10", label: "October" }, { value: "11", label: "November" }, { value: "12", label: "December" }];
       const fetchAccessibleUsers = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
-          if (response.data.success) {
-            const accessible = [user.username, ...response.data.accessList
-              .filter(access => access.viewer === user.username)
-              .map(access => access.target)];
+          const res = await axios.get("https://ourlife.work.gd:8443/api/get-access", { params: { viewer: user.username } });
+          if (res.data.success) {
+            const accessible = [user.username, ...res.data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
             setAccessibleUsers(accessible);
             setSelectedUsers(accessible);
             const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const username of accessible) {
-              if (username !== user.username) {
+            for (const u of accessible) {
+              if (u !== user.username) {
                 try {
-                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-                } catch (err) {
-                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
-                  console.error(`Error fetching profile for ${username}:`, err);
-                }
+                  const p = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${u}`);
+                  profiles[u] = p.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
+                } catch (err) { profiles[u] = DEFAULT_PROFILE_PIC_URL; }
               }
             }
-            console.log('Fetched user profiles:', profiles);
             setUserProfiles(profiles);
+          } else {
+            setAccessibleUsers([user.username]);
+            setSelectedUsers([user.username]);
           }
         } catch (err) {
-          console.error('Error fetching accessible users:', err);
           setAccessibleUsers([user.username]);
           setSelectedUsers([user.username]);
+          console.error("Error fetching accessible users:", err);
         }
       };
       const fetchEvents = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username } });
-          const fetchedEvents = response.data.map((e) => ({
-            id: e.id,
-            title: e.title,
-            start: e.date,
-            user: e.user,
-            financial: e.financial,
-            type: e.type,
-            amount: e.amount,
-            eventColor: e.eventColor || DEFAULT_EVENT_COLOR,
-          }));
-          setEvents(fetchedEvents);
-        } catch (err) {
-          console.error('Error fetching calendar events:', err);
-        }
+          const res = await axios.get("https://ourlife.work.gd:8443/api/calendar", { params: { user: user.username } });
+          setEvents(res.data.map(e => ({ id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })));
+        } catch (err) { console.error("Error fetching calendar events:", err); }
       };
       const handleAddEvent = async () => {
-        if (!newEventTitle || !newEventDate) {
-          alert('Event title and date are required!');
-          return;
-        }
+        if (!newEventTitle || !newEventDate) return alert("Event title and date required!");
         try {
-          const eventData = {
-            user: user.username,
-            title: newEventTitle,
-            date: newEventDate,
-            financial: isFinancialEvent,
-            type: isFinancialEvent ? newEventCategory : undefined,
-            amount: isFinancialEvent ? parseFloat(newEventAmount) : undefined,
-            eventColor: user.eventColor,
-          };
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData);
-          if (isFinancialEvent) {
-            await axios.post('https://ourlife.work.gd:8443/api/financial', {
-              user: user.username,
-              description: newEventTitle,
-              amount: parseFloat(newEventAmount),
-              type: newEventCategory,
-              date: newEventDate,
-            });
-          }
+          const eventData = { user: user.username, title: newEventTitle, date: newEventDate, financial: isFinancialEvent, type: isFinancialEvent ? newEventCategory : undefined, amount: isFinancialEvent ? parseFloat(newEventAmount) : undefined, eventColor: user.eventColor };
+          await axios.post("https://ourlife.work.gd:8443/api/calendar", eventData);
+          if (isFinancialEvent) await axios.post("https://ourlife.work.gd:8443/api/financial", { user: user.username, description: newEventTitle, amount: parseFloat(newEventAmount), type: newEventCategory, date: newEventDate });
           fetchEvents();
-          setNewEventTitle('');
+          setNewEventTitle("");
           setNewEventDate(getCurrentDateTime());
           setIsFinancialEvent(false);
-          setNewEventAmount('');
-          setNewEventCategory('income');
+          setNewEventAmount("");
+          setNewEventCategory("income");
           setShowAddEventForm(false);
         } catch (err) {
-          alert('Failed to add event.');
-          console.error('Error adding event:', err);
+          alert("Failed to add event.");
+          console.error("Error adding event:", err);
         }
       };
-      const handleDeleteEvent = async (eventId) => {
+      const handleDeleteEvent = async id => {
         try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${eventId}`);
+          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${id}`);
           fetchEvents();
           setShowModal(false);
           setSelectedEvent(null);
         } catch (err) {
-          alert('Failed to delete event.');
-          console.error('Error deleting event:', err);
+          alert("Failed to delete event.");
+          console.error("Error deleting event:", err);
         }
       };
-      const toggleUser = (username) => {
-        setSelectedUsers(prev =>
-          prev.includes(username)
-            ? prev.filter(u => u !== username)
-            : [...prev, username]
-        );
-      };
+      const toggleUser = u => setSelectedUsers(p => p.includes(u) ? p.filter(x => x !== u) : [...p, u]);
+      useEffect(() => { fetchAccessibleUsers(); fetchEvents(); }, []);
       useEffect(() => {
-        fetchAccessibleUsers();
-        fetchEvents();
-      }, []);
-      useEffect(() => {
-        if (fullCalendarInstance.current) {
-          const filteredEvents = events.filter(event => selectedUsers.includes(event.user));
-          fullCalendarInstance.current.setOption('events', filteredEvents);
-        }
+        if (fullCalendarInstance.current) fullCalendarInstance.current.setOption("events", events.filter(e => selectedUsers.includes(e.user)));
       }, [events, selectedUsers, userProfiles]);
       useEffect(() => {
-        const calendarEl = document.getElementById('calendar');
-        if (calendarEl && !fullCalendarInstance.current) {
-          const calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            initialDate: `2025-${selectedMonth}-01`,
-            editable: true,
-            selectable: true,
-            events: events.filter(event => selectedUsers.includes(event.user)),
-            eventContent: (info) => {
-              const event = info.event;
-              const eventUser = event.extendedProps.user;
-              const eventDisplayColor = event.extendedProps.eventColor;
-              const eventEl = document.createElement('div');
-              eventEl.className = `fc-event-main`;
-              eventEl.style.backgroundColor = eventDisplayColor;
-              eventEl.style.opacity = '0.8';
-              const imgEl = document.createElement('img');
-              imgEl.src = userProfiles[eventUser] || DEFAULT_PROFILE_PIC_URL;
-              imgEl.alt = eventUser;
-              imgEl.className = 'event-profile-pic';
-              const titleSpan = document.createElement('span');
-              titleSpan.className = 'fc-event-title';
-              titleSpan.textContent = event.title;
-              const userSpan = document.createElement('span');
-              userSpan.className = 'fc-event-user';
-              userSpan.textContent = eventUser;
-              const eventPicContainer = document.createElement('div');
-              eventPicContainer.className = 'event-profile-pic-container';
-              eventPicContainer.appendChild(imgEl);
-              eventEl.appendChild(eventPicContainer);
-              eventEl.appendChild(titleSpan);
-              eventEl.appendChild(userSpan);
-              return { domNodes: [eventEl] };
-            },
-            eventClick: (info) => {
-              setSelectedEvent({
-                id: info.event.id,
-                title: info.event.title,
-                date: info.event.start.toISOString().slice(0, 19),
-                user: info.event.extendedProps.user,
-                financial: info.event.extendedProps.financial,
-                type: info.event.extendedProps.type,
-                amount: info.event.extendedProps.amount,
-                profilePicUrl: userProfiles[info.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL,
-                eventColor: info.event.extendedProps.eventColor,
-              });
-              setShowModal(true);
-            },
-            select: async (info) => {
-              setNewEventDate(getCurrentDateTime());
-              setShowAddEventForm(true);
-            },
-          });
-          calendar.render();
-          fullCalendarInstance.current = calendar;
+        const el = calendarRef.current;
+        if (el && !fullCalendarInstance.current) {
+          try {
+            const calendar = new FullCalendar.Calendar(el, {
+              initialView: "dayGridMonth",
+              initialDate: `2025-${selectedMonth}-01`,
+              editable: true,
+              selectable: true,
+              events: events.filter(e => selectedUsers.includes(e.user)),
+              eventContent: info => {
+                const e = info.event, u = e.extendedProps.user, c = e.extendedProps.eventColor;
+                const div = document.createElement("div");
+                div.className = "fc-event-main";
+                div.style.backgroundColor = c;
+                div.style.opacity = "0.8";
+                const img = document.createElement("img");
+                img.src = userProfiles[u] || DEFAULT_PROFILE_PIC_URL;
+                img.alt = u;
+                img.className = "event-profile-pic";
+                const title = document.createElement("span");
+                title.className = "fc-event-title";
+                title.textContent = e.title;
+                const user = document.createElement("span");
+                user.className = "fc-event-user";
+                user.textContent = u;
+                const picDiv = document.createElement("div");
+                picDiv.className = "event-profile-pic-container";
+                picDiv.appendChild(img);
+                div.appendChild(picDiv);
+                div.appendChild(title);
+                div.appendChild(user);
+                return { domNodes: [div] };
+              },
+              eventClick: info => {
+                setSelectedEvent({ id: info.event.id, title: info.event.title, date: info.event.start.toISOString().slice(0, 19), user: info.event.extendedProps.user, financial: info.event.extendedProps.financial, type: info.event.extendedProps.type, amount: info.event.extendedProps.amount, profilePicUrl: userProfiles[info.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL, eventColor: info.event.extendedProps.eventColor });
+                setShowModal(true);
+              },
+              select: () => { setNewEventDate(getCurrentDateTime()); setShowAddEventForm(true); }
+            });
+            calendar.render();
+            fullCalendarInstance.current = calendar;
+          } catch (err) { console.error("Calendar initialization error:", err); }
         }
         return () => {
           if (fullCalendarInstance.current) {
@@ -1100,688 +621,413 @@
           }
         };
       }, [userProfiles]);
-      useEffect(() => {
-        if (fullCalendarInstance.current) {
-          fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`);
-        }
-      }, [selectedMonth]);
-      const handleMonthChange = (e) => {
-        const month = e.target.value;
-        setSelectedMonth(month);
-      };
-      const closeModal = () => {
-        setShowModal(false);
-        setTimeout(() => setSelectedEvent(null), 300);
-      };
+      useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`); }, [selectedMonth]);
       return (
-        <div className="p-6 max-w-6xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
-          </div>
-          <div className="card p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="profile-pic-container">
-                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                  </div>
-                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
-                </div>
-                <span>Calendar</span>
-              </h1>
-              <div className="flex space-x-3">
-                <select
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  {months.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label} 2025
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAddEventForm(!showAddEventForm)}
-                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  {showAddEventForm ? 'Hide Form' : 'Add Event'}
-                </button>
-              </div>
-            </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(username => (
-                  <button
-                    key={username}
-                    onClick={() => toggleUser(username)}
-                    className={`px-3 py-2 rounded-lg text-white ${
-                      selectedUsers.includes(username)
-                        ? 'bg-teal-500 hover:bg-teal-600'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {username}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {showAddEventForm && (
-              <div className="card p-6 mb-6 space-y-4">
-                <h2 className="text-xl font-semibold text-white">Add Calendar Event</h2>
-                <input
-                  type="text"
-                  placeholder="Event Title"
-                  value={newEventTitle}
-                  onChange={(e) => setNewEventTitle(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <input
-                  type="datetime-local"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  step="1"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isFinancial"
-                    checked={isFinancialEvent}
-                    onChange={(e) => setIsFinancialEvent(e.target.checked)}
-                    className="form-checkbox h-5 w-5 text-teal-500 rounded"
-                  />
-                  <label htmlFor="isFinancial" className="text-white">Financial Event?</label>
-                </div>
-                {isFinancialEvent && (
-                  <div className="space-y-4">
-                    <input
-                      type="number"
-                      placeholder="Amount (in ZAR)"
-                      value={newEventAmount}
-                      onChange={(e) => setNewEventAmount(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                    />
-                    <select
-                      value={newEventCategory}
-                      onChange={(e) => setNewEventCategory(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                    >
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                    </select>
-                  </div>
-                )}
-                <button
-                  onClick={handleAddEvent}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Add Event
-                </button>
-              </div>
-            )}
-            <div id="calendar" className="text-white"></div>
-            {showModal && selectedEvent && (
-              <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onClick={closeModal}>
-                <div
-                  ref={modalRef}
-                  className={`modal card p-8 max-w-md w-full mx-4 ${showModal ? 'show' : ''}`}
-                  style={{ backgroundColor: selectedEvent.eventColor, opacity: 0.8 }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-white">Event Details</h2>
-                    <button
-                      onClick={closeModal}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container !w-10 !h-10">
-                        <img src={selectedEvent.profilePicUrl} alt={selectedEvent.user} className="event-profile-pic" />
-                      </div>
-                      <span className="text-lg font-semibold text-white">{selectedEvent.title}</span>
+        <div className="main-panel">
+          <nav className="navbar navbar-expand-lg navbar-transparent navbar-absolute fixed-top">
+            <div className="container-fluid">
+              <div className="navbar-wrapper"><a className="navbar-brand" href="#">Calendar</a></div>
+              <button className="navbar-toggler" type="button" data-toggle="collapse" aria-controls="navigation-index" aria-expanded="false" aria-label="Toggle navigation">
+                <span className="sr-only">Toggle navigation</span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span>
+              </button>
+              <div className="collapse navbar-collapse justify-content-end">
+                <ul className="navbar-nav">
+                  <li className="nav-item dropdown">
+                    <a className="nav-link" href="#" id="navbarDropdownProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i className="material-icons">person</i></a>
+                    <div className="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownProfile">
+                      <a className="dropdown-item" onClick={() => setPage("profileSettings")}>Profile</a>
+                      <div className="dropdown-divider"></div>
+                      <a className="dropdown-item" onClick={onLogout}>Log out</a>
                     </div>
-                    <p className="text-white"><strong>Date:</strong> {formatDateTimeWithSeconds(selectedEvent.date)}</p>
-                    <p className="text-white"><strong>User:</strong> {selectedEvent.user}</p>
-                    {selectedEvent.financial ? (
-                      <>
-                        <p className="text-white"><strong>Type:</strong> {selectedEvent.type}</p>
-                        <p className="text-white"><strong>Amount:</strong> R{selectedEvent.amount.toFixed(2)}</p>
-                      </>
-                    ) : (
-                      <p className="text-white">Non-financial event</p>
-                    )}
-                    {selectedEvent.user === user.username && (
-                      <button
-                        onClick={() => handleDeleteEvent(selectedEvent.id)}
-                        className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      >
-                        Delete Event
-                      </button>
-                    )}
-                  </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </nav>
+          <div className="content">
+            <div className="container-fluid">
+              <div className="row">
+                <div className="col-md-12">
+                  <ErrorBoundary>
+                    <div className="card">
+                      <div className="card-header card-header-primary d-flex align-items-center">
+                        <div className="profile-pic-container mr-3"><img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic"/></div>
+                        <h4 className="card-title">Calendar</h4>
+                      </div>
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between mb-3">
+                          <h5>Select Month</h5>
+                          <div>
+                            <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="form-control mr-2" style={{ width: "auto" }}>
+                              {months.map(m => <option key={m.value} value={m.value}>{m.label} 2025</option>)}
+                            </select>
+                            <button onClick={() => setShowAddEventForm(!showAddEventForm)} className="btn btn-primary">{showAddEventForm ? "Hide Form" : "Add Event"}</button>
+                          </div>
+                        </div>
+                        <div className="mb-3"><h5 className="card-title">View Data For:</h5><div className="d-flex flex-wrap">{accessibleUsers.map(u => <button key={u} onClick={() => toggleUser(u)} className={`btn btn-sm m-1 ${selectedUsers.includes(u) ? "btn-primary" : "btn-secondary"}`}>{u}</button>)}</div></div>
+                        {showAddEventForm && (
+                          <div className="card mb-3">
+                            <div className="card-body">
+                              <h5 className="card-title">Add Calendar Event</h5>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Event Title</label><input type="text" value={newEventTitle} onChange={e => setNewEventTitle(e.target.value)} className="form-control"/></div>
+                              <div className="form-group bmd-form-group"><label className="bmd-label-floating">Date</label><input type="datetime-local" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} step="1" className="form-control"/></div>
+                              <div className="form-check"><input type="checkbox" id="isFinancial" checked={isFinancialEvent} onChange={e => setIsFinancialEvent(e.target.checked)} className="form-check-input"/><label className="form-check-label" htmlFor="isFinancial">Financial Event?</label></div>
+                              {isFinancialEvent && (
+                                <>
+                                  <div className="form-group bmd-form-group"><label className="bmd-label-floating">Amount (ZAR)</label><input type="number" value={newEventAmount} onChange={e => setNewEventAmount(e.target.value)} className="form-control"/></div>
+                                  <div className="form-group bmd-form-group"><label className="bmd-label-floating">Category</label><select value={newEventCategory} onChange={e => setNewEventCategory(e.target.value)} className="form-control"><option value="income">Income</option><option value="expense">Expense</option></select></div>
+                                </>
+                              )}
+                              <button onClick={handleAddEvent} className="btn btn-primary btn-block">Add Event</button>
+                            </div>
+                          </div>
+                        )}
+                        <div id="calendar" ref={calendarRef}></div>
+                        {showModal && selectedEvent && (
+                          <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setShowModal(false)}>
+                            <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+                              <div className="modal-content" style={{ backgroundColor: selectedEvent.eventColor, opacity: 0.9 }}>
+                                <div className="modal-header">
+                                  <h5 className="modal-title">Event Details</h5>
+                                  <button type="button" className="close" onClick={() => setShowModal(false)}><span>×</span></button>
+                                </div>
+                                <div className="modal-body">
+                                  <div className="d-flex align-items-center mb-3">
+                                    <div className="event-profile-pic-container mr-2"><img src={selectedEvent.profilePicUrl} alt={selectedEvent.user} className="event-profile-pic"/></div>
+                                    <h6>{selectedEvent.title}</h6>
+                                  </div>
+                                  <p><strong>Date:</strong> {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                                  <p><strong>User:</strong> {selectedEvent.user}</p>
+                                  {selectedEvent.financial ? (
+                                    <>
+                                      <p><strong>Type:</strong> {selectedEvent.type}</p>
+                                      <p><strong>Amount:</strong> R{selectedEvent.amount.toFixed(2)}</p>
+                                    </>
+                                  ) : (
+                                    <p>Non-financial event</p>
+                                  )}
+                                </div>
+                                <div className="modal-footer">
+                                  {selectedEvent.user === user.username && <button onClick={() => handleDeleteEvent(selectedEvent.id)} className="btn btn-danger">Delete Event</button>}
+                                  <button onClick={() => setShowModal(false)} className="btn btn-secondary">Close</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </ErrorBoundary>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       );
     };
+
     const Admin = ({ user, setPage, onLogout }) => {
       const [users, setUsers] = useState([]);
-      const [newUsername, setNewUsername] = useState('');
-      const [newPassword, setNewPassword] = useState('');
-      const [confirmNewPassword, setConfirmNewPassword] = useState('');
-      const [message, setMessage] = useState('');
+      const [newUsername, setNewUsername] = useState("");
+      const [newPassword, setNewPassword] = useState("");
+      const [confirmNewPassword, setConfirmNewPassword] = useState("");
+      const [message, setMessage] = useState("");
       const [pamComparison, setPamComparison] = useState(null);
-      const [selectedUser, setSelectedUser] = useState('');
-      const [updatePassword, setUpdatePassword] = useState('');
-      const [updateConfirmPassword, setUpdateConfirmPassword] = useState('');
-      const [updateMessage, setUpdateMessage] = useState('');
-      const [accessViewer, setAccessViewer] = useState('');
-      const [accessTarget, setAccessTarget] = useState('');
-      const [accessMessage, setAccessMessage] = useState('');
+      const [selectedUser, setSelectedUser] = useState("");
+      const [updatePassword, setUpdatePassword] = useState("");
+      const [updateConfirmPassword, setUpdateConfirmPassword] = useState("");
+      const [updateMessage, setUpdateMessage] = useState("");
+      const [accessViewer, setAccessViewer] = useState("");
+      const [accessTarget, setAccessTarget] = useState("");
+      const [accessMessage, setAccessMessage] = useState("");
       const [accessList, setAccessList] = useState([]);
-      const [adminUser, setAdminUser] = useState('');
-      const [adminMessage, setAdminMessage] = useState('');
+      const [adminUser, setAdminUser] = useState("");
+      const [adminMessage, setAdminMessage] = useState("");
       const fetchUsers = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/users');
-          if (response.data && Array.isArray(response.data)) {
-            setUsers(response.data);
-          } else {
-            setMessage('Failed to fetch users.');
-          }
+          const res = await axios.get("https://ourlife.work.gd:8443/api/users");
+          if (Array.isArray(res.data)) setUsers(res.data);
+          else setMessage("Failed to fetch users.");
         } catch (err) {
-          setMessage('Error fetching users.');
-          console.error('Error fetching users:', err);
+          setMessage("Error fetching users.");
+          console.error("Error fetching users:", err);
         }
       };
       const fetchPamUsers = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/pam-users');
-          if (response.data.success) {
-            setPamComparison(response.data);
-          } else {
-            setMessage('Failed to fetch PAM users.');
-          }
+          const res = await axios.get("https://ourlife.work.gd:8443/api/pam-users");
+          if (res.data.success) setPamComparison(res.data);
+          else setMessage("Failed to fetch PAM users.");
         } catch (err) {
-          setMessage('Error fetching PAM users.');
-          console.error('Error fetching PAM users:', err);
+          setMessage("Error fetching PAM users.");
+          console.error("Error fetching PAM users:", err);
         }
       };
       const fetchAccessList = async () => {
         try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
-          if (response.data.success) {
-            setAccessList(response.data.accessList);
-          } else {
-            setAccessMessage('Failed to fetch access list.');
-          }
+          const res = await axios.get("https://ourlife.work.gd:8443/api/get-access");
+          if (res.data.success) setAccessList(res.data.accessList);
+          else setAccessMessage("Failed to fetch access list.");
         } catch (err) {
-          setAccessMessage('Error fetching access list.');
-          console.error('Error fetching access list:', err);
+          setAccessMessage("Error fetching access list.");
+          console.error("Error fetching access list:", err);
         }
       };
-      useEffect(() => {
-        fetchUsers();
-        fetchPamUsers();
-        fetchAccessList();
-      }, []);
-      const handleAddUser = async (e) => {
+      const handleAddUser = async e => {
         e.preventDefault();
-        setMessage('');
-        if (!newUsername || !newPassword || !confirmNewPassword) {
-          setMessage('All fields are required.');
-          return;
-        }
-        if (newPassword !== confirmNewPassword) {
-          setMessage('Passwords do not match.');
-          return;
-        }
-        if (newPassword.length < 6) {
-          setMessage('Password must be at least 6 characters.');
-          return;
-        }
+        setMessage("");
+        if (!newUsername || !newPassword || !confirmNewPassword) return setMessage("All fields required.");
+        if (newPassword !== confirmNewPassword) return setMessage("Passwords do not match.");
+        if (newPassword.length < 6) return setMessage("Password must be at least 6 characters.");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/add-user', {
-            username: newUsername,
-            password: newPassword
-          });
-          if (response.data.success) {
-            setMessage('User added successfully!');
-            setNewUsername('');
-            setNewPassword('');
-            setConfirmNewPassword('');
+          const res = await axios.post("https://ourlife.work.gd:8443/api/add-user", { username: newUsername, password: newPassword });
+          if (res.data.success) {
+            setMessage("User added!");
+            setNewUsername("");
+            setNewPassword("");
+            setConfirmNewPassword("");
             fetchUsers();
             fetchPamUsers();
-          } else {
-            setMessage(response.data.message || 'Failed to add user.');
-          }
+          } else setMessage(res.data.message || "Failed to add user.");
         } catch (err) {
-          setMessage('Error adding user.');
-          console.error('Error adding user:', err);
+          setMessage("Error adding user.");
+          console.error("Error adding user:", err);
         }
       };
-      const handleDeleteUser = async (username) => {
-        if (username === user.username) {
-          setMessage('Cannot delete your own account.');
-          return;
-        }
-        if (confirm(`Delete user ${username}?`)) {
+      const handleDeleteUser = async u => {
+        if (u === user.username) return setMessage("Cannot delete own account.");
+        if (confirm(`Delete user ${u}?`)) {
           try {
-            const response = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${username}`);
-            if (response.data.success) {
-              setMessage('User deleted successfully!');
+            const res = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${u}`);
+            if (res.data.success) {
+              setMessage("User deleted!");
               fetchUsers();
               fetchPamUsers();
               fetchAccessList();
-            } else {
-              setMessage(response.data.message || 'Failed to delete user.');
-            }
+            } else setMessage(res.data.message || "Failed to delete user.");
           } catch (err) {
-            setMessage('Error deleting user.');
-            console.error('Error deleting user:', err);
+            setMessage("Error deleting user.");
+            console.error("Error deleting user:", err);
           }
         }
       };
-      const handleUpdatePassword = async (e) => {
+      const handleUpdatePassword = async e => {
         e.preventDefault();
-        setUpdateMessage('');
-        if (!selectedUser) {
-          setUpdateMessage('Please select a user.');
-          return;
-        }
-        if (selectedUser === user.username) {
-          setUpdateMessage('Use Profile Settings to update your own password.');
-          return;
-        }
-        if (!updatePassword || !updateConfirmPassword) {
-          setUpdateMessage('New password and confirmation are required.');
-          return;
-        }
-        if (updatePassword !== updateConfirmPassword) {
-          setUpdateMessage('Passwords do not match.');
-          return;
-        }
-        if (updatePassword.length < 6) {
-          setUpdateMessage('Password must be at least 6 characters.');
-          return;
-        }
+        setUpdateMessage("");
+        if (!selectedUser) return setUpdateMessage("Select a user.");
+        if (selectedUser === user.username) return setUpdateMessage("Use Profile Settings for own password.");
+        if (!updatePassword || !updateConfirmPassword) return setUpdateMessage("New password and confirmation required.");
+        if (updatePassword !== updateConfirmPassword) return setUpdateMessage("Passwords do not match.");
+        if (updatePassword.length < 6) return setUpdateMessage("Password must be at least 6 characters.");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/admin-update-password', {
-            username: selectedUser,
-            newPassword: updatePassword
-          });
-          if (response.data.success) {
+          const res = await axios.post("https://ourlife.work.gd:8443/api/admin-update-password", { username: selectedUser, newPassword: updatePassword });
+          if (res.data.success) {
             setUpdateMessage(`Password updated for ${selectedUser}!`);
-            setSelectedUser('');
-            setUpdatePassword('');
-            setUpdateConfirmPassword('');
-          } else {
-            setUpdateMessage(response.data.message || 'Failed to update password.');
-          }
+            setSelectedUser("");
+            setUpdatePassword("");
+            setUpdateConfirmPassword("");
+          } else setUpdateMessage(res.data.message || "Failed to update password.");
         } catch (err) {
-          setUpdateMessage('Error updating password.');
-          console.error('Error updating password:', err);
+          setUpdateMessage("Error updating password.");
+          console.error("Error updating password:", err);
         }
       };
-      const handleGrantAccess = async (e) => {
+      const handleGrantAccess = async e => {
         e.preventDefault();
-        setAccessMessage('');
-        if (!accessViewer || !accessTarget) {
-          setAccessMessage('Select both a viewer and target user.');
-          return;
-        }
-        if (accessViewer === accessTarget) {
-          setAccessMessage('Cannot grant access to self.');
-          return;
-        }
+        setAccessMessage("");
+        if (!accessViewer || !accessTarget) return setAccessMessage("Select both viewer and target.");
+        if (accessViewer === accessTarget) return setAccessMessage("Cannot grant access to self.");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
-            viewer: accessViewer,
-            target: accessTarget
-          });
-          if (response.data.success) {
-            setAccessMessage(response.data.message);
-            setAccessViewer('');
-            setAccessTarget('');
+          const res = await axios.post("https://ourlife.work.gd:8443/api/grant-access", { viewer: accessViewer, target: accessTarget });
+          if (res.data.success) {
+            setAccessMessage(res.data.message);
+            setAccessViewer("");
+            setAccessTarget("");
             fetchAccessList();
-          } else {
-            setAccessMessage(response.data.message || 'Failed to grant access.');
-          }
+          } else setAccessMessage(res.data.message || "Failed to grant access.");
         } catch (err) {
-          setAccessMessage('Error granting access.');
-          console.error('Error granting access:', err);
+          setAccessMessage("Error granting access.");
+          console.error("Error granting access:", err);
         }
       };
       const handleRevokeAccess = async (viewer, target) => {
         if (confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
           try {
-            const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
-              viewer,
-              target
-            });
-            if (response.data.success) {
-              setAccessMessage(response.data.message);
+            const res = await axios.post("https://ourlife.work.gd:8443/api/revoke-access", { viewer, target });
+            if (res.data.success) {
+              setAccessMessage(res.data.message);
               fetchAccessList();
-            } else {
-              setAccessMessage(response.data.message || 'Failed to revoke access.');
-            }
+            } else setAccessMessage(res.data.message || "Failed to revoke access.");
           } catch (err) {
-            setAccessMessage('Error revoking access.');
-            console.error('Error revoking access:', err);
+            setAccessMessage("Error revoking access.");
+            console.error("Error revoking access:", err);
           }
         }
       };
       const handleGrantAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
+        if (!adminUser) return setAdminMessage("Select a user.");
+        if (adminUser === user.username) return setAdminMessage("Cannot modify own admin status.");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-admin', { username: adminUser });
-          if (response.data.success) {
+          const res = await axios.post("https://ourlife.work.gd:8443/api/grant-admin", { username: adminUser });
+          if (res.data.success) {
             setAdminMessage(`Admin access granted to ${adminUser}!`);
-            setAdminUser('');
+            setAdminUser("");
             fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to grant admin access.');
-          }
+          } else setAdminMessage(res.data.message || "Failed to grant admin access.");
         } catch (err) {
-          setAdminMessage('Error granting admin access. Check server logs.');
-          console.error('Error granting admin access:', err, 'Response:', err.response?.data);
+          setAdminMessage("Error granting admin access.");
+          console.error("Error granting admin access:", err);
         }
       };
       const handleRevokeAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
+        if (!adminUser) return setAdminMessage("Select a user.");
+        if (adminUser === user.username) return setAdminMessage("Cannot modify own admin status.");
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-admin', { username: adminUser });
-          if (response.data.success) {
+          const res = await axios.post("https://ourlife.work.gd:8443/api/revoke-admin", { username: adminUser });
+          if (res.data.success) {
             setAdminMessage(`Admin access revoked for ${adminUser}!`);
-            setAdminUser('');
+            setAdminUser("");
             fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to revoke admin access.');
-          }
+          } else setAdminMessage(res.data.message || "Failed to revoke admin access.");
         } catch (err) {
-          setAdminMessage('Error revoking admin access.');
-          console.error('Error revoking admin access:', err);
+          setAdminMessage("Error revoking admin access.");
+          console.error("Error revoking admin access:", err);
         }
       };
+      useEffect(() => { fetchUsers(); fetchPamUsers(); fetchAccessList(); }, []);
       return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
-          </div>
-          <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
-                <form onSubmit={handleAddUser} className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="New Username"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm Password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Add User
-                  </button>
-                </form>
-                {message && (
-                  <p className={`mt-3 text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage Users</h2>
-                <div className="space-y-3">
-                  {users.map((u) => (
-                    <div key={u.username} className="flex justify-between items-center p-4 card">
-                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
-                      <button
-                        onClick={() => handleDeleteUser(u.username)}
-                        className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
+        <div className="main-panel">
+          <nav className="navbar navbar-expand-lg navbar-transparent navbar-absolute fixed-top">
+            <div className="container-fluid">
+              <div className="navbar-wrapper"><a className="navbar-brand" href="#">Admin Panel</a></div>
+              <button className="navbar-toggler" type="button" data-toggle="collapse" aria-controls="navigation-index" aria-expanded="false" aria-label="Toggle navigation">
+                <span className="sr-only">Toggle navigation</span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span><span className="navbar-toggler-icon icon-bar"></span>
+              </button>
+              <div className="collapse navbar-collapse justify-content-end">
+                <ul className="navbar-nav">
+                  <li className="nav-item dropdown">
+                    <a className="nav-link" href="#" id="navbarDropdownProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i className="material-icons">person</i></a>
+                    <div className="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownProfile">
+                      <a className="dropdown-item" onClick={() => setPage("profileSettings")}>Profile</a>
+                      <div className="dropdown-divider"></div>
+                      <a className="dropdown-item" onClick={onLogout}>Log out</a>
                     </div>
-                  ))}
-                </div>
+                  </li>
+                </ul>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
-                <form onSubmit={handleUpdatePassword} className="space-y-4">
-                  <select
-                    value={selectedUser}
-                    onChange={(e) => setSelectedUser(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="password"
-                    placeholder="New Password"
-                    value={updatePassword}
-                    onChange={(e) => setUpdatePassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm New Password"
-                    value={updateConfirmPassword}
-                    onChange={(e) => setUpdateConfirmPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Update Password
-                  </button>
-                </form>
-                {updateMessage && (
-                  <p className={`mt-3 text-center text-sm ${updateMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {updateMessage}
-                  </p>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
-                <div className="space-y-4">
-                  <select
-                    value={adminUser}
-                    onChange={(e) => setAdminUser(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleGrantAdmin}
-                      className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                    >
-                      Grant Admin Access
-                    </button>
-                    <button
-                      onClick={handleRevokeAdmin}
-                      className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                    >
-                      Revoke Admin Access
-                    </button>
-                  </div>
-                  {adminMessage && (
-                    <p className={`mt-3 text-center text-sm ${adminMessage.includes('success') || adminMessage.includes('granted') || adminMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
-                      {adminMessage}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
-                <form onSubmit={handleGrantAccess} className="space-y-4 mb-6">
-                  <select
-                    value={accessViewer}
-                    onChange={(e) => setAccessViewer(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select Viewer</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={accessTarget}
-                    onChange={(e) => setAccessTarget(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select Target User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Grant Access
-                  </button>
-                </form>
-                <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
-                <div className="space-y-3">
-                  {accessList.length > 0 ? (
-                    accessList.map((access, index) => (
-                      <div key={index} className="flex justify-between items-center p-4 card">
-                        <span>{access.viewer} can view {access.target}'s data</span>
-                        <button
-                          onClick={() => handleRevokeAccess(access.viewer, access.target)}
-                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        >
-                          Revoke
-                        </button>
+            </div>
+          </nav>
+          <div className="content">
+            <div className="container-fluid">
+              <div className="row">
+                <div className="col-md-12">
+                  <ErrorBoundary>
+                    <div className="card">
+                      <div className="card-header card-header-primary"><h4 className="card-title">Admin Panel</h4></div>
+                      <div className="card-body">
+                        <h5>Add New User</h5>
+                        <form onSubmit={handleAddUser}>
+                          <div className="row">
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">New Username</label><input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} className="form-control"/></div></div>
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="form-control"/></div></div>
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Confirm Password</label><input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} className="form-control"/></div></div>
+                          </div>
+                          <button type="submit" className="btn btn-primary btn-block">Add User</button>
+                        </form>
+                        {message && <p className={`text-center ${message.includes("success") ? "text-success" : "text-danger"}`}>{message}</p>}
+                        <hr className="my-4"/>
+                        <h5>Delete User</h5>
+                        <div className="table-responsive">
+                          <table className="table">
+                            <thead className="text-primary"><tr><th>Username</th><th>Is Admin</th><th>Actions</th></tr></thead>
+                            <tbody>{users.map(u => <tr key={u.username}><td>{u.username}</td><td>{u.isAdmin ? "Yes" : "No"}</td><td><button onClick={() => handleDeleteUser(u.username)} className="btn btn-danger btn-sm">Delete</button></td></tr>)}</tbody>
+                          </table>
+                        </div>
+                        <hr className="my-4"/>
+                        <h5>Update User Password</h5>
+                        <form onSubmit={handleUpdatePassword}>
+                          <div className="row">
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Select User</label><select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} className="form-control"><option value="">Select User</option>{users.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}</select></div></div>
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">New Password</label><input type="password" value={updatePassword} onChange={e => setUpdatePassword(e.target.value)} className="form-control"/></div></div>
+                            <div className="col-md-4"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Confirm Password</label><input type="password" value={updateConfirmPassword} onChange={e => setUpdateConfirmPassword(e.target.value)} className="form-control"/></div></div>
+                          </div>
+                          <button type="submit" className="btn btn-primary btn-block">Update Password</button>
+                        </form>
+                        {updateMessage && <p className={`text-center ${updateMessage.includes("success") ? "text-success" : "text-danger"}`}>{updateMessage}</p>}
+                        <hr className="my-4"/>
+                        <h5>Grant/Revoke Data Access</h5>
+                        <form onSubmit={handleGrantAccess}>
+                          <div className="row">
+                            <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Viewer</label><select value={accessViewer} onChange={e => setAccessViewer(e.target.value)} className="form-control"><option value="">Select Viewer</option>{users.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}</select></div></div>
+                            <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Target</label><select value={accessTarget} onChange={e => setAccessTarget(e.target.value)} className="form-control"><option value="">Select Target</option>{users.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}</select></div></div>
+                          </div>
+                          <button type="submit" className="btn btn-primary btn-block">Grant Access</button>
+                        </form>
+                        {accessMessage && <p className={`text-center ${accessMessage.includes("success") ? "text-success" : "text-danger"}`}>{accessMessage}</p>}
+                        <div className="table-responsive mt-3">
+                          <table className="table">
+                            <thead className="text-primary"><tr><th>Viewer</th><th>Target</th><th>Actions</th></tr></thead>
+                            <tbody>{accessList.map((a, i) => <tr key={i}><td>{a.viewer}</td><td>{a.target}</td><td><button onClick={() => handleRevokeAccess(a.viewer, a.target)} className="btn btn-danger btn-sm">Revoke</button></td></tr>)}</tbody>
+                          </table>
+                        </div>
+                        <hr className="my-4"/>
+                        <h5>Manage Admin Access</h5>
+                        <div className="row">
+                          <div className="col-md-6"><div className="form-group bmd-form-group"><label className="bmd-label-floating">Select User</label><select value={adminUser} onChange={e => setAdminUser(e.target.value)} className="form-control"><option value="">Select User</option>{users.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}</select></div></div>
+                        </div>
+                        <div className="d-flex"><button onClick={handleGrantAdmin} className="btn btn-primary mr-2">Grant Admin</button><button onClick={handleRevokeAdmin} className="btn btn-danger">Revoke Admin</button></div>
+                        {adminMessage && <p className={`text-center ${adminMessage.includes("success") ? "text-success" : "text-danger"}`}>{adminMessage}</p>}
+                        <hr className="my-4"/>
+                        <h5>PAM Users Comparison</h5>
+                        {pamComparison && (
+                          <div className="table-responsive">
+                            <table className="table">
+                              <thead className="text-primary"><tr><th>Username</th><th>In App</th><th>In PAM</th></tr></thead>
+                              <tbody>{pamComparison.users.map(u => <tr key={u.username}><td>{u.username}</td><td>{u.inApp ? "Yes" : "No"}</td><td>{u.inPam ? "Yes" : "No"}</td></tr>)}</tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-white">No access permissions set.</p>
-                  )}
+                    </div>
+                  </ErrorBoundary>
                 </div>
-                {accessMessage && (
-                  <p className={`mt-3 text-center text-sm ${accessMessage.includes('success') || accessMessage.includes('granted') || accessMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
-                    {accessMessage}
-                  </p>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
-                {pamComparison ? (
-                  <div className="space-y-2 text-white">
-                    <p><strong>PAM Users:</strong> {pamComparison.pamUsers.join(', ') || 'None'}</p>
-                    <p><strong>App Users:</strong> {pamComparison.appUsers.join(', ') || 'None'}</p>
-                    <p><strong>Common Users:</strong> {pamComparison.commonUsers.join(', ') || 'None'}</p>
-                    <p><strong>App Only Users:</strong> {pamComparison.appOnlyUsers.join(', ') || 'None'}</p>
-                    <p><strong>PAM Only Users:</strong> {pamComparison.pamOnlyUsers.join(', ') || 'None'}</p>
-                  </div>
-                ) : (
-                  <p className="text-white">Loading PAM comparison...</p>
-                )}
               </div>
             </div>
           </div>
         </div>
       );
     };
+
     const App = () => {
-      const [page, setPage] = useState('login');
       const [user, setUser] = useState(null);
-      const handleLogin = (userInfo) => {
-        setUser(userInfo);
-        setPage('menu');
-      };
-      const handleLogout = () => {
-        setUser(null);
-        setPage('login');
-      };
+      const [page, setPage] = useState("login");
+      const handleLogin = u => setUser(u);
+      const handleLogout = () => { setUser(null); setPage("login"); };
       return (
-        <div>
-          {page === 'login' && <Login onLogin={handleLogin} />}
-          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'admin' && user && user.isAdmin && (
-            <Admin user={user} setPage={setPage} onLogout={handleLogout} />
-          )}
+        <div className="wrapper">
+          {user && <Sidebar user={user} setPage={setPage} onLogout={handleLogout} page={page} />}
+          <div className="main-panel">
+            {page === "login" && !user ? (
+              <Login onLogin={handleLogin} />
+            ) : page === "menu" ? (
+              <Menu user={user} setPage={setPage} onLogout={handleLogout} />
+            ) : page === "financial" ? (
+              <Financial user={user} setPage={setPage} onLogout={handleLogout} />
+            ) : page === "calendar" ? (
+              <Calendar user={user} setPage={setPage} onLogout={handleLogout} />
+            ) : page === "profileSettings" ? (
+              <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} />
+            ) : page === "admin" && user.isAdmin ? (
+              <Admin user={user} setPage={setPage} onLogout={handleLogout} />
+            ) : (
+              <Menu user={user} setPage={setPage} onLogout={handleLogout} />
+            )}
+          </div>
         </div>
       );
     };
-    ReactDOM.render(<App />, document.getElementById('root'));
+
+    ReactDOM.render(<ErrorBoundary><App /></ErrorBoundary>, document.getElementById("root"));
   </script>
 </body>
 </html>
