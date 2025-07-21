@@ -129,74 +129,107 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
-    const capitalizeFirstLetter = (string) => {
-      if (!string) return '';
-      return string.charAt(0).toUpperCase() + string.slice(1);
-    };
-    const DEFAULT_PROFILE_PIC_URL = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
+    const API_BASE = 'https://ourlife.work.gd:8443/api';
+    const DEFAULT_PROFILE_PIC = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
     const DEFAULT_EVENT_COLOR = '#2dd4bf';
+    const MONTHS = [
+      { value: '01', label: 'January' }, { value: '02', label: 'February' },
+      { value: '03', label: 'March' }, { value: '04', label: 'April' },
+      { value: '05', label: 'May' }, { value: '06', label: 'June' },
+      { value: '07', label: 'July' }, { value: '08', label: 'August' },
+      { value: '09', label: 'September' }, { value: '10', label: 'October' },
+      { value: '11', label: 'November' }, { value: '12', label: 'December' }
+    ];
+    const CURRENCY_CONFIG = {
+      USD: { symbol: '$', rate: 1 },
+      EUR: { symbol: '€', rate: 0.85 },
+      ZAR: { symbol: 'R', rate: 18.5 }
+    };
 
-    // Utility function to get current date and time in ISO format (YYYY-MM-DDTHH:mm:ss)
+    const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
     const getCurrentDateTime = () => {
       const now = new Date();
-      const offset = now.getTimezoneOffset();
-      now.setMinutes(now.getMinutes() - offset); // Adjust for local timezone
-      return now.toISOString().slice(0, 19); // Format as YYYY-MM-DDTHH:mm:ss
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      return now.toISOString().slice(0, 19);
     };
+    const formatDateTime = date => new Date(date).toLocaleString('en-ZA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    }).replace(/,/, '');
+    const formatAmount = amount => `${CURRENCY_CONFIG.ZAR.symbol}${parseFloat(amount).toFixed(2)}`;
 
-    // Utility function to format date to include seconds
-    const formatDateTimeWithSeconds = (dateString) => {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-ZA', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).replace(/,/, '');
+    const Input = ({ label, className = '', ...props }) => (
+      <div>
+        {label && <label className="block text-white text-lg font-medium mb-2">{label}</label>}
+        <input className={`w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...props} />
+      </div>
+    );
+    const Select = ({ label, options, className = '', ...props }) => (
+      <div>
+        {label && <label className="block text-white text-lg font-medium mb-2">{label}</label>}
+        <select className={`w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...props}>
+          {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label || opt.value}</option>)}
+        </select>
+      </div>
+    );
+    const Button = ({ children, className = 'bg-teal-500 hover:bg-teal-600', ...props }) => (
+      <button className={`w-full p-3 text-white rounded-lg ${className}`} {...props}>{children}</button>
+    );
+    const ProfilePic = ({ src, username, size = '56px', border = '2px solid #2dd4bf' }) => (
+      <div className="flex flex-col items-center">
+        <div className="profile-pic-container" style={{ width: size, height: size, border }}>
+          <img src={src || DEFAULT_PROFILE_PIC} alt={username} className="profile-pic" />
+        </div>
+        <span className="text-sm text-gray-300 mt-2">{username}</span>
+      </div>
+    );
+
+    const useAccessibleUsers = (user, setUserProfiles) => {
+      const [accessibleUsers, setAccessibleUsers] = useState([user.username]);
+      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      useEffect(() => {
+        axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username } })
+          .then(({ data }) => {
+            if (data.success) {
+              const users = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
+              setAccessibleUsers(users);
+              setSelectedUsers(users);
+              const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC };
+              Promise.all(users.filter(u => u !== user.username).map(u =>
+                axios.get(`${API_BASE}/profile-pictures?username=${u}`)
+                  .then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC])
+                  .catch(() => [u, DEFAULT_PROFILE_PIC])
+              )).then(results => setUserProfiles(Object.fromEntries(results.concat([[user.username, user.profilePicUrl || DEFAULT_PROFILE_PIC]]))));
+            }
+          })
+          .catch(err => { console.error('Error fetching accessible users:', err); setAccessibleUsers([user.username]); setSelectedUsers([user.username]); });
+      }, [user.username]);
+      return { accessibleUsers, selectedUsers, setSelectedUsers };
     };
 
     const Login = ({ onLogin }) => {
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
+      const [credentials, setCredentials] = useState({ username: '', password: '' });
       const [error, setError] = useState('');
-      const handleLogin = async (e) => {
+      const handleChange = e => setCredentials({ ...credentials, [e.target.name]: e.target.value });
+      const handleLogin = async e => {
         e.preventDefault();
-        setError('');
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/login', { username, password });
-          if (response.data.success) {
-            let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
-            let eventColor = DEFAULT_EVENT_COLOR;
-            let email = '';
-            let phone = '';
-            let address = '';
-            let isAdmin = false;
-            try {
-              const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-              profilePicUrl = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-              eventColor = profileResponse.data.eventColor || DEFAULT_EVENT_COLOR;
-              email = profileResponse.data.email || '';
-              phone = profileResponse.data.phone || '';
-              address = profileResponse.data.address || '';
-              isAdmin = profileResponse.data.isAdmin || false;
-            } catch (profileErr) {
-              console.error('Error fetching profile data:', profileErr);
-            }
-            const userInfo = {
-              username,
-              profilePicUrl,
-              email,
-              phone,
-              address,
-              eventColor,
-              isAdmin,
-            };
-            onLogin(userInfo);
+          const { data } = await axios.post(`${API_BASE}/login`, credentials);
+          if (data.success) {
+            const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`).catch(() => ({
+              data: { profilePicUrl: DEFAULT_PROFILE_PIC, eventColor: DEFAULT_EVENT_COLOR }
+            }));
+            onLogin({
+              username: credentials.username,
+              profilePicUrl: profile.profilePicUrl || DEFAULT_PROFILE_PIC,
+              eventColor: profile.eventColor || DEFAULT_EVENT_COLOR,
+              email: profile.email || '',
+              phone: profile.phone || '',
+              address: profile.address || '',
+              isAdmin: profile.isAdmin || false
+            });
           } else {
-            setError(response.data.message || 'Login failed.');
+            setError(data.message || 'Login failed.');
           }
         } catch (err) {
           setError('Error during login. Check server.');
@@ -208,145 +241,75 @@
           <div className="card p-8 w-full max-w-md">
             <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-              />
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-              />
+              <Input name="username" placeholder="Username" value={credentials.username} onChange={handleChange} />
+              <Input type="password" name="password" placeholder="Password" value={credentials.password} onChange={handleChange} />
               {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-              <button
-                type="submit"
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Sign In
-              </button>
+              <Button type="submit">Sign In</Button>
             </form>
           </div>
         </div>
       );
     };
-    const Menu = ({ user, setPage, onLogout }) => {
-      return (
-        <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="card p-8 w-full max-w-md">
-            <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-              <div className="flex flex-col items-center">
-                <div className="profile-pic-container">
-                  <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                </div>
-                <span className="text-sm text-gray-300 mt-2">{user.username}</span>
-              </div>
-              <span>Welcome, {capitalizeFirstLetter(user.username)}!</span>
-            </h1>
-            <div className="space-y-3">
-              <button
-                onClick={() => setPage('financial')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Finances
-              </button>
-              <button
-                onClick={() => setPage('calendar')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Calendar
-              </button>
-              <button
-                onClick={() => setPage('profileSettings')}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Profile Settings
-              </button>
-              {user.isAdmin && (
-                <button
-                  onClick={() => setPage('admin')}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Admin Panel
-                </button>
-              )}
-              <button
-                onClick={onLogout}
-                className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              >
-                Sign Out
-              </button>
-            </div>
+
+    const Menu = ({ user, setPage, onLogout }) => (
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="card p-8 w-full max-w-md">
+          <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
+            <ProfilePic src={user.profilePicUrl} username={user.username} />
+            <span>Welcome, {capitalize(user.username)}!</span>
+          </h1>
+          <div className="space-y-3">
+            {['financial', 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])].map(page => (
+              <Button key={page} onClick={() => setPage(page)}>{capitalize(page)}</Button>
+            ))}
+            <Button className="bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
         </div>
-      );
-    };
+      </div>
+    );
+
     const ProfileSettings = ({ user, setPage, onLogout }) => {
-      const [profilePicUrl, setProfilePicUrl] = useState(user.profilePicUrl || '');
+      const [form, setForm] = useState({
+        profilePicUrl: user.profilePicUrl || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        eventColor: user.eventColor || DEFAULT_EVENT_COLOR,
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: ''
+      });
       const [selectedFile, setSelectedFile] = useState(null);
       const [message, setMessage] = useState('');
-      const [email, setEmail] = useState(user.email || '');
-      const [phone, setPhone] = useState(user.phone || '');
-      const [address, setAddress] = useState(user.address || '');
-      const [eventColor, setEventColor] = useState(user.eventColor || DEFAULT_EVENT_COLOR);
-      const [currentPassword, setCurrentPassword] = useState('');
-      const [newPassword, setNewPassword] = useState('');
-      const [confirmNewPassword, setConfirmNewPassword] = useState('');
       const [passwordMessage, setPasswordMessage] = useState('');
-      const handleFileChange = (e) => {
+      const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+      const handleFileChange = e => {
         const file = e.target.files[0];
         if (file) {
           setSelectedFile(file);
           setMessage('');
           const reader = new FileReader();
-          reader.onloadend = () => {
-            setProfilePicUrl(reader.result);
-          };
+          reader.onloadend = () => setForm({ ...form, profilePicUrl: reader.result });
           reader.readAsDataURL(file);
         } else {
           setSelectedFile(null);
-          setProfilePicUrl(user.profilePicUrl || DEFAULT_PROFILE_PIC_URL);
-          setMessage('');
+          setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
         }
       };
       const handleSaveProfile = async () => {
         setMessage('Saving...');
-        let urlToSave = profilePicUrl;
         try {
-          if (selectedFile) {
-            urlToSave = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(selectedFile);
-            });
-          } else if (!profilePicUrl) {
-            urlToSave = DEFAULT_PROFILE_PIC_URL;
-          }
-          const response = await axios.post('https://ourlife.work.gd:8443/api/profile-pictures', {
-            username: user.username,
-            profilePicUrl: urlToSave,
-            email,
-            phone,
-            address,
-            eventColor,
+          const urlToSave = selectedFile ? await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          }) : form.profilePicUrl || DEFAULT_PROFILE_PIC;
+          const { data } = await axios.post(`${API_BASE}/profile-pictures`, {
+            username: user.username, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor
           });
-          if (response.data.success) {
-            setMessage('Profile saved successfully!');
-            user.profilePicUrl = urlToSave;
-            user.email = email;
-            user.phone = phone;
-            user.address = address;
-            user.eventColor = eventColor;
-          } else {
-            setMessage('Failed to save profile.');
-          }
+          setMessage(data.success ? 'Profile saved successfully!' : 'Failed to save profile.');
+          if (data.success) Object.assign(user, { profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor });
         } catch (err) {
           setMessage('Error saving profile.');
           console.error('Error saving profile:', err);
@@ -354,33 +317,16 @@
       };
       const handlePasswordChange = async () => {
         setPasswordMessage('');
-        if (!currentPassword || !newPassword || !confirmNewPassword) {
-          setPasswordMessage('All password fields are required.');
-          return;
-        }
-        if (newPassword !== confirmNewPassword) {
-          setPasswordMessage('Passwords do not match.');
-          return;
-        }
-        if (newPassword.length < 6) {
-          setPasswordMessage('Password must be at least 6 characters.');
-          return;
-        }
+        if (!form.currentPassword || !form.newPassword || !form.confirmNewPassword) return setPasswordMessage('All password fields are required.');
+        if (form.newPassword !== form.confirmNewPassword) return setPasswordMessage('Passwords do not match.');
+        if (form.newPassword.length < 6) return setPasswordMessage('Password must be at least 6 characters.');
         setPasswordMessage('Changing password...');
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/update-password', {
-            username: user.username,
-            currentPassword,
-            newPassword
+          const { data } = await axios.post(`${API_BASE}/update-password`, {
+            username: user.username, currentPassword: form.currentPassword, newPassword: form.newPassword
           });
-          if (response.data.success) {
-            setPasswordMessage('Password updated successfully!');
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-          } else {
-            setPasswordMessage(response.data.message || 'Failed to update password.');
-          }
+          setPasswordMessage(data.success ? 'Password updated successfully!' : data.message || 'Failed to update password.');
+          if (data.success) setForm({ ...form, currentPassword: '', newPassword: '', confirmNewPassword: '' });
         } catch (err) {
           setPasswordMessage('Error updating password.');
           console.error('Error updating password:', err);
@@ -389,18 +335,8 @@
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
@@ -409,106 +345,28 @@
                 <label className="block text-white text-lg font-medium mb-2">Profile Picture</label>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="profile-pic-container">
-                    <img src={profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
+                    <img src={form.profilePicUrl || DEFAULT_PROFILE_PIC} alt="Profile" className="profile-pic" />
                   </div>
                   <span className="text-white">{user.username}</span>
                 </div>
-                <input
-                  id="profileUpload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600"
-                />
+                <Input type="file" accept="image/*" onChange={handleFileChange} className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600" />
               </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-              </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  placeholder="Enter your phone number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-              </div>
+              <Input label="Email" type="email" name="email" placeholder="Enter your email" value={form.email} onChange={handleChange} />
+              <Input label="Phone Number" type="tel" name="phone" placeholder="Enter your phone number" value={form.phone} onChange={handleChange} />
               <div>
                 <label className="block text-white text-lg font-medium mb-2">Address</label>
-                <textarea
-                  name="address"
-                  placeholder="Enter your address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows="3"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                ></textarea>
+                <textarea name="address" placeholder="Enter your address" value={form.address} onChange={handleChange} rows="3" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"></textarea>
               </div>
-              <div>
-                <label className="block text-white text-lg font-medium mb-2">Event Color</label>
-                <input
-                  type="color"
-                  name="eventColor"
-                  value={eventColor}
-                  onChange={(e) => setEventColor(e.target.value)}
-                  className="w-full h-12 rounded-lg bg-white/10 text-white cursor-pointer"
-                />
-              </div>
-              {message && (
-                <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                  {message}
-                </p>
-              )}
-              <button
-                onClick={handleSaveProfile}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                Save Profile
-              </button>
+              <Input label="Event Color" type="color" name="eventColor" value={form.eventColor} onChange={handleChange} className="h-12 cursor-pointer" />
+              {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
+              <Button onClick={handleSaveProfile}>Save Profile</Button>
               <div className="pt-6 border-t border-white/10">
                 <h2 className="text-xl font-semibold text-white mb-4">Change Password</h2>
-                <input
-                  type="password"
-                  placeholder="Current Password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                <input
-                  type="password"
-                  placeholder="New Password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                <input
-                  type="password"
-                  placeholder="Confirm New Password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 mb-4"
-                />
-                {passwordMessage && (
-                  <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {passwordMessage}
-                  </p>
-                )}
-                <button
-                  onClick={handlePasswordChange}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Change Password
-                </button>
+                <Input type="password" placeholder="Current Password" name="currentPassword" value={form.currentPassword} onChange={handleChange} className="mb-4" />
+                <Input type="password" placeholder="New Password" name="newPassword" value={form.newPassword} onChange={handleChange} className="mb-4" />
+                <Input type="password" placeholder="Confirm New Password" name="confirmNewPassword" value={form.confirmNewPassword} onChange={handleChange} className="mb-4" />
+                {passwordMessage && <p className={`text-center text-sm ${passwordMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{passwordMessage}</p>}
+                <Button onClick={handlePasswordChange}>Change Password</Button>
               </div>
             </div>
           </div>
@@ -518,374 +376,129 @@
 
     const Financial = ({ user, setPage, onLogout }) => {
       const [items, setItems] = useState([]);
-      const [description, setDescription] = useState('');
-      const [amount, setAmount] = useState('');
-      const [type, setType] = useState('income');
-      const [date, setDate] = useState(getCurrentDateTime());
+      const [form, setForm] = useState({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
       const [hideValues, setHideValues] = useState(false);
-      const [currency, setCurrency] = useState('ZAR');
-      const [accessibleUsers, setAccessibleUsers] = useState([]);
-      const [selectedUsers, setSelectedUsers] = useState([user.username]);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const [showAddItemForm, setShowAddItemForm] = useState(false);
       const [selectedMonth, setSelectedMonth] = useState('07');
       const [netTotal, setNetTotal] = useState(0);
       const [bulkData, setBulkData] = useState('');
       const [importMessage, setImportMessage] = useState('');
+      const [showAddItemForm, setShowAddItemForm] = useState(false);
       const [showImportTool, setShowImportTool] = useState(false);
-
-      const currencyConfig = {
-        USD: { symbol: '$', rate: 1 },
-        EUR: { symbol: '€', rate: 0.85 },
-        ZAR: { symbol: 'R', rate: 18.5 },
-      };
-      const months = [
-        { value: '01', label: 'January' },
-        { value: '02', label: 'February' },
-        { value: '03', label: 'March' },
-        { value: '04', label: 'April' },
-        { value: '05', label: 'May' },
-        { value: '06', label: 'June' },
-        { value: '07', label: 'July' },
-        { value: '08', label: 'August' },
-        { value: '09', label: 'September' },
-        { value: '10', label: 'October' },
-        { value: '11', label: 'November' },
-        { value: '12', label: 'December' },
-      ];
-      const formatAmount = (amount) => {
-        return `${currencyConfig['ZAR'].symbol}${parseFloat(amount).toFixed(2)}`;
-      };
+      const { accessibleUsers, selectedUsers, setSelectedUsers } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
+      const fetchItems = () => axios.get(`${API_BASE}/financial`, { params: { user: user.username } }).then(({ data }) => setItems(data)).catch(err => console.error('Error fetching financial items:', err));
       const calculateNetTotal = () => {
-        const filteredItems = items
-          .filter(item => selectedUsers.includes(item.user))
-          .filter(item => item.date.startsWith(`2025-${selectedMonth}`));
-        const total = filteredItems.reduce((sum, item) => {
-          return item.type === 'income' ? sum + item.amount : sum - item.amount;
-        }, 0);
+        const total = items
+          .filter(item => selectedUsers.includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
+          .reduce((sum, item) => item.type === 'income' ? sum + item.amount : sum - item.amount, 0);
         setNetTotal(total);
       };
-      const fetchAccessibleUsers = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
-          if (response.data.success) {
-            const accessible = [user.username, ...response.data.accessList
-              .filter(access => access.viewer === user.username)
-              .map(access => access.target)];
-            setAccessibleUsers(accessible);
-            setSelectedUsers(accessible);
-            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const username of accessible) {
-              if (username !== user.username) {
-                try {
-                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-                } catch (err) {
-                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
-                  console.error(`Error fetching profile for ${username}:`, err);
-                }
-              }
-            }
-            setUserProfiles(profiles);
-            console.log('Fetched user profiles:', profiles);
-          }
-        } catch (err) {
-          console.error('Error fetching accessible users:', err);
-          setAccessibleUsers([user.username]);
-          setSelectedUsers([user.username]);
-        }
-      };
-      const fetchItems = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/financial', { params: { user: user.username } });
-          setItems(response.data);
-        } catch (err) {
-          console.error('Error fetching financial items:', err);
-        }
-      };
       const addItem = async () => {
-        if (!description || !amount || !date) return;
-        const item = { user: user.username, description, amount: parseFloat(amount), type, date };
+        if (!form.description || !form.amount || !form.date) return;
+        const item = { user: user.username, description: form.description, amount: parseFloat(form.amount), type: form.type, date: form.date };
         try {
-          await axios.post('https://ourlife.work.gd:8443/api/financial', item);
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', {
-            user: user.username,
-            title: `${description} (${type})`,
-            date,
-            financial: true,
-            type,
-            amount: parseFloat(amount),
-            eventColor: user.eventColor,
-          });
+          await Promise.all([
+            axios.post(`${API_BASE}/financial`, item),
+            axios.post(`${API_BASE}/calendar`, { ...item, title: `${form.description} (${form.type})`, financial: true, eventColor: user.eventColor })
+          ]);
           fetchItems();
-          setDescription('');
-          setAmount('');
-          setDate(getCurrentDateTime());
+          setForm({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
           setShowAddItemForm(false);
         } catch (err) {
           console.error('Error adding financial item:', err);
         }
       };
-      const deleteItem = async (id) => {
+      const deleteItem = id => axios.delete(`${API_BASE}/financial/${id}`).then(fetchItems).catch(err => console.error('Error deleting financial item:', err));
+      const handleBulkImport = async () => {
+        if (!bulkData.trim()) return setImportMessage('Please paste data into the text box.');
+        const itemsToImport = bulkData.trim().split('\n').filter(line => line.trim()).map(line => {
+          const [description, amount, type, date] = line.split(',').map(field => field.trim());
+          if (!description || !amount || !type || !date) return null;
+          return { user: user.username, description, amount: parseFloat(amount), type, date };
+        }).filter(Boolean);
+        if (!itemsToImport.length) return setImportMessage('No valid data found. Please check the format.');
+        setImportMessage(`Importing ${itemsToImport.length} items...`);
         try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/financial/${id}`);
+          await Promise.all(itemsToImport.map(item => Promise.all([
+            axios.post(`${API_BASE}/financial`, item),
+            axios.post(`${API_BASE}/calendar`, { ...item, title: `${item.description} (${item.type})`, financial: true, eventColor: user.eventColor })
+          ])));
+          setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
+          setBulkData('');
+          setShowImportTool(false);
           fetchItems();
         } catch (err) {
-          console.error('Error deleting financial item:', err);
+          setImportMessage('An error occurred during import. Please check the data and try again.');
+          console.error('Bulk import error:', err);
         }
       };
-      const handleBulkImport = async () => {
-        if (!bulkData.trim()) {
-            setImportMessage('Please paste data into the text box.');
-            return;
-        }
-
-        const lines = bulkData.trim().split('\n').filter(line => line.trim() !== '');
-        const itemsToImport = lines.map(line => {
-            const [description, amount, type, date] = line.split(',').map(field => field.trim());
-            if (!description || !amount || !type || !date) {
-                return null;
-            }
-            return { user: user.username, description, amount: parseFloat(amount), type, date };
-        }).filter(Boolean);
-
-        if (itemsToImport.length === 0) {
-            setImportMessage('No valid data found. Please check the format.');
-            return;
-        }
-
-        setImportMessage(`Importing ${itemsToImport.length} items...`);
-
-        try {
-            const importPromises = itemsToImport.map(item => {
-                const financialPromise = axios.post('https://ourlife.work.gd:8443/api/financial', item);
-                const calendarPromise = axios.post('https://ourlife.work.gd:8443/api/calendar', {
-                    user: user.username,
-                    title: `${item.description} (${item.type})`,
-                    date: item.date,
-                    financial: true,
-                    type: item.type,
-                    amount: item.amount,
-                    eventColor: user.eventColor,
-                });
-                return Promise.all([financialPromise, calendarPromise]);
-            });
-
-            await Promise.all(importPromises);
-
-            setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
-            setBulkData('');
-            setShowImportTool(false);
-            fetchItems();
-        } catch (err) {
-            setImportMessage('An error occurred during import. Please check the data and try again.');
-            console.error('Bulk import error:', err);
-        }
-      };
-      const toggleUser = (username) => {
-        setSelectedUsers(prev =>
-          prev.includes(username)
-            ? prev.filter(u => u !== username)
-            : [...prev, username]
-        );
-      };
-      useEffect(() => {
-        fetchAccessibleUsers();
-        fetchItems();
-      }, []);
-      useEffect(() => {
-        fetchItems();
-      }, [selectedUsers]);
-      useEffect(() => {
-        calculateNetTotal();
-      }, [items, selectedUsers, selectedMonth]);
-      
+      useEffect(() => { fetchItems(); }, [selectedUsers]);
+      useEffect(() => { calculateNetTotal(); }, [items, selectedUsers, selectedMonth]);
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="profile-pic-container">
-                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                  </div>
-                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
-                </div>
+                <ProfilePic src={user.profilePicUrl} username={user.username} />
                 <span>Finances</span>
               </h1>
               <div className="flex space-x-3 mt-4 sm:mt-0">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  {months.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label} 2025
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAddItemForm(!showAddItemForm)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  {showAddItemForm ? 'Hide Form' : 'Add Item'}
-                </button>
-                <button
-                  onClick={() => setShowImportTool(!showImportTool)}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                >
-                  {showImportTool ? 'Hide Import' : 'Bulk Import'}
-                </button>
+                <Select options={MONTHS.map(m => ({ ...m, label: `${m.label} 2025` }))} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+                <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={() => setShowAddItemForm(!showAddItemForm)}>{showAddItemForm ? 'Hide Form' : 'Add Item'}</Button>
+                <Button className="px-4 py-2 bg-green-500 hover:bg-green-600" onClick={() => setShowImportTool(!showImportTool)}>{showImportTool ? 'Hide Import' : 'Bulk Import'}</Button>
               </div>
             </div>
             <div className="card p-6 mb-6">
-              <h2 className="text-xl font-semibold text-white mb-2">
-                Net Total for {months.find(m => m.value === selectedMonth)?.label} 2025
-              </h2>
-              <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {hideValues ? '****' : formatAmount(netTotal)}
-              </p>
+              <h2 className="text-xl font-semibold text-white mb-2">Net Total for {MONTHS.find(m => m.value === selectedMonth)?.label} 2025</h2>
+              <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>{hideValues ? '****' : formatAmount(netTotal)}</p>
             </div>
             <div className="mb-6">
               <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
               <div className="flex flex-wrap gap-2">
                 {accessibleUsers.map(username => (
-                  <button
-                    key={username}
-                    onClick={() => toggleUser(username)}
-                    className={`px-3 py-2 rounded-lg text-white ${
-                      selectedUsers.includes(username)
-                        ? 'bg-teal-500 hover:bg-teal-600'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {username}
-                  </button>
+                  <Button key={username} className={selectedUsers.includes(username) ? 'px-3 py-2 bg-teal-500 hover:bg-teal-600' : 'px-3 py-2 bg-gray-600 hover:bg-gray-700'} onClick={() => setSelectedUsers(prev => prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username])}>{username}</Button>
                 ))}
               </div>
             </div>
             {showImportTool && (
-                <div className="card p-6 mb-6 space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
-                    <p className="text-gray-300 text-sm">
-                        Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)
-                    </p>
-                    <textarea
-                        placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00"
-                        value={bulkData}
-                        onChange={(e) => setBulkData(e.target.value)}
-                        rows="8"
-                        className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                    ></textarea>
-                    <button
-                        onClick={handleBulkImport}
-                        className="w-full p-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                        Import Pasted Data
-                    </button>
-                    {importMessage && (
-                        <p className={`text-center text-sm ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                            {importMessage}
-                        </p>
-                    )}
-                </div>
+              <div className="card p-6 mb-6 space-y-4">
+                <h2 className="text-xl font-semibold text-white">Bulk Import Tool</h2>
+                <p className="text-gray-300 text-sm">Paste your data here in CSV format: Description,Amount,Type,Date (YYYY-MM-DD HH:mm:ss)</p>
+                <textarea placeholder="e.g., Salary,50000,income,2025-07-25 14:30:00" value={bulkData} onChange={e => setBulkData(e.target.value)} rows="8" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400" />
+                <Button className="bg-green-600 hover:bg-green-700" onClick={handleBulkImport}>Import Pasted Data</Button>
+                {importMessage && <p className={`text-center text-sm ${importMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{importMessage}</p>}
+              </div>
             )}
             {showAddItemForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Financial Item</h2>
-                <input
-                  type="text"
-                  name="description"
-                  placeholder="Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <input
-                  type="number"
-                  name="amount"
-                  placeholder="Amount (in ZAR)"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <select
-                  name="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-                <input
-                  type="datetime-local"
-                  name="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  step="1"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <button
-                  onClick={addItem}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Add Item
-                </button>
+                <Input name="description" placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                <Input type="number" name="amount" placeholder="Amount (in ZAR)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                <Select name="type" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={[{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }]} />
+                <Input type="datetime-local" name="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} step="1" />
+                <Button onClick={addItem}>Add Item</Button>
               </div>
             )}
             <div className="space-y-4 mb-6">
-              <button
-                onClick={() => setHideValues(!hideValues)}
-                className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-              >
-                {hideValues ? 'Show Values' : 'Hide Values'}
-              </button>
+              <Button onClick={() => setHideValues(!hideValues)}>{hideValues ? 'Show Values' : 'Hide Values'}</Button>
             </div>
             <div className="space-y-3">
-              {items
-                .filter(item => selectedUsers.includes(item.user))
-                .filter(item => item.date.startsWith(`2025-${selectedMonth}`))
-                .map((item) => (
-                  <div key={item.id} className="flex justify-between p-4 card items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container">
-                        <img
-                          src={userProfiles[item.user] || DEFAULT_PROFILE_PIC_URL}
-                          alt={item.user}
-                          className="event-profile-pic"
-                        />
-                      </div>
-                      <span>{item.description} ({item.type}) - {formatDateTimeWithSeconds(item.date)} ({item.user})</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
-                      {item.user === user.username && (
-                        <button
-                          onClick={() => deleteItem(item.id)}
-                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
+              {items.filter(item => selectedUsers.includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`)).map(item => (
+                <div key={item.id} className="flex justify-between p-4 card items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="event-profile-pic-container"><img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC} alt={item.user} className="event-profile-pic" /></div>
+                    <span>{item.description} ({item.type}) - {formatDateTime(item.date)} ({item.user})</span>
                   </div>
-                ))}
+                  <div className="flex items-center gap-3">
+                    <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
+                    {item.user === user.username && <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => deleteItem(item.id)}>Delete</Button>}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -894,175 +507,65 @@
 
     const Calendar = ({ user, setPage, onLogout }) => {
       const [events, setEvents] = useState([]);
+      const [form, setForm] = useState({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
       const [selectedMonth, setSelectedMonth] = useState('07');
       const [showAddEventForm, setShowAddEventForm] = useState(false);
-      const [newEventTitle, setNewEventTitle] = useState('');
-      const [newEventDate, setNewEventDate] = useState(getCurrentDateTime());
-      const [isFinancialEvent, setIsFinancialEvent] = useState(false);
-      const [newEventAmount, setNewEventAmount] = useState('');
-      const [newEventCategory, setNewEventCategory] = useState('income');
-      const [accessibleUsers, setAccessibleUsers] = useState([]);
-      const [selectedUsers, setSelectedUsers] = useState([user.username]);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL });
       const [showModal, setShowModal] = useState(false);
       const [selectedEvent, setSelectedEvent] = useState(null);
+      const { accessibleUsers, selectedUsers, setSelectedUsers } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
       const calendarRef = useRef(null);
       const fullCalendarInstance = useRef(null);
-      const modalRef = useRef(null);
-      const months = [
-        { value: '01', label: 'January' },
-        { value: '02', label: 'February' },
-        { value: '03', label: 'March' },
-        { value: '04', label: 'April' },
-        { value: '05', label: 'May' },
-        { value: '06', label: 'June' },
-        { value: '07', label: 'July' },
-        { value: '08', label: 'August' },
-        { value: '09', label: 'September' },
-        { value: '10', label: 'October' },
-        { value: '11', label: 'November' },
-        { value: '12', label: 'December' },
-      ];
-      const fetchAccessibleUsers = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access', { params: { viewer: user.username } });
-          if (response.data.success) {
-            const accessible = [user.username, ...response.data.accessList
-              .filter(access => access.viewer === user.username)
-              .map(access => access.target)];
-            setAccessibleUsers(accessible);
-            setSelectedUsers(accessible);
-            const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC_URL };
-            for (const username of accessible) {
-              if (username !== user.username) {
-                try {
-                  const profileResponse = await axios.get(`https://ourlife.work.gd:8443/api/profile-pictures?username=${username}`);
-                  profiles[username] = profileResponse.data.profilePicUrl || DEFAULT_PROFILE_PIC_URL;
-                } catch (err) {
-                  profiles[username] = DEFAULT_PROFILE_PIC_URL;
-                  console.error(`Error fetching profile for ${username}:`, err);
-                }
-              }
-            }
-            console.log('Fetched user profiles:', profiles);
-            setUserProfiles(profiles);
-          }
-        } catch (err) {
-          console.error('Error fetching accessible users:', err);
-          setAccessibleUsers([user.username]);
-          setSelectedUsers([user.username]);
-        }
-      };
-      const fetchEvents = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/calendar', { params: { user: user.username } });
-          const fetchedEvents = response.data.map((e) => ({
-            id: e.id,
-            title: e.title,
-            start: e.date,
-            user: e.user,
-            financial: e.financial,
-            type: e.type,
-            amount: e.amount,
-            eventColor: e.eventColor || DEFAULT_EVENT_COLOR,
-          }));
-          setEvents(fetchedEvents);
-        } catch (err) {
-          console.error('Error fetching calendar events:', err);
-        }
-      };
+      const fetchEvents = () => axios.get(`${API_BASE}/calendar`, { params: { user: user.username } })
+        .then(({ data }) => setEvents(data.map(e => ({
+          id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR
+        }))))
+        .catch(err => console.error('Error fetching calendar events:', err));
       const handleAddEvent = async () => {
-        if (!newEventTitle || !newEventDate) {
-          alert('Event title and date are required!');
-          return;
-        }
+        if (!form.title || !form.date) return alert('Event title and date are required!');
         try {
           const eventData = {
-            user: user.username,
-            title: newEventTitle,
-            date: newEventDate,
-            financial: isFinancialEvent,
-            type: isFinancialEvent ? newEventCategory : undefined,
-            amount: isFinancialEvent ? parseFloat(newEventAmount) : undefined,
-            eventColor: user.eventColor,
+            user: user.username, title: form.title, date: form.date, financial: form.financial,
+            type: form.financial ? form.category : undefined, amount: form.financial ? parseFloat(form.amount) : undefined, eventColor: user.eventColor
           };
-          await axios.post('https://ourlife.work.gd:8443/api/calendar', eventData);
-          if (isFinancialEvent) {
-            await axios.post('https://ourlife.work.gd:8443/api/financial', {
-              user: user.username,
-              description: newEventTitle,
-              amount: parseFloat(newEventAmount),
-              type: newEventCategory,
-              date: newEventDate,
-            });
-          }
+          await Promise.all([
+            axios.post(`${API_BASE}/calendar`, eventData),
+            form.financial && axios.post(`${API_BASE}/financial`, { user: user.username, description: form.title, amount: parseFloat(form.amount), type: form.category, date: form.date })
+          ].filter(Boolean));
           fetchEvents();
-          setNewEventTitle('');
-          setNewEventDate(getCurrentDateTime());
-          setIsFinancialEvent(false);
-          setNewEventAmount('');
-          setNewEventCategory('income');
+          setForm({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
           setShowAddEventForm(false);
         } catch (err) {
           alert('Failed to add event.');
           console.error('Error adding event:', err);
         }
       };
-      const handleDeleteEvent = async (eventId) => {
-        try {
-          await axios.delete(`https://ourlife.work.gd:8443/api/calendar/${eventId}`);
-          fetchEvents();
-          setShowModal(false);
-          setSelectedEvent(null);
-        } catch (err) {
-          alert('Failed to delete event.');
-          console.error('Error deleting event:', err);
-        }
-      };
-      const toggleUser = (username) => {
-        setSelectedUsers(prev =>
-          prev.includes(username)
-            ? prev.filter(u => u !== username)
-            : [...prev, username]
-        );
-      };
+      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setSelectedEvent(null); }).catch(err => { alert('Failed to delete event.'); console.error('Error deleting event:', err); });
       useEffect(() => {
-        fetchAccessibleUsers();
         fetchEvents();
-      }, []);
-      useEffect(() => {
-        if (fullCalendarInstance.current) {
-          const filteredEvents = events.filter(event => selectedUsers.includes(event.user));
-          fullCalendarInstance.current.setOption('events', filteredEvents);
-        }
-      }, [events, selectedUsers, userProfiles]);
-      useEffect(() => {
-        const calendarEl = document.getElementById('calendar');
+        const calendarEl = calendarRef.current;
         if (calendarEl && !fullCalendarInstance.current) {
-          const calendar = new FullCalendar.Calendar(calendarEl, {
+          fullCalendarInstance.current = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             initialDate: `2025-${selectedMonth}-01`,
             editable: true,
             selectable: true,
-            events: events.filter(event => selectedUsers.includes(event.user)),
-            eventContent: (info) => {
-              const event = info.event;
-              const eventUser = event.extendedProps.user;
-              const eventDisplayColor = event.extendedProps.eventColor;
+            events: events.filter(e => selectedUsers.includes(e.user)),
+            eventContent: ({ event }) => {
               const eventEl = document.createElement('div');
-              eventEl.className = `fc-event-main`;
-              eventEl.style.backgroundColor = eventDisplayColor;
+              eventEl.className = 'fc-event-main';
+              eventEl.style.backgroundColor = event.extendedProps.eventColor;
               eventEl.style.opacity = '0.8';
               const imgEl = document.createElement('img');
-              imgEl.src = userProfiles[eventUser] || DEFAULT_PROFILE_PIC_URL;
-              imgEl.alt = eventUser;
+              imgEl.src = userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC;
+              imgEl.alt = event.extendedProps.user;
               imgEl.className = 'event-profile-pic';
               const titleSpan = document.createElement('span');
               titleSpan.className = 'fc-event-title';
               titleSpan.textContent = event.title;
               const userSpan = document.createElement('span');
               userSpan.className = 'fc-event-user';
-              userSpan.textContent = eventUser;
+              userSpan.textContent = event.extendedProps.user;
               const eventPicContainer = document.createElement('div');
               eventPicContainer.className = 'event-profile-pic-container';
               eventPicContainer.appendChild(imgEl);
@@ -1071,182 +574,72 @@
               eventEl.appendChild(userSpan);
               return { domNodes: [eventEl] };
             },
-            eventClick: (info) => {
+            eventClick: ({ event }) => {
               setSelectedEvent({
-                id: info.event.id,
-                title: info.event.title,
-                date: info.event.start.toISOString().slice(0, 19),
-                user: info.event.extendedProps.user,
-                financial: info.event.extendedProps.financial,
-                type: info.event.extendedProps.type,
-                amount: info.event.extendedProps.amount,
-                profilePicUrl: userProfiles[info.event.extendedProps.user] || DEFAULT_PROFILE_PIC_URL,
-                eventColor: info.event.extendedProps.eventColor,
+                id: event.id, title: event.title, date: event.start.toISOString().slice(0, 19), user: event.extendedProps.user,
+                financial: event.extendedProps.financial, type: event.extendedProps.type, amount: event.extendedProps.amount,
+                profilePicUrl: userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC, eventColor: event.extendedProps.eventColor
               });
               setShowModal(true);
             },
-            select: async (info) => {
-              setNewEventDate(getCurrentDateTime());
-              setShowAddEventForm(true);
-            },
+            select: () => { setForm({ ...form, date: getCurrentDateTime() }); setShowAddEventForm(true); }
           });
-          calendar.render();
-          fullCalendarInstance.current = calendar;
+          fullCalendarInstance.current.render();
         }
-        return () => {
-          if (fullCalendarInstance.current) {
-            fullCalendarInstance.current.destroy();
-            fullCalendarInstance.current = null;
-          }
-        };
+        return () => { if (fullCalendarInstance.current) { fullCalendarInstance.current.destroy(); fullCalendarInstance.current = null; } };
       }, [userProfiles]);
-      useEffect(() => {
-        if (fullCalendarInstance.current) {
-          fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`);
-        }
-      }, [selectedMonth]);
-      const handleMonthChange = (e) => {
-        const month = e.target.value;
-        setSelectedMonth(month);
-      };
-      const closeModal = () => {
-        setShowModal(false);
-        setTimeout(() => setSelectedEvent(null), 300);
-      };
+      useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`); }, [selectedMonth]);
+      useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.setOption('events', events.filter(e => selectedUsers.includes(e.user))); }, [events, selectedUsers]);
       return (
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="profile-pic-container">
-                    <img src={user.profilePicUrl || DEFAULT_PROFILE_PIC_URL} alt="Profile" className="profile-pic" />
-                  </div>
-                  <span className="text-sm text-gray-300 mt-2">{user.username}</span>
-                </div>
+                <ProfilePic src={user.profilePicUrl} username={user.username} />
                 <span>Calendar</span>
               </h1>
               <div className="flex space-x-3">
-                <select
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  className="p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                >
-                  {months.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label} 2025
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowAddEventForm(!showAddEventForm)}
-                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  {showAddEventForm ? 'Hide Form' : 'Add Event'}
-                </button>
+                <Select options={MONTHS.map(m => ({ ...m, label: `${m.label} 2025` }))} value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+                <Button className="px-4 py-2" onClick={() => setShowAddEventForm(!showAddEventForm)}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</Button>
               </div>
             </div>
             <div className="mb-6">
               <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
               <div className="flex flex-wrap gap-2">
                 {accessibleUsers.map(username => (
-                  <button
-                    key={username}
-                    onClick={() => toggleUser(username)}
-                    className={`px-3 py-2 rounded-lg text-white ${
-                      selectedUsers.includes(username)
-                        ? 'bg-teal-500 hover:bg-teal-600'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {username}
-                  </button>
+                  <Button key={username} className={selectedUsers.includes(username) ? 'px-3 py-2 bg-teal-500 hover:bg-teal-600' : 'px-3 py-2 bg-gray-600 hover:bg-gray-700'} onClick={() => setSelectedUsers(prev => prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username])}>{username}</Button>
                 ))}
               </div>
             </div>
             {showAddEventForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Calendar Event</h2>
-                <input
-                  type="text"
-                  placeholder="Event Title"
-                  value={newEventTitle}
-                  onChange={(e) => setNewEventTitle(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                />
-                <input
-                  type="datetime-local"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  step="1"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                />
+                <Input placeholder="Event Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+                <Input type="datetime-local" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} step="1" />
                 <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isFinancial"
-                    checked={isFinancialEvent}
-                    onChange={(e) => setIsFinancialEvent(e.target.checked)}
-                    className="form-checkbox h-5 w-5 text-teal-500 rounded"
-                  />
+                  <input type="checkbox" id="isFinancial" checked={form.financial} onChange={e => setForm({ ...form, financial: e.target.checked })} className="form-checkbox h-5 w-5 text-teal-500 rounded" />
                   <label htmlFor="isFinancial" className="text-white">Financial Event?</label>
                 </div>
-                {isFinancialEvent && (
+                {form.financial && (
                   <div className="space-y-4">
-                    <input
-                      type="number"
-                      placeholder="Amount (in ZAR)"
-                      value={newEventAmount}
-                      onChange={(e) => setNewEventAmount(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                    />
-                    <select
-                      value={newEventCategory}
-                      onChange={(e) => setNewEventCategory(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                    >
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                    </select>
+                    <Input type="number" placeholder="Amount (in ZAR)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                    <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} options={[{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }]} />
                   </div>
                 )}
-                <button
-                  onClick={handleAddEvent}
-                  className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                >
-                  Add Event
-                </button>
+                <Button onClick={handleAddEvent}>Add Event</Button>
               </div>
             )}
-            <div id="calendar" className="text-white"></div>
+            <div id="calendar" ref={calendarRef} className="text-white"></div>
             {showModal && selectedEvent && (
-              <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onClick={closeModal}>
-                <div
-                  ref={modalRef}
-                  className={`modal card p-8 max-w-md w-full mx-4 ${showModal ? 'show' : ''}`}
-                  style={{ backgroundColor: selectedEvent.eventColor, opacity: 0.8 }}
-                  onClick={(e) => e.stopPropagation()}
-                >
+              <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onClick={() => { setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); }}>
+                <div className={`modal card p-8 max-w-md w-full mx-4 ${showModal ? 'show' : ''}`} style={{ backgroundColor: selectedEvent.eventColor, opacity: 0.8 }} onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-white">Event Details</h2>
-                    <button
-                      onClick={closeModal}
-                      className="text-gray-400 hover:text-white"
-                    >
+                    <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -1254,29 +647,18 @@
                   </div>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container !w-10 !h-10">
-                        <img src={selectedEvent.profilePicUrl} alt={selectedEvent.user} className="event-profile-pic" />
-                      </div>
+                      <div className="event-profile-pic-container !w-10 !h-10"><img src={selectedEvent.profilePicUrl} alt={selectedEvent.user} className="event-profile-pic" /></div>
                       <span className="text-lg font-semibold text-white">{selectedEvent.title}</span>
                     </div>
-                    <p className="text-white"><strong>Date:</strong> {formatDateTimeWithSeconds(selectedEvent.date)}</p>
+                    <p className="text-white"><strong>Date:</strong> {formatDateTime(selectedEvent.date)}</p>
                     <p className="text-white"><strong>User:</strong> {selectedEvent.user}</p>
                     {selectedEvent.financial ? (
                       <>
                         <p className="text-white"><strong>Type:</strong> {selectedEvent.type}</p>
                         <p className="text-white"><strong>Amount:</strong> R{selectedEvent.amount.toFixed(2)}</p>
                       </>
-                    ) : (
-                      <p className="text-white">Non-financial event</p>
-                    )}
-                    {selectedEvent.user === user.username && (
-                      <button
-                        onClick={() => handleDeleteEvent(selectedEvent.id)}
-                        className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      >
-                        Delete Event
-                      </button>
-                    )}
+                    ) : <p className="text-white">Non-financial event</p>}
+                    {selectedEvent.user === user.username && <Button className="bg-red-500 hover:bg-red-600" onClick={() => handleDeleteEvent(selectedEvent.id)}>Delete Event</Button>}
                   </div>
                 </div>
               </div>
@@ -1285,274 +667,121 @@
         </div>
       );
     };
+
     const Admin = ({ user, setPage, onLogout }) => {
       const [users, setUsers] = useState([]);
-      const [newUsername, setNewUsername] = useState('');
-      const [newPassword, setNewPassword] = useState('');
-      const [confirmNewPassword, setConfirmNewPassword] = useState('');
-      const [message, setMessage] = useState('');
       const [pamComparison, setPamComparison] = useState(null);
-      const [selectedUser, setSelectedUser] = useState('');
-      const [updatePassword, setUpdatePassword] = useState('');
-      const [updateConfirmPassword, setUpdateConfirmPassword] = useState('');
-      const [updateMessage, setUpdateMessage] = useState('');
-      const [accessViewer, setAccessViewer] = useState('');
-      const [accessTarget, setAccessTarget] = useState('');
-      const [accessMessage, setAccessMessage] = useState('');
       const [accessList, setAccessList] = useState([]);
-      const [adminUser, setAdminUser] = useState('');
-      const [adminMessage, setAdminMessage] = useState('');
-      const fetchUsers = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/users');
-          if (response.data && Array.isArray(response.data)) {
-            setUsers(response.data);
-          } else {
-            setMessage('Failed to fetch users.');
-          }
-        } catch (err) {
-          setMessage('Error fetching users.');
-          console.error('Error fetching users:', err);
-        }
-      };
-      const fetchPamUsers = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/pam-users');
-          if (response.data.success) {
-            setPamComparison(response.data);
-          } else {
-            setMessage('Failed to fetch PAM users.');
-          }
-        } catch (err) {
-          setMessage('Error fetching PAM users.');
-          console.error('Error fetching PAM users:', err);
-        }
-      };
-      const fetchAccessList = async () => {
-        try {
-          const response = await axios.get('https://ourlife.work.gd:8443/api/get-access');
-          if (response.data.success) {
-            setAccessList(response.data.accessList);
-          } else {
-            setAccessMessage('Failed to fetch access list.');
-          }
-        } catch (err) {
-          setAccessMessage('Error fetching access list.');
-          console.error('Error fetching access list:', err);
-        }
-      };
+      const [form, setForm] = useState({ newUsername: '', newPassword: '', confirmNewPassword: '', selectedUser: '', updatePassword: '', updateConfirmPassword: '', accessViewer: '', accessTarget: '', adminUser: '' });
+      const [messages, setMessages] = useState({ add: '', update: '', access: '', admin: '' });
+      const fetchData = (endpoint, setter, key = 'data') => axios.get(`${API_BASE}/${endpoint}`)
+        .then(({ data }) => setter(data.success ? data[key] || data : []))
+        .catch(err => { setMessages(prev => ({ ...prev, [key === 'data' ? endpoint : key]: `Error fetching ${key}.` })); console.error(`Error fetching ${key}:`, err); });
       useEffect(() => {
-        fetchUsers();
-        fetchPamUsers();
-        fetchAccessList();
+        fetchData('users', setUsers);
+        fetchData('pam-users', setPamComparison, 'pamComparison');
+        fetchData('get-access', setAccessList, 'accessList');
       }, []);
-      const handleAddUser = async (e) => {
+      const handleAddUser = async e => {
         e.preventDefault();
-        setMessage('');
-        if (!newUsername || !newPassword || !confirmNewPassword) {
-          setMessage('All fields are required.');
-          return;
-        }
-        if (newPassword !== confirmNewPassword) {
-          setMessage('Passwords do not match.');
-          return;
-        }
-        if (newPassword.length < 6) {
-          setMessage('Password must be at least 6 characters.');
-          return;
-        }
+        const { newUsername, newPassword, confirmNewPassword } = form;
+        if (!newUsername || !newPassword || !confirmNewPassword) return setMessages({ ...messages, add: 'All fields are required.' });
+        if (newPassword !== confirmNewPassword) return setMessages({ ...messages, add: 'Passwords do not match.' });
+        if (newPassword.length < 6) return setMessages({ ...messages, add: 'Password must be at least 6 characters.' });
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/add-user', {
-            username: newUsername,
-            password: newPassword
-          });
-          if (response.data.success) {
-            setMessage('User added successfully!');
-            setNewUsername('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-            fetchUsers();
-            fetchPamUsers();
-          } else {
-            setMessage(response.data.message || 'Failed to add user.');
+          const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword });
+          setMessages({ ...messages, add: data.success ? 'User added successfully!' : data.message || 'Failed to add user.' });
+          if (data.success) {
+            setForm({ ...form, newUsername: '', newPassword: '', confirmNewPassword: '' });
+            fetchData('users', setUsers);
+            fetchData('pam-users', setPamComparison, 'pamComparison');
           }
         } catch (err) {
-          setMessage('Error adding user.');
+          setMessages({ ...messages, add: 'Error adding user.' });
           console.error('Error adding user:', err);
         }
       };
-      const handleDeleteUser = async (username) => {
-        if (username === user.username) {
-          setMessage('Cannot delete your own account.');
-          return;
-        }
-        if (confirm(`Delete user ${username}?`)) {
-          try {
-            const response = await axios.delete(`https://ourlife.work.gd:8443/api/delete-user/${username}`);
-            if (response.data.success) {
-              setMessage('User deleted successfully!');
-              fetchUsers();
-              fetchPamUsers();
-              fetchAccessList();
-            } else {
-              setMessage(response.data.message || 'Failed to delete user.');
-            }
-          } catch (err) {
-            setMessage('Error deleting user.');
-            console.error('Error deleting user:', err);
-          }
-        }
-      };
-      const handleUpdatePassword = async (e) => {
-        e.preventDefault();
-        setUpdateMessage('');
-        if (!selectedUser) {
-          setUpdateMessage('Please select a user.');
-          return;
-        }
-        if (selectedUser === user.username) {
-          setUpdateMessage('Use Profile Settings to update your own password.');
-          return;
-        }
-        if (!updatePassword || !updateConfirmPassword) {
-          setUpdateMessage('New password and confirmation are required.');
-          return;
-        }
-        if (updatePassword !== updateConfirmPassword) {
-          setUpdateMessage('Passwords do not match.');
-          return;
-        }
-        if (updatePassword.length < 6) {
-          setUpdateMessage('Password must be at least 6 characters.');
-          return;
-        }
+      const handleDeleteUser = async username => {
+        if (username === user.username) return setMessages({ ...messages, add: 'Cannot delete your own account.' });
+        if (!confirm(`Delete user ${username}?`)) return;
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/admin-update-password', {
-            username: selectedUser,
-            newPassword: updatePassword
-          });
-          if (response.data.success) {
-            setUpdateMessage(`Password updated for ${selectedUser}!`);
-            setSelectedUser('');
-            setUpdatePassword('');
-            setUpdateConfirmPassword('');
-          } else {
-            setUpdateMessage(response.data.message || 'Failed to update password.');
+          const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`);
+          setMessages({ ...messages, add: data.success ? 'User deleted successfully!' : data.message || 'Failed to delete user.' });
+          if (data.success) {
+            fetchData('users', setUsers);
+            fetchData('pam-users', setPamComparison, 'pamComparison');
+            fetchData('get-access', setAccessList, 'accessList');
           }
         } catch (err) {
-          setUpdateMessage('Error updating password.');
+          setMessages({ ...messages, add: 'Error deleting user.' });
+          console.error('Error deleting user:', err);
+        }
+      };
+      const handleUpdatePassword = async e => {
+        e.preventDefault();
+        const { selectedUser, updatePassword, updateConfirmPassword } = form;
+        if (!selectedUser) return setMessages({ ...messages, update: 'Please select a user.' });
+        if (selectedUser === user.username) return setMessages({ ...messages, update: 'Use Profile Settings to update your own password.' });
+        if (!updatePassword || !updateConfirmPassword) return setMessages({ ...messages, update: 'New password and confirmation are required.' });
+        if (updatePassword !== updateConfirmPassword) return setMessages({ ...messages, update: 'Passwords do not match.' });
+        if (updatePassword.length < 6) return setMessages({ ...messages, update: 'Password must be at least 6 characters.' });
+        try {
+          const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: selectedUser, newPassword: updatePassword });
+          setMessages({ ...messages, update: data.success ? `Password updated for ${selectedUser}!` : data.message || 'Failed to update password.' });
+          if (data.success) setForm({ ...form, selectedUser: '', updatePassword: '', updateConfirmPassword: '' });
+        } catch (err) {
+          setMessages({ ...messages, update: 'Error updating password.' });
           console.error('Error updating password:', err);
         }
       };
-      const handleGrantAccess = async (e) => {
+      const handleGrantAccess = async e => {
         e.preventDefault();
-        setAccessMessage('');
-        if (!accessViewer || !accessTarget) {
-          setAccessMessage('Select both a viewer and target user.');
-          return;
-        }
-        if (accessViewer === accessTarget) {
-          setAccessMessage('Cannot grant access to self.');
-          return;
-        }
+        const { accessViewer, accessTarget } = form;
+        if (!accessViewer || !accessTarget) return setMessages({ ...messages, access: 'Select both a viewer and target user.' });
+        if (accessViewer === accessTarget) return setMessages({ ...messages, access: 'Cannot grant access to self.' });
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-access', {
-            viewer: accessViewer,
-            target: accessTarget
-          });
-          if (response.data.success) {
-            setAccessMessage(response.data.message);
-            setAccessViewer('');
-            setAccessTarget('');
-            fetchAccessList();
-          } else {
-            setAccessMessage(response.data.message || 'Failed to grant access.');
+          const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer: accessViewer, target: accessTarget });
+          setMessages({ ...messages, access: data.success ? data.message : data.message || 'Failed to grant access.' });
+          if (data.success) {
+            setForm({ ...form, accessViewer: '', accessTarget: '' });
+            fetchData('get-access', setAccessList, 'accessList');
           }
         } catch (err) {
-          setAccessMessage('Error granting access.');
+          setMessages({ ...messages, access: 'Error granting access.' });
           console.error('Error granting access:', err);
         }
       };
       const handleRevokeAccess = async (viewer, target) => {
-        if (confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) {
-          try {
-            const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-access', {
-              viewer,
-              target
-            });
-            if (response.data.success) {
-              setAccessMessage(response.data.message);
-              fetchAccessList();
-            } else {
-              setAccessMessage(response.data.message || 'Failed to revoke access.');
-            }
-          } catch (err) {
-            setAccessMessage('Error revoking access.');
-            console.error('Error revoking access:', err);
-          }
+        if (!confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) return;
+        try {
+          const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target });
+          setMessages({ ...messages, access: data.success ? data.message : data.message || 'Failed to revoke access.' });
+          if (data.success) fetchData('get-access', setAccessList, 'accessList');
+        } catch (err) {
+          setMessages({ ...messages, access: 'Error revoking access.' });
+          console.error('Error revoking access:', err);
         }
       };
-      const handleGrantAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
+      const handleAdminAction = async (action) => {
+        if (!form.adminUser) return setMessages({ ...messages, admin: 'Please select a user.' });
+        if (form.adminUser === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
         try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/grant-admin', { username: adminUser });
-          if (response.data.success) {
-            setAdminMessage(`Admin access granted to ${adminUser}!`);
-            setAdminUser('');
-            fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to grant admin access.');
+          const { data } = await axios.post(`${API_BASE}/${action}-admin`, { username: form.adminUser });
+          setMessages({ ...messages, admin: data.success ? `Admin access ${action}d for ${form.adminUser}!` : data.message || `Failed to ${action} admin access.` });
+          if (data.success) {
+            setForm({ ...form, adminUser: '' });
+            fetchData('users', setUsers);
           }
         } catch (err) {
-          setAdminMessage('Error granting admin access. Check server logs.');
-          console.error('Error granting admin access:', err, 'Response:', err.response?.data);
-        }
-      };
-      const handleRevokeAdmin = async () => {
-        if (!adminUser) {
-          setAdminMessage('Please select a user.');
-          return;
-        }
-        if (adminUser === user.username) {
-          setAdminMessage('Cannot modify your own admin status.');
-          return;
-        }
-        try {
-          const response = await axios.post('https://ourlife.work.gd:8443/api/revoke-admin', { username: adminUser });
-          if (response.data.success) {
-            setAdminMessage(`Admin access revoked for ${adminUser}!`);
-            setAdminUser('');
-            fetchUsers();
-          } else {
-            setAdminMessage(response.data.message || 'Failed to revoke admin access.');
-          }
-        } catch (err) {
-          setAdminMessage('Error revoking admin access.');
-          console.error('Error revoking admin access:', err);
+          setMessages({ ...messages, admin: `Error ${action}ing admin access.` });
+          console.error(`Error ${action}ing admin access:`, err);
         }
       };
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <button
-              onClick={() => setPage('menu')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Back to Menu
-            </button>
-            <button
-              onClick={onLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Sign Out
-            </button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
@@ -1560,52 +789,20 @@
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
                 <form onSubmit={handleAddUser} className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="New Username"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm Password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Add User
-                  </button>
+                  <Input placeholder="New Username" value={form.newUsername} onChange={e => setForm({ ...form, newUsername: e.target.value })} />
+                  <Input type="password" placeholder="Password" value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} />
+                  <Input type="password" placeholder="Confirm Password" value={form.confirmNewPassword} onChange={e => setForm({ ...form, confirmNewPassword: e.target.value })} />
+                  <Button type="submit">Add User</Button>
                 </form>
-                {message && (
-                  <p className={`mt-3 text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {message}
-                  </p>
-                )}
+                {messages.add && <p className={`mt-3 text-center text-sm ${messages.add.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.add}</p>}
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage Users</h2>
                 <div className="space-y-3">
-                  {users.map((u) => (
+                  {users.map(u => (
                     <div key={u.username} className="flex justify-between items-center p-4 card">
                       <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
-                      <button
-                        onClick={() => handleDeleteUser(u.username)}
-                        className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
+                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleDeleteUser(u.username)}>Delete</Button>
                     </div>
                   ))}
                 </div>
@@ -1613,174 +810,73 @@
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
                 <form onSubmit={handleUpdatePassword} className="space-y-4">
-                  <select
-                    value={selectedUser}
-                    onChange={(e) => setSelectedUser(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="password"
-                    placeholder="New Password"
-                    value={updatePassword}
-                    onChange={(e) => setUpdatePassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm New Password"
-                    value={updateConfirmPassword}
-                    onChange={(e) => setUpdateConfirmPassword(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Update Password
-                  </button>
+                  <Select value={form.selectedUser} onChange={e => setForm({ ...form, selectedUser: e.target.value })} options={[{ value: '', label: 'Select User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
+                  <Input type="password" placeholder="New Password" value={form.updatePassword} onChange={e => setForm({ ...form, updatePassword: e.target.value })} />
+                  <Input type="password" placeholder="Confirm New Password" value={form.updateConfirmPassword} onChange={e => setForm({ ...form, updateConfirmPassword: e.target.value })} />
+                  <Button type="submit">Update Password</Button>
                 </form>
-                {updateMessage && (
-                  <p className={`mt-3 text-center text-sm ${updateMessage.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
-                    {updateMessage}
-                  </p>
-                )}
+                {messages.update && <p className={`mt-3 text-center text-sm ${messages.update.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.update}</p>}
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
                 <div className="space-y-4">
-                  <select
-                    value={adminUser}
-                    onChange={(e) => setAdminUser(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
+                  <Select value={form.adminUser} onChange={e => setForm({ ...form, adminUser: e.target.value })} options={[{ value: '', label: 'Select User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
                   <div className="flex space-x-3">
-                    <button
-                      onClick={handleGrantAdmin}
-                      className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                    >
-                      Grant Admin Access
-                    </button>
-                    <button
-                      onClick={handleRevokeAdmin}
-                      className="w-full p-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                    >
-                      Revoke Admin Access
-                    </button>
+                    <Button onClick={() => handleAdminAction('grant')}>Grant Admin Access</Button>
+                    <Button className="bg-red-500 hover:bg-red-600" onClick={() => handleAdminAction('revoke')}>Revoke Admin Access</Button>
                   </div>
-                  {adminMessage && (
-                    <p className={`mt-3 text-center text-sm ${adminMessage.includes('success') || adminMessage.includes('granted') || adminMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
-                      {adminMessage}
-                    </p>
-                  )}
+                  {messages.admin && <p className={`mt-3 text-center text-sm ${messages.admin.includes('success') || messages.admin.includes('granted') || messages.admin.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>{messages.admin}</p>}
                 </div>
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
                 <form onSubmit={handleGrantAccess} className="space-y-4 mb-6">
-                  <select
-                    value={accessViewer}
-                    onChange={(e) => setAccessViewer(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select Viewer</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={accessTarget}
-                    onChange={(e) => setAccessTarget(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="">Select Target User</option>
-                    {users.map((u) => (
-                      <option key={u.username} value={u.username}>{u.username}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    className="w-full p-3 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
-                  >
-                    Grant Access
-                  </button>
+                  <Select value={form.accessViewer} onChange={e => setForm({ ...form, accessViewer: e.target.value })} options={[{ value: '', label: 'Select Viewer' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
+                  <Select value={form.accessTarget} onChange={e => setForm({ ...form, accessTarget: e.target.value })} options={[{ value: '', label: 'Select Target User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
+                  <Button type="submit">Grant Access</Button>
                 </form>
                 <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
                 <div className="space-y-3">
-                  {accessList.length > 0 ? (
-                    accessList.map((access, index) => (
-                      <div key={index} className="flex justify-between items-center p-4 card">
-                        <span>{access.viewer} can view {access.target}'s data</span>
-                        <button
-                          onClick={() => handleRevokeAccess(access.viewer, access.target)}
-                          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-white">No access permissions set.</p>
-                  )}
+                  {accessList.length ? accessList.map((access, index) => (
+                    <div key={index} className="flex justify-between items-center p-4 card">
+                      <span>{access.viewer} can view {access.target}'s data</span>
+                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAccess(access.viewer, access.target)}>Revoke</Button>
+                    </div>
+                  )) : <p className="text-white">No access permissions set.</p>}
                 </div>
-                {accessMessage && (
-                  <p className={`mt-3 text-center text-sm ${accessMessage.includes('success') || accessMessage.includes('granted') || accessMessage.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>
-                    {accessMessage}
-                  </p>
-                )}
+                {messages.access && <p className={`mt-3 text-center text-sm ${messages.access.includes('success') || messages.access.includes('granted') || messages.access.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>{messages.access}</p>}
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
                 {pamComparison ? (
                   <div className="space-y-2 text-white">
-                    <p><strong>PAM Users:</strong> {pamComparison.pamUsers.join(', ') || 'None'}</p>
-                    <p><strong>App Users:</strong> {pamComparison.appUsers.join(', ') || 'None'}</p>
-                    <p><strong>Common Users:</strong> {pamComparison.commonUsers.join(', ') || 'None'}</p>
-                    <p><strong>App Only Users:</strong> {pamComparison.appOnlyUsers.join(', ') || 'None'}</p>
-                    <p><strong>PAM Only Users:</strong> {pamComparison.pamOnlyUsers.join(', ') || 'None'}</p>
+                    {['pamUsers', 'appUsers', 'commonUsers', 'appOnlyUsers', 'pamOnlyUsers'].map(key => (
+                      <p key={key}><strong>{capitalize(key.replace(/([A-Z])/g, ' $1'))}:</strong> {pamComparison[key].join(', ') || 'None'}</p>
+                    ))}
                   </div>
-                ) : (
-                  <p className="text-white">Loading PAM comparison...</p>
-                )}
+                ) : <p className="text-white">Loading PAM comparison...</p>}
               </div>
             </div>
           </div>
         </div>
       );
     };
+
     const App = () => {
       const [page, setPage] = useState('login');
       const [user, setUser] = useState(null);
-      const handleLogin = (userInfo) => {
-        setUser(userInfo);
-        setPage('menu');
-      };
-      const handleLogout = () => {
-        setUser(null);
-        setPage('login');
-      };
       return (
         <div>
-          {page === 'login' && <Login onLogin={handleLogin} />}
-          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'admin' && user && user.isAdmin && (
-            <Admin user={user} setPage={setPage} onLogout={handleLogout} />
-          )}
+          {page === 'login' && <Login onLogin={user => { setUser(user); setPage('menu'); }} />}
+          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
+          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
+          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
+          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
+          {page === 'admin' && user && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
         </div>
       );
     };
+
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
