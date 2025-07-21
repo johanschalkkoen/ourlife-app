@@ -15,6 +15,7 @@ Welcome to the **OurLife Dashboard**, a full-stack, single-page web application 
 ---
 
 ## 🚀 Change Logs
+* **Added MongoDB and google and facebook authentication** 
 * **Rename all financial-related terms to "transactions" and update descriptions to relate to financial**
 * **Rename Budget to Budget Calculator as it was intended originally**
 * **Period Tracker to be added**
