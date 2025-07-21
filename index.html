@@ -39,7 +39,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 4px;
-  P0+r\P0+r\P0+r\P0+r\P0+r\P0+r\P0+r\    padding: 8px;
+      padding: 8px;
       background: none;
       color: #f1f5f9;
       font-size: 0.875rem;
@@ -317,7 +317,7 @@
             reader.onerror = reject;
             reader.readAsDataURL(selectedFile);
           }) : form.profilePicUrl || DEFAULT_PROFILE_PIC;
-          if (urlToSave !== DEFAULT_PROFILE_PIC && !urlToSave.startsWith('data:image/')) {
+          if (urlToSave !== DEFAULT_PROFILE_PIC && !urlToSave.match(/^data:image\/(png|jpeg|jpg|gif);base64,/)) {
             setMessage('Invalid image format. Please upload a valid image.');
             return;
           }
@@ -562,7 +562,7 @@
           console.error('Error adding event:', err);
         }
       };
-      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setSelectedEvent(null); }).catch(err => { alert('Failed to delete event.'); console.error('Error deleting event:', err); });
+      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); }).catch(err => { alert('Failed to delete event.'); console.error('Error deleting event:', err); });
       useEffect(() => {
         fetchEvents();
         const calendarEl = calendarRef.current;
@@ -694,8 +694,23 @@
       const [users, setUsers] = useState([]);
       const [pamComparison, setPamComparison] = useState(null);
       const [accessList, setAccessList] = useState([]);
-      const [form, setForm] = useState({ newUsername: '', newPassword: '', confirmNewPassword: '', selectedUser: '', updatePassword: '', updateConfirmPassword: '', accessViewer: '', accessTarget: '', adminUser: '' });
-      const [messages, setMessages] = useState({ add: '', update: '', access: '', admin: '' });
+      const [form, setForm] = useState({
+        newUsername: '',
+        newPassword: '',
+        confirmNewPassword: '',
+        selectedUser: '',
+        updatePassword: '',
+        updateConfirmPassword: '',
+        accessViewer: '',
+        accessTarget: '',
+        adminUser: ''
+      });
+      const [messages, setMessages] = useState({
+        add: '',
+        update: '',
+        access: '',
+        admin: ''
+      });
       const fetchData = (endpoint, setter, key = 'data') => axios.get(`${API_BASE}/${endpoint}`)
         .then(({ data }) => setter(data.success ? data[key] || data : []))
         .catch(err => { setMessages(prev => ({ ...prev, [key === 'data' ? endpoint : key]: `Error fetching ${key}.` })); console.error(`Error fetching ${key}:`, err); });
@@ -748,22 +763,52 @@
         if (updatePassword !== updateConfirmPassword) return setMessages({ ...messages, update: 'Passwords do not match.' });
         if (updatePassword.length < 6) return setMessages({ ...messages, update: 'Password must be at least 6 characters.' });
         try {
-          const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: selectedUser, newPassword: updatePassword });
-          setMessages({ ...messages, update: data.success ? `Password updated for ${selectedUser}!` : data.message || 'Failed to update password.' });
-          if (data.success) setForm({ ...form, selectedUser: '', updatePassword: '', updateConfirmPassword: '' });
+          const { data } = await axios.post(`${API_BASE}/admin-update-password`, {
+            username: selectedUser,
+            newPassword: updatePassword
+          });
+          setMessages({
+            ...messages,
+            update: data.success ? `Password updated for ${selectedUser}!` : data.message || 'Failed to update password.'
+          });
+          if (data.success) {
+            setForm({ ...form, updatePassword: '', updateConfirmPassword: '', selectedUser: '' });
+          }
         } catch (err) {
           setMessages({ ...messages, update: 'Error updating password.' });
           console.error('Error updating password:', err);
         }
       };
+      const handleGrantAdmin = async username => {
+        if (username === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
+        try {
+          const { data } = await axios.post(`${API_BASE}/grant-admin`, { username });
+          setMessages({ ...messages, admin: data.success ? `Admin access granted for ${username}!` : data.message || 'Failed to grant admin access.' });
+          if (data.success) fetchData('users', setUsers);
+        } catch (err) {
+          setMessages({ ...messages, admin: 'Error granting admin access.' });
+          console.error('Error granting admin access:', err);
+        }
+      };
+      const handleRevokeAdmin = async username => {
+        if (username === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
+        try {
+          const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username });
+          setMessages({ ...messages, admin: data.success ? `Admin access revoked for ${username}!` : data.message || 'Failed to revoke admin access.' });
+          if (data.success) fetchData('users', setUsers);
+        } catch (err) {
+          setMessages({ ...messages, admin: 'Error revoking admin access.' });
+          console.error('Error revoking admin access:', err);
+        }
+      };
       const handleGrantAccess = async e => {
         e.preventDefault();
         const { accessViewer, accessTarget } = form;
-        if (!accessViewer || !accessTarget) return setMessages({ ...messages, access: 'Select both a viewer and target user.' });
+        if (!accessViewer || !accessTarget) return setMessages({ ...messages, access: 'Viewer and target are required.' });
         if (accessViewer === accessTarget) return setMessages({ ...messages, access: 'Cannot grant access to self.' });
         try {
           const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer: accessViewer, target: accessTarget });
-          setMessages({ ...messages, access: data.success ? data.message : data.message || 'Failed to grant access.' });
+          setMessages({ ...messages, access: data.success ? `Access granted for ${accessViewer} to view ${accessTarget}!` : data.message || 'Failed to grant access.' });
           if (data.success) {
             setForm({ ...form, accessViewer: '', accessTarget: '' });
             fetchData('get-access', setAccessList, 'accessList');
@@ -774,110 +819,113 @@
         }
       };
       const handleRevokeAccess = async (viewer, target) => {
-        if (!confirm(`Revoke access for ${viewer} to view ${target}'s data?`)) return;
         try {
           const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target });
-          setMessages({ ...messages, access: data.success ? data.message : data.message || 'Failed to revoke access.' });
+          setMessages({ ...messages, access: data.success ? `Access revoked for ${viewer} to view ${target}!` : data.message || 'Failed to revoke access.' });
           if (data.success) fetchData('get-access', setAccessList, 'accessList');
         } catch (err) {
           setMessages({ ...messages, access: 'Error revoking access.' });
           console.error('Error revoking access:', err);
         }
       };
-      const handleAdminAction = async (action) => {
-        if (!form.adminUser) return setMessages({ ...messages, admin: 'Please select a user.' });
-        if (form.adminUser === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
-        try {
-          const { data } = await axios.post(`${API_BASE}/${action}-admin`, { username: form.adminUser });
-          setMessages({ ...messages, admin: data.success ? `Admin access ${action}d for ${form.adminUser}!` : data.message || `Failed to ${action} admin access.` });
-          if (data.success) {
-            setForm({ ...form, adminUser: '' });
-            fetchData('users', setUsers);
-          }
-        } catch (err) {
-          setMessages({ ...messages, admin: `Error ${action}ing admin access.` });
-          console.error(`Error ${action}ing admin access:`, err);
-        }
-      };
       return (
-        <div className="p-6 max-w-4xl mx-auto">
+        <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
             <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
             <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Admin Panel</h1>
+            <h1 className="text-2xl font-semibold text-white mb-6">Admin Dashboard</h1>
             <div className="space-y-8">
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
                 <form onSubmit={handleAddUser} className="space-y-4">
-                  <Input placeholder="New Username" value={form.newUsername} onChange={e => setForm({ ...form, newUsername: e.target.value })} />
-                  <Input type="password" placeholder="Password" value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} />
-                  <Input type="password" placeholder="Confirm Password" value={form.confirmNewPassword} onChange={e => setForm({ ...form, confirmNewPassword: e.target.value })} />
+                  <Input name="newUsername" placeholder="New Username" value={form.newUsername} onChange={e => setForm({ ...form, newUsername: e.target.value })} />
+                  <Input type="password" name="newPassword" placeholder="Password" value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} />
+                  <Input type="password" name="confirmNewPassword" placeholder="Confirm Password" value={form.confirmNewPassword} onChange={e => setForm({ ...form, confirmNewPassword: e.target.value })} />
                   <Button type="submit">Add User</Button>
+                  {messages.add && <p className={`text-center text-sm ${messages.add.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.add}</p>}
                 </form>
-                {messages.add && <p className={`mt-3 text-center text-sm ${messages.add.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.add}</p>}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage Users</h2>
-                <div className="space-y-3">
-                  {users.map(u => (
-                    <div key={u.username} className="flex justify-between items-center p-4 card">
-                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
-                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleDeleteUser(u.username)}>Delete</Button>
-                    </div>
-                  ))}
-                </div>
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
                 <form onSubmit={handleUpdatePassword} className="space-y-4">
-                  <Select value={form.selectedUser} onChange={e => setForm({ ...form, selectedUser: e.target.value })} options={[{ value: '', label: 'Select User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
-                  <Input type="password" placeholder="New Password" value={form.updatePassword} onChange={e => setForm({ ...form, updatePassword: e.target.value })} />
-                  <Input type="password" placeholder="Confirm New Password" value={form.updateConfirmPassword} onChange={e => setForm({ ...form, updateConfirmPassword: e.target.value })} />
+                  <Select label="Select User" name="selectedUser" value={form.selectedUser} onChange={e => setForm({ ...form, selectedUser: e.target.value })} options={users.filter(u => u.username !== user.username).map(u => ({ value: u.username, label: u.username }))} />
+                  <Input type="password" name="updatePassword" placeholder="New Password" value={form.updatePassword} onChange={e => setForm({ ...form, updatePassword: e.target.value })} />
+                  <Input type="password" name="updateConfirmPassword" placeholder="Confirm New Password" value={form.updateConfirmPassword} onChange={e => setForm({ ...form, updateConfirmPassword: e.target.value })} />
                   <Button type="submit">Update Password</Button>
+                  {messages.update && <p className={`text-center text-sm ${messages.update.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.update}</p>}
                 </form>
-                {messages.update && <p className={`mt-3 text-center text-sm ${messages.update.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.update}</p>}
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
                 <div className="space-y-4">
-                  <Select value={form.adminUser} onChange={e => setForm({ ...form, adminUser: e.target.value })} options={[{ value: '', label: 'Select User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
-                  <div className="flex space-x-3">
-                    <Button onClick={() => handleAdminAction('grant')}>Grant Admin Access</Button>
-                    <Button className="bg-red-500 hover:bg-red-600" onClick={() => handleAdminAction('revoke')}>Revoke Admin Access</Button>
+                  <Select label="Select User" name="adminUser" value={form.adminUser} onChange={e => setForm({ ...form, adminUser: e.target.value })} options={users.filter(u => u.username !== user.username).map(u => ({ value: u.username, label: u.username }))} />
+                  <div className="flex space-x-4">
+                    <Button className="bg-green-500 hover:bg-green-600" onClick={() => handleGrantAdmin(form.adminUser)} disabled={!form.adminUser}>Grant Admin</Button>
+                    <Button className="bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAdmin(form.adminUser)} disabled={!form.adminUser}>Revoke Admin</Button>
                   </div>
-                  {messages.admin && <p className={`mt-3 text-center text-sm ${messages.admin.includes('success') || messages.admin.includes('granted') || messages.admin.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>{messages.admin}</p>}
+                  {messages.admin && <p className={`text-center text-sm ${messages.admin.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.admin}</p>}
                 </div>
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
-                <form onSubmit={handleGrantAccess} className="space-y-4 mb-6">
-                  <Select value={form.accessViewer} onChange={e => setForm({ ...form, accessViewer: e.target.value })} options={[{ value: '', label: 'Select Viewer' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
-                  <Select value={form.accessTarget} onChange={e => setForm({ ...form, accessTarget: e.target.value })} options={[{ value: '', label: 'Select Target User' }, ...users.map(u => ({ value: u.username, label: u.username }))]} />
+                <form onSubmit={handleGrantAccess} className="space-y-4">
+                  <Select label="Viewer" name="accessViewer" value={form.accessViewer} onChange={e => setForm({ ...form, accessViewer: e.target.value })} options={users.map(u => ({ value: u.username, label: u.username }))} />
+                  <Select label="Target" name="accessTarget" value={form.accessTarget} onChange={e => setForm({ ...form, accessTarget: e.target.value })} options={users.map(u => ({ value: u.username, label: u.username }))} />
                   <Button type="submit">Grant Access</Button>
+                  {messages.access && <p className={`text-center text-sm ${messages.access.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.access}</p>}
                 </form>
-                <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
-                <div className="space-y-3">
-                  {accessList.length ? accessList.map((access, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 card">
-                      <span>{access.viewer} can view {access.target}'s data</span>
-                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAccess(access.viewer, access.target)}>Revoke</Button>
-                    </div>
-                  )) : <p className="text-white">No access permissions set.</p>}
-                </div>
-                {messages.access && <p className={`mt-3 text-center text-sm ${messages.access.includes('success') || messages.access.includes('granted') || messages.access.includes('revoked') ? 'text-green-400' : 'text-red-400'}`}>{messages.access}</p>}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
-                {pamComparison ? (
-                  <div className="space-y-2 text-white">
-                    {['pamUsers', 'appUsers', 'commonUsers', 'appOnlyUsers', 'pamOnlyUsers'].map(key => (
-                      <p key={key}><strong>{capitalize(key.replace(/([A-Z])/g, ' $1'))}:</strong> {pamComparison[key].join(', ') || 'None'}</p>
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
+                  <div className="space-y-3">
+                    {accessList.map((access, idx) => (
+                      <div key={idx} className="flex justify-between p-4 card items-center">
+                        <span>{access.viewer} can view {access.target}'s data</span>
+                        <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAccess(access.viewer, access.target)}>Revoke</Button>
+                      </div>
                     ))}
                   </div>
-                ) : <p className="text-white">Loading PAM comparison...</p>}
+                </div>
               </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-4">User List</h2>
+                <div className="space-y-3">
+                  {users.map(u => (
+                    <div key={u.username} className="flex justify-between p-4 card items-center">
+                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
+                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleDeleteUser(u.username)} disabled={u.username === user.username}>Delete</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {pamComparison && (
+                <div>
+                  <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-white mb-2">PAM Users</h3>
+                      <p className="text-gray-300">{pamComparison.pamUsers?.join(', ') || 'None'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-white mb-2">App Users</h3>
+                      <p className="text-gray-300">{pamComparison.appUsers?.join(', ') || 'None'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-white mb-2">Common Users</h3>
+                      <p className="text-gray-300">{pamComparison.commonUsers?.join(', ') || 'None'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-white mb-2">App-Only Users</h3>
+                      <p className="text-gray-300">{pamComparison.appOnlyUsers?.join(', ') || 'None'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-white mb-2">PAM-Only Users</h3>
+                      <p className="text-gray-300">{pamComparison.pamOnlyUsers?.join(', ') || 'None'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -885,17 +933,19 @@
     };
 
     const App = () => {
-      const [page, setPage] = useState('login');
       const [user, setUser] = useState(null);
+      const [page, setPage] = useState('login');
+      const handleLogin = userData => { setUser(userData); setPage('menu'); };
+      const handleLogout = () => { setUser(null); setPage('login'); };
       return (
-        <div>
-          {page === 'login' && <Login onLogin={user => { setUser(user); setPage('menu'); }} />}
-          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
-          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
-          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
-          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} setUser={setUser} />}
-          {page === 'admin' && user && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
-        </div>
+        <>
+          {page === 'login' && <Login onLogin={handleLogin} />}
+          {page === 'menu' && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
+          {page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'admin' && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
+        </>
       );
     };
 

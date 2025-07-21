@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs'); // Use full fs module
+const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -183,7 +183,7 @@ app.post('/api/login', async (req, res) => {
                 console.log(`Authenticated user: ${username}`);
                 db.get('SELECT * FROM users WHERE username = ?', [username], (dbErr, row) => {
                     if (dbErr) {
-                        console.error('Database error during login user fetch:', dbErr.message);
+			console.error('irono: Database error during login user fetch:', dbErr.message);
                         return res.json({ success: false, message: 'Database error during login.' });
                     }
                     const defaultUserData = {
@@ -244,7 +244,7 @@ app.post('/api/update-password', async (req, res) => {
         res.json({ success: true, message: 'Password updated successfully!' });
     } catch (error) {
         console.error('Password update error:', error);
-        res.json({ success: false, message: 'An internal server error occurred during password update.' });
+        res.json({ success: false, message: 'An internal server erroroccurred during password update.' });
     }
 });
 
@@ -633,6 +633,11 @@ app.get('/api/pam-users', async (req, res) => {
         console.error('Error fetching PAM users:', error);
         res.json({ success: false, message: 'Error fetching PAM users.' });
     }
+});
+
+// Admin page endpoint
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // HTTPS server setup
