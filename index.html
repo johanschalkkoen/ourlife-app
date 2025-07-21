@@ -39,7 +39,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 4px;
-      padding: 8px;
+  P0+r\P0+r\P0+r\P0+r\P0+r\P0+r\P0+r\    padding: 8px;
       background: none;
       color: #f1f5f9;
       font-size: 0.875rem;
@@ -268,7 +268,7 @@
       </div>
     );
 
-    const ProfileSettings = ({ user, setPage, onLogout }) => {
+    const ProfileSettings = ({ user, setPage, onLogout, setUser }) => {
       const [form, setForm] = useState({
         profilePicUrl: user.profilePicUrl || '',
         email: user.email || '',
@@ -286,6 +286,18 @@
       const handleFileChange = e => {
         const file = e.target.files[0];
         if (file) {
+          if (!file.type.startsWith('image/')) {
+            setMessage('Please select a valid image file (e.g., PNG, JPEG).');
+            setSelectedFile(null);
+            setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+            return;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            setMessage('Image size must be less than 5MB.');
+            setSelectedFile(null);
+            setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+            return;
+          }
           setSelectedFile(file);
           setMessage('');
           const reader = new FileReader();
@@ -305,14 +317,24 @@
             reader.onerror = reject;
             reader.readAsDataURL(selectedFile);
           }) : form.profilePicUrl || DEFAULT_PROFILE_PIC;
+          if (urlToSave !== DEFAULT_PROFILE_PIC && !urlToSave.startsWith('data:image/')) {
+            setMessage('Invalid image format. Please upload a valid image.');
+            return;
+          }
           const { data } = await axios.post(`${API_BASE}/profile-pictures`, {
             username: user.username, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor
           });
-          setMessage(data.success ? 'Profile saved successfully!' : 'Failed to save profile.');
-          if (data.success) Object.assign(user, { profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor });
+          if (data.success) {
+            setMessage('Profile saved successfully!');
+            setUser({ ...user, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor });
+          } else {
+            setMessage(data.message || 'Failed to save profile.');
+            setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+          }
         } catch (err) {
-          setMessage('Error saving profile.');
+          setMessage('Error saving profile. Please try again.');
           console.error('Error saving profile:', err);
+          setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
         }
       };
       const handlePasswordChange = async () => {
@@ -871,7 +893,7 @@
           {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
           {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
           {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
-          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
+          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} setUser={setUser} />}
           {page === 'admin' && user && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={() => { setUser(null); setPage('login'); }} />}
         </div>
       );

@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs').promises;
+const fs = require('fs'); // Use full fs module
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
@@ -11,11 +11,12 @@ const http = require('http');
 const execPromise = util.promisify(exec);
 const app = express();
 
-const HTTPS_PORT = 8443; // Standard HTTPS port
-const HTTP_PORT = 9000; // Standard HTTP port for redirect
+const HTTPS_PORT = 8443;
+const HTTP_PORT = 9000;
 const USERS_FILE = path.join(__dirname, 'users.json');
+const CERT_PATH = '/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem';
+const KEY_PATH = '/etc/letsencrypt/live/ourlife.work.gd/privkey.pem';
 
-// Increase the body parser limit
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 
@@ -32,7 +33,8 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 email TEXT,
                 phone TEXT,
                 address TEXT,
-                eventColor TEXT
+                eventColor TEXT,
+                isAdmin INTEGER DEFAULT 0
             )`);
             db.run(`CREATE TABLE IF NOT EXISTS financial_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,6 +86,23 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                 }
             });
 
+            db.all(`PRAGMA table_info(users)`, (err, columns) => {
+                if (err) {
+                    console.error('Error checking users schema:', err.message);
+                    return;
+                }
+                const hasIsAdminColumn = columns.some(col => col.name === 'isAdmin');
+                if (!hasIsAdminColumn) {
+                    db.run(`ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0`, (alterErr) => {
+                        if (alterErr) {
+                            console.error('Error adding isAdmin column to users:', alterErr.message);
+                        } else {
+                            console.log('Added isAdmin column to users table.');
+                        }
+                    });
+                }
+            });
+
             console.log('Database tables checked/created.');
         });
     }
@@ -92,7 +111,7 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
 // Helper functions
 async function readUsers() {
     try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
+        const data = await fs.promises.readFile(USERS_FILE, 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -105,7 +124,7 @@ async function readUsers() {
 
 async function writeUsers(users) {
     try {
-        await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+        await fs.promises.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
     } catch (error) {
         console.error('Error writing users file:', error);
     }
@@ -132,8 +151,6 @@ async function getAccessibleUsers(viewer) {
     });
 }
 
-// Authentication and other endpoints
-
 const requireAdmin = async (req, res, next) => {
     const { username } = req.body.username ? req.body : req.query;
     if (!username) {
@@ -151,17 +168,7 @@ const requireAdmin = async (req, res, next) => {
     }
 };
 
-// Apply to admin endpoints
-app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
-    // Existing code for /api/admin-update-password
-});
-app.post('/api/add-user', requireAdmin, async (req, res) => {
-    // Existing code for /api/add-user
-});
-app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
-    // Existing code for /api/delete-user
-});
-
+// API Endpoints
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -179,28 +186,29 @@ app.post('/api/login', async (req, res) => {
                         console.error('Database error during login user fetch:', dbErr.message);
                         return res.json({ success: false, message: 'Database error during login.' });
                     }
-                    if (row) {
-                        res.json({ success: true, isAdmin: storedUser.isAdmin || false, ...row });
-                    } else {
-                        const defaultUserData = {
-                            username,
-                            profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=U',
-                            email: '',
-                            phone: '',
-                            address: '',
-                            eventColor: '#3b82f6'
-                        };
+                    const defaultUserData = {
+                        username,
+                        profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=U',
+                        email: '',
+                        phone: '',
+                        address: '',
+                        eventColor: '#2dd4bf',
+                        isAdmin: storedUser.isAdmin || false
+                    };
+                    if (!row) {
                         db.run(
-                            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor) VALUES (?, ?, ?, ?, ?, ?)`,
-                            [defaultUserData.username, defaultUserData.profilePicUrl, defaultUserData.email, defaultUserData.phone, defaultUserData.address, defaultUserData.eventColor],
+                            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [defaultUserData.username, defaultUserData.profilePicUrl, defaultUserData.email, defaultUserData.phone, defaultUserData.address, defaultUserData.eventColor, defaultUserData.isAdmin ? 1 : 0],
                             (insertErr) => {
                                 if (insertErr) {
                                     console.error('Database error inserting new user into SQLite:', insertErr.message);
                                     return res.json({ success: false, message: 'Database error creating new user profile.' });
                                 }
-                                res.json({ success: true, isAdmin: storedUser.isAdmin || false, ...defaultUserData });
+                                res.json({ success: true, ...defaultUserData });
                             }
                         );
+                    } else {
+                        res.json({ success: true, ...row, isAdmin: storedUser.isAdmin || false });
                     }
                 });
             } else {
@@ -240,7 +248,7 @@ app.post('/api/update-password', async (req, res) => {
     }
 });
 
-app.post('/api/admin-update-password', async (req, res) => {
+app.post('/api/admin-update-password', requireAdmin, async (req, res) => {
     const { username, newPassword } = req.body;
     if (!username || !newPassword) {
         return res.json({ success: false, message: 'Username and new password are required.' });
@@ -262,30 +270,45 @@ app.post('/api/admin-update-password', async (req, res) => {
 
 app.get('/api/profile-pictures', (req, res) => {
     const { username } = req.query;
+    if (!username) {
+        return res.json({ success: false, message: 'Username is required.' });
+    }
     db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
         if (err) {
             console.error('Database error fetching profile pictures:', err.message);
-            res.json({ profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
-        } else {
-            res.json(row || { profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#3b82f6' });
+            return res.json({ success: false, message: 'Database error fetching profile.', profilePicUrl: null, email: '', phone: '', address: '', eventColor: '#2dd4bf', isAdmin: 0 });
         }
+        res.json(row || { success: true, profilePicUrl: 'https://placehold.co/50x50/808080/FFFFFF?text=U', email: '', phone: '', address: '', eventColor: '#2dd4bf', isAdmin: 0 });
     });
 });
 
 app.post('/api/profile-pictures', (req, res) => {
     const { username, profilePicUrl, email, phone, address, eventColor } = req.body;
-    db.run(
-        `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor) VALUES (?, ?, ?, ?, ?, ?)`,
-        [username, profilePicUrl, email, phone, address, eventColor],
-        (err) => {
-            if (err) {
-                console.error('Database error saving profile pictures:', err.message);
-                res.json({ success: false });
-            } else {
-                res.json({ success: true });
-            }
+    if (!username) {
+        return res.json({ success: false, message: 'Username is required.' });
+    }
+    if (profilePicUrl && profilePicUrl !== 'https://placehold.co/50x50/808080/FFFFFF?text=U' && !profilePicUrl.match(/^data:image\/(png|jpeg|jpg|gif);base64,/)) {
+        return res.json({ success: false, message: 'Invalid image format. Must be a valid base64-encoded image (png, jpeg, jpg, or gif).' });
+    }
+    const finalProfilePicUrl = profilePicUrl || 'https://placehold.co/50x50/808080/FFFFFF?text=U';
+    db.get('SELECT isAdmin FROM users WHERE username = ?', [username], (err, row) => {
+        if (err) {
+            console.error('Database error checking user:', err.message);
+            return res.json({ success: false, message: 'Database error checking user.' });
         }
-    );
+        const isAdmin = row ? row.isAdmin : 0;
+        db.run(
+            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [username, finalProfilePicUrl, email || '', phone || '', address || '', eventColor || '#2dd4bf', isAdmin],
+            (err) => {
+                if (err) {
+                    console.error('Database error saving profile:', err.message);
+                    return res.json({ success: false, message: 'Database error saving profile.' });
+                }
+                res.json({ success: true, profilePicUrl: finalProfilePicUrl, email, phone, address, eventColor, isAdmin });
+            }
+        );
+    });
 });
 
 app.get('/api/financial', async (req, res) => {
@@ -311,17 +334,17 @@ app.get('/api/financial', async (req, res) => {
 });
 
 app.post('/api/financial', (req, res) => {
-    const { user, description, amount, type, date } = req.body;
-    const color = type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000';
+    const { user, description, amount, type, date, color } = req.body;
+    const finalColor = color || (type.toLowerCase() === 'income' ? '#00FF00' : '#FF0000');
     db.run(
         `INSERT INTO financial_items (user, description, amount, type, date, color) VALUES (?, ?, ?, ?, ?, ?)`,
-        [user, description, amount, type, date, color],
+        [user, description, amount, type, date, finalColor],
         function (err) {
             if (err) {
                 console.error('Database error adding financial item:', err.message);
-                res.json({ success: false });
+                res.json({ success: false, message: 'Database error adding financial item.' });
             } else {
-                res.json({ id: this.lastID, user, description, amount, type, date, color });
+                res.json({ success: true, id: this.lastID, user, description, amount, type, date, color: finalColor });
             }
         }
     );
@@ -332,7 +355,7 @@ app.delete('/api/financial/:id', (req, res) => {
     db.run('DELETE FROM financial_items WHERE id = ?', id, (err) => {
         if (err) {
             console.error('Database error deleting financial item:', err.message);
-            res.json({ success: false });
+            res.json({ success: false, message: 'Database error deleting financial item.' });
         } else {
             res.json({ success: true });
         }
@@ -365,13 +388,13 @@ app.post('/api/calendar', (req, res) => {
     const { user, title, date, financial, type, amount, eventColor } = req.body;
     db.run(
         `INSERT INTO calendar_events (user, title, date, financial, type, amount, eventColor) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [user, title, date, financial ? 1 : 0, type, amount, eventColor],
+        [user, title, date, financial ? 1 : 0, type || null, amount || null, eventColor || '#2dd4bf'],
         function (err) {
             if (err) {
                 console.error('Database error adding calendar event:', err.message);
-                res.json({ success: false });
+                res.json({ success: false, message: 'Database error adding calendar event.' });
             } else {
-                res.json({ id: this.lastID, user, title, date, financial, type, amount, eventColor });
+                res.json({ success: true, id: this.lastID, user, title, date, financial, type, amount, eventColor });
             }
         }
     );
@@ -382,26 +405,35 @@ app.delete('/api/calendar/:id', (req, res) => {
     db.run('DELETE FROM calendar_events WHERE id = ?', id, (err) => {
         if (err) {
             console.error('Database error deleting calendar event:', err.message);
-            res.json({ success: false });
+            res.json({ success: false, message: 'Database error deleting calendar event.' });
         } else {
             res.json({ success: true });
         }
     });
 });
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAdmin, async (req, res) => {
     try {
         const users = await readUsers();
-        const userList = Object.keys(users).map(username => ({ username }));
-        res.json(userList);
+        db.all('SELECT username, isAdmin FROM users', [], (err, rows) => {
+            if (err) {
+                console.error('Database error fetching users:', err.message);
+                return res.json({ success: false, message: 'Database error fetching users.' });
+            }
+            const userList = rows.map(row => ({
+                username: row.username,
+                isAdmin: row.isAdmin === 1
+            }));
+            res.json({ success: true, data: userList });
+        });
     } catch (error) {
         console.error('Error fetching users:', error);
-        res.json({ success: false, message: 'Failed to fetch users.' });
+        res.json({ success: false, message: 'Server error fetching users.' });
     }
 });
 
-app.post('/api/add-user', async (req, res) => {
-    const { username, password, isAdmin = false } = req.body; // Default isAdmin to false
+app.post('/api/add-user', requireAdmin, async (req, res) => {
+    const { username, password } = req.body;
     if (!username || !password) {
         return res.json({ success: false, message: 'Username and password are required.' });
     }
@@ -411,16 +443,26 @@ app.post('/api/add-user', async (req, res) => {
             return res.json({ success: false, message: 'User already exists.' });
         }
         const passwordHash = await bcrypt.hash(password, 10);
-        users[username] = { passwordHash, isAdmin }; // Store isAdmin flag
+        users[username] = { passwordHash, isAdmin: false };
         await writeUsers(users);
-        res.json({ success: true, message: 'User added successfully!' });
+        db.run(
+            `INSERT OR REPLACE INTO users (username, profilePicUrl, email, phone, address, eventColor, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [username, 'https://placehold.co/50x50/808080/FFFFFF?text=U', '', '', '', '#2dd4bf', 0],
+            (err) => {
+                if (err) {
+                    console.error('Database error adding user:', err.message);
+                    return res.json({ success: false, message: 'Database error adding user.' });
+                }
+                res.json({ success: true, message: 'User added successfully!' });
+            }
+        );
     } catch (error) {
         console.error('Error adding user:', error);
-        res.json({ success: false, message: 'Failed to add user.' });
+        res.json({ success: false, message: 'Server error adding user.' });
     }
 });
 
-app.delete('/api/delete-user/:username', async (req, res) => {
+app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
     const { username } = req.params;
     try {
         const users = await readUsers();
@@ -431,80 +473,77 @@ app.delete('/api/delete-user/:username', async (req, res) => {
         await writeUsers(users);
         db.run('DELETE FROM users WHERE username = ?', [username], (err) => {
             if (err) {
-                console.error('Database error deleting user from SQLite:', err.message);
+                console.error('Database error deleting user:', err.message);
+                return res.json({ success: false, message: 'Database error deleting user.' });
             }
-            db.run('DELETE FROM user_access WHERE viewer = ? OR target = ?', [username, username], (err) => {
-                if (err) {
-                    console.error('Database error deleting user access:', err.message);
-                }
-                res.json({ success: true, message: 'User deleted successfully!' });
+            db.run('DELETE FROM financial_items WHERE user = ?', [username], (err) => {
+                if (err) console.error('Error deleting user financial items:', err.message);
             });
+            db.run('DELETE FROM calendar_events WHERE user = ?', [username], (err) => {
+                if (err) console.error('Error deleting user calendar events:', err.message);
+            });
+            db.run('DELETE FROM user_access WHERE viewer = ? OR target = ?', [username, username], (err) => {
+                if (err) console.error('Error deleting user access records:', err.message);
+            });
+            res.json({ success: true, message: 'User deleted successfully!' });
         });
     } catch (error) {
         console.error('Error deleting user:', error);
-        res.json({ success: false, message: 'Failed to delete user.' });
+        res.json({ success: false, message: 'Server error deleting user.' });
     }
 });
 
-app.get('/api/is-admin', async (req, res) => {
-    const { username } = req.query;
+app.post('/api/grant-admin', requireAdmin, async (req, res) => {
+    const { username } = req.body;
     if (!username) {
         return res.json({ success: false, message: 'Username is required.' });
     }
     try {
         const users = await readUsers();
-        const isAdmin = users[username]?.isAdmin || false;
-        res.json({ success: true, isAdmin });
-    } catch (error) {
-        console.error('Error checking admin status:', error);
-        res.json({ success: false, message: 'Failed to check admin status.' });
-    }
-});
-
-app.get('/api/pam-users', async (req, res) => {
-    try {
-        const { stdout } = await execPromise('getent passwd');
-        const pamUsers = stdout
-            .split('\n')
-            .filter(line => line)
-            .map(line => {
-                const [username, , uid] = line.split(':');
-                return { username, uid: parseInt(uid) };
-            })
-            .filter(user => user.uid >= 1000)
-            .map(user => user.username);
-        const users = await readUsers();
-        const appUsers = Object.keys(users);
-        const comparison = {
-            pamUsers: pamUsers,
-            appUsers: appUsers,
-            commonUsers: appUsers.filter(user => pamUsers.includes(user)),
-            appOnlyUsers: appUsers.filter(user => !pamUsers.includes(user)),
-            pamOnlyUsers: pamUsers.filter(user => !appUsers.includes(user))
-        };
-        res.json({ success: true, ...comparison });
-    } catch (error) {
-        console.error('Error fetching PAM users:', error);
-        res.json({ success: false, message: 'Failed to fetch PAM users.' });
-    }
-});
-
-app.get('/api/get-access', (req, res) => {
-    db.all(
-        `SELECT viewer, target FROM user_access`,
-        [],
-        (err, rows) => {
-            if (err) {
-                console.error('Database error fetching user access:', err.message);
-                res.json({ success: false, accessList: [] });
-            } else {
-                res.json({ success: true, accessList: rows });
-            }
+        if (!users[username]) {
+            return res.json({ success: false, message: 'User not found.' });
         }
-    );
+        users[username].isAdmin = true;
+        await writeUsers(users);
+        db.run('UPDATE users SET isAdmin = 1 WHERE username = ?', [username], (err) => {
+            if (err) {
+                console.error('Database error granting admin access:', err.message);
+                return res.json({ success: false, message: 'Database error granting admin access.' });
+            }
+            res.json({ success: true, message: `Admin access granted for ${username}!` });
+        });
+    } catch (error) {
+        console.error('Error granting admin access:', error);
+        res.json({ success: false, message: 'Server error granting admin access.' });
+    }
 });
 
-app.post('/api/grant-access', (req, res) => {
+app.post('/api/revoke-admin', requireAdmin, async (req, res) => {
+    const { username } = req.body;
+    if (!username) {
+        return res.json({ success: false, message: 'Username is required.' });
+    }
+    try {
+        const users = await readUsers();
+        if (!users[username]) {
+            return res.json({ success: false, message: 'User not found.' });
+        }
+        users[username].isAdmin = false;
+        await writeUsers(users);
+        db.run('UPDATE users SET isAdmin = 0 WHERE username = ?', [username], (err) => {
+            if (err) {
+                console.error('Database error revoking admin access:', err.message);
+                return res.json({ success: false, message: 'Database error revoking admin access.' });
+            }
+            res.json({ success: true, message: `Admin access revoked for ${username}!` });
+        });
+    } catch (error) {
+        console.error('Error revoking admin access:', error);
+        res.json({ success: false, message: 'Server error revoking admin access.' });
+    }
+});
+
+app.post('/api/grant-access', requireAdmin, async (req, res) => {
     const { viewer, target } = req.body;
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
@@ -512,64 +551,109 @@ app.post('/api/grant-access', (req, res) => {
     if (viewer === target) {
         return res.json({ success: false, message: 'Cannot grant access to self.' });
     }
-    db.run(
-        `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
-        [viewer, target],
-        (err) => {
-            if (err) {
-                console.error('Database error granting access:', err.message);
-                res.json({ success: false, message: 'Failed to grant access.' });
-            } else {
-                res.json({ success: true, message: `Access granted: ${viewer} can view ${target}'s data.` });
-            }
+    try {
+        const users = await readUsers();
+        if (!users[viewer] || !users[target]) {
+            return res.json({ success: false, message: 'Viewer or target user not found.' });
         }
-    );
+        db.run(
+            `INSERT OR IGNORE INTO user_access (viewer, target) VALUES (?, ?)`,
+            [viewer, target],
+            (err) => {
+                if (err) {
+                    console.error('Database error granting access:', err.message);
+                    return res.json({ success: false, message: 'Database error granting access.' });
+                }
+                res.json({ success: true, message: `Access granted for ${viewer} to view ${target}'s data.` });
+            }
+        );
+    } catch (error) {
+        console.error('Error granting access:', error);
+        res.json({ success: false, message: 'Server error granting access.' });
+    }
 });
 
-app.post('/api/revoke-access', (req, res) => {
+app.post('/api/revoke-access', requireAdmin, async (req, res) => {
     const { viewer, target } = req.body;
     if (!viewer || !target) {
         return res.json({ success: false, message: 'Viewer and target usernames are required.' });
     }
-    db.run(
-        `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
-        [viewer, target],
-        (err) => {
-            if (err) {
-                console.error('Database error revoking access:', err.message);
-                res.json({ success: false, message: 'Failed to revoke access.' });
-            } else {
-                res.json({ success: true, message: `Access revoked: ${viewer} can no longer view ${target}'s data.` });
+    try {
+        db.run(
+            `DELETE FROM user_access WHERE viewer = ? AND target = ?`,
+            [viewer, target],
+            (err) => {
+                if (err) {
+                    console.error('Database error revoking access:', err.message);
+                    return res.json({ success: false, message: 'Database error revoking access.' });
+                }
+                res.json({ success: true, message: `Access revoked for ${viewer} to view ${target}'s data.` });
             }
-        }
-    );
+        );
+    } catch (error) {
+        console.error('Error revoking access:', error);
+        res.json({ success: false, message: 'Server error revoking access.' });
+    }
 });
 
-// Load SSL certificates asynchronously
-async function startServer() {
+app.get('/api/get-access', async (req, res) => {
+    const { viewer } = req.query;
+    db.all('SELECT viewer, target FROM user_access', [], (err, rows) => {
+        if (err) {
+            console.error('Database error fetching access list:', err.message);
+            return res.json({ success: false, message: 'Database error fetching access list.' });
+        }
+        if (viewer) {
+            const filteredRows = rows.filter(row => row.viewer === viewer);
+            res.json({ success: true, accessList: filteredRows });
+        } else {
+            res.json({ success: true, accessList: rows });
+        }
+    });
+});
+
+app.get('/api/pam-users', async (req, res) => {
     try {
-        const sslOptions = {
-            key: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem', 'utf8'),
-            cert: await fs.readFile('/etc/letsencrypt/live/ourlife.work.gd/fullchain.pem', 'utf8')
-        };
-
-        // Create HTTPS server
-        https.createServer(sslOptions, app).listen(HTTPS_PORT, () => {
-            console.log(`HTTPS Server running on https://ourlife.work.gd:${HTTPS_PORT}`);
-        });
-
-        // Create HTTP server to redirect to HTTPS
-        http.createServer((req, res) => {
-            res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
-            res.end();
-        }).listen(HTTP_PORT, () => {
-            console.log(`HTTP Server running on port ${HTTP_PORT}, redirecting to HTTPS`);
+        const { stdout } = await execPromise('getent passwd | cut -d: -f1');
+        const pamUsers = stdout.split('\n').filter(Boolean);
+        const users = await readUsers();
+        const appUsers = Object.keys(users);
+        const commonUsers = pamUsers.filter(user => appUsers.includes(user));
+        const appOnlyUsers = appUsers.filter(user => !pamUsers.includes(user));
+        const pamOnlyUsers = pamUsers.filter(user => !appUsers.includes(user));
+        res.json({
+            success: true,
+            pamUsers,
+            appUsers,
+            commonUsers,
+            appOnlyUsers,
+            pamOnlyUsers
         });
     } catch (error) {
-        console.error('Error starting server with SSL:', error);
-        process.exit(1);
+        console.error('Error fetching PAM users:', error);
+        res.json({ success: false, message: 'Error fetching PAM users.' });
     }
-}
+});
 
-// Start the server
-startServer();
+// HTTPS server setup
+try {
+    const options = {
+        cert: fs.readFileSync(CERT_PATH),
+        key: fs.readFileSync(KEY_PATH)
+    };
+
+    https.createServer(options, app).listen(HTTPS_PORT, () => {
+        console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
+    });
+
+    // HTTP server to redirect to HTTPS
+    http.createServer((req, res) => {
+        res.writeHead(301, { Location: `https://${req.headers.host.split(':')[0]}:${HTTPS_PORT}${req.url}` });
+        res.end();
+    }).listen(HTTP_PORT, () => {
+        console.log(`HTTP Server running on port ${HTTP_PORT} and redirecting to HTTPS`);
+    });
+} catch (error) {
+    console.error('Error starting HTTPS server:', error.message);
+    process.exit(1);
+}
