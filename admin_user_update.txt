@@ -1,0 +1,12 @@
+root@mail:~/ourlife-app# sqlite3 /root/ourlife-app/ourlife.db
+SQLite version 3.46.1 2024-08-13 09:16:08
+Enter ".help" for usage hints.
+sqlite> SELECT username, isAdmin FROM users;
+schalk|0
+leani|0
+demo|0
+sqlite> UPDATE users SET isAdmin = 1 WHERE username = 'schalk';
+sqlite> SELECT username, isAdmin FROM users WHERE username = 'desired_username';
+sqlite> SELECT username, isAdmin FROM users WHERE username = 'schalk';
+schalk|1
+sqlite> .exit

@@ -105,7 +105,7 @@
     }
     input:focus, select:focus, textarea:focus {
       box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
-      border-color: #2ddP0+r\P0+r\P0+r\P0+r\P0+r\P0+r\P0+r\4bf;
+      border-color: #2dd4bf;
     }
     button {
       transition: all 0.2s ease;
@@ -692,142 +692,159 @@
 
     const Admin = ({ user, setPage, onLogout }) => {
       const [users, setUsers] = useState([]);
-      const [pamComparison, setPamComparison] = useState(null);
       const [accessList, setAccessList] = useState([]);
-      const [form, setForm] = useState({
-        newUsername: '',
-        newPassword: '',
-        confirmNewPassword: '',
-        selectedUser: '',
-        updatePassword: '',
-        updateConfirmPassword: '',
-        accessViewer: '',
-        accessTarget: '',
-        adminUser: ''
-      });
-      const [messages, setMessages] = useState({
-        add: '',
-        update: '',
-        access: '',
-        admin: ''
-      });
-      const fetchData = (endpoint, setter, key = 'data') => axios.get(`${API_BASE}/${endpoint}`)
-        .then(({ data }) => setter(data.success ? data[key] || data : []))
-        .catch(err => { setMessages(prev => ({ ...prev, [key === 'data' ? endpoint : key]: `Error fetching ${key}.` })); console.error(`Error fetching ${key}:`, err); });
-      useEffect(() => {
-        fetchData('users', setUsers);
-        fetchData('pam-users', setPamComparison, 'pamComparison');
-        fetchData('get-access', setAccessList, 'accessList');
-      }, []);
-      const handleAddUser = async e => {
-        e.preventDefault();
-        const { newUsername, newPassword, confirmNewPassword } = form;
-        if (!newUsername || !newPassword || !confirmNewPassword) return setMessages({ ...messages, add: 'All fields are required.' });
-        if (newPassword !== confirmNewPassword) return setMessages({ ...messages, add: 'Passwords do not match.' });
-        if (newPassword.length < 6) return setMessages({ ...messages, add: 'Password must be at least 6 characters.' });
+      const [newUsername, setNewUsername] = useState('');
+      const [newPassword, setNewPassword] = useState('');
+      const [viewer, setViewer] = useState('');
+      const [target, setTarget] = useState('');
+      const [passwordUsername, setPasswordUsername] = useState('');
+      const [newUserPassword, setNewUserPassword] = useState('');
+      const [message, setMessage] = useState('');
+
+      const fetchUsers = async () => {
         try {
-          const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword });
-          setMessages({ ...messages, add: data.success ? 'User added successfully!' : data.message || 'Failed to add user.' });
+          const { data } = await axios.post(`${API_BASE}/users`, { username: user.username });
           if (data.success) {
-            setForm({ ...form, newUsername: '', newPassword: '', confirmNewPassword: '' });
-            fetchData('users', setUsers);
-            fetchData('pam-users', setPamComparison, 'pamComparison');
+            setUsers(data.data);
+          } else {
+            setMessage(data.message || 'Failed to fetch users.');
           }
-        } catch (err) {
-          setMessages({ ...messages, add: 'Error adding user.' });
-          console.error('Error adding user:', err);
+        } catch (error) {
+          setMessage('Error fetching users.');
+          console.error('Error fetching users:', error);
         }
       };
-      const handleDeleteUser = async username => {
-        if (username === user.username) return setMessages({ ...messages, add: 'Cannot delete your own account.' });
-        if (!confirm(`Delete user ${username}?`)) return;
+
+      const fetchAccessList = async () => {
         try {
-          const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`);
-          setMessages({ ...messages, add: data.success ? 'User deleted successfully!' : data.message || 'Failed to delete user.' });
+          const { data } = await axios.get(`${API_BASE}/get-access`);
           if (data.success) {
-            fetchData('users', setUsers);
-            fetchData('pam-users', setPamComparison, 'pamComparison');
-            fetchData('get-access', setAccessList, 'accessList');
+            setAccessList(data.accessList);
+          } else {
+            setMessage(data.message || 'Failed to fetch access list.');
           }
-        } catch (err) {
-          setMessages({ ...messages, add: 'Error deleting user.' });
-          console.error('Error deleting user:', err);
+        } catch (error) {
+          setMessage('Error fetching access list.');
+          console.error('Error fetching access list:', error);
         }
       };
-      const handleUpdatePassword = async e => {
-        e.preventDefault();
-        const { selectedUser, updatePassword, updateConfirmPassword } = form;
-        if (!selectedUser) return setMessages({ ...messages, update: 'Please select a user.' });
-        if (selectedUser === user.username) return setMessages({ ...messages, update: 'Use Profile Settings to update your own password.' });
-        if (!updatePassword || !updateConfirmPassword) return setMessages({ ...messages, update: 'New password and confirmation are required.' });
-        if (updatePassword !== updateConfirmPassword) return setMessages({ ...messages, update: 'Passwords do not match.' });
-        if (updatePassword.length < 6) return setMessages({ ...messages, update: 'Password must be at least 6 characters.' });
+
+      const handleAddUser = async () => {
+        if (!newUsername || !newPassword) {
+          setMessage('Username and password are required.');
+          return;
+        }
         try {
-          const { data } = await axios.post(`${API_BASE}/admin-update-password`, {
-            username: selectedUser,
-            newPassword: updatePassword
+          const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword, username: user.username });
+          setMessage(data.message || (data.success ? 'User added successfully!' : 'Failed to add user.'));
+          if (data.success) {
+            setNewUsername('');
+            setNewPassword('');
+            fetchUsers();
+          }
+        } catch (error) {
+          setMessage('Error adding user.');
+          console.error('Error adding user:', error);
+        }
+      };
+
+      const handleDeleteUser = async (username) => {
+        try {
+          const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`, {
+            data: { username: user.username }
           });
-          setMessages({
-            ...messages,
-            update: data.success ? `Password updated for ${selectedUser}!` : data.message || 'Failed to update password.'
-          });
+          setMessage(data.message || (data.success ? 'User deleted successfully!' : 'Failed to delete user.'));
           if (data.success) {
-            setForm({ ...form, updatePassword: '', updateConfirmPassword: '', selectedUser: '' });
+            fetchUsers();
+            fetchAccessList();
           }
-        } catch (err) {
-          setMessages({ ...messages, update: 'Error updating password.' });
-          console.error('Error updating password:', err);
+        } catch (error) {
+          setMessage('Error deleting user.');
+          console.error('Error deleting user:', error);
         }
       };
-      const handleGrantAdmin = async username => {
-        if (username === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
+
+      const handleGrantAdmin = async (username) => {
         try {
-          const { data } = await axios.post(`${API_BASE}/grant-admin`, { username });
-          setMessages({ ...messages, admin: data.success ? `Admin access granted for ${username}!` : data.message || 'Failed to grant admin access.' });
-          if (data.success) fetchData('users', setUsers);
-        } catch (err) {
-          setMessages({ ...messages, admin: 'Error granting admin access.' });
-          console.error('Error granting admin access:', err);
-        }
-      };
-      const handleRevokeAdmin = async username => {
-        if (username === user.username) return setMessages({ ...messages, admin: 'Cannot modify your own admin status.' });
-        try {
-          const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username });
-          setMessages({ ...messages, admin: data.success ? `Admin access revoked for ${username}!` : data.message || 'Failed to revoke admin access.' });
-          if (data.success) fetchData('users', setUsers);
-        } catch (err) {
-          setMessages({ ...messages, admin: 'Error revoking admin access.' });
-          console.error('Error revoking admin access:', err);
-        }
-      };
-      const handleGrantAccess = async e => {
-        e.preventDefault();
-        const { accessViewer, accessTarget } = form;
-        if (!accessViewer || !accessTarget) return setMessages({ ...messages, access: 'Viewer and target are required.' });
-        if (accessViewer === accessTarget) return setMessages({ ...messages, access: 'Cannot grant access to self.' });
-        try {
-          const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer: accessViewer, target: accessTarget });
-          setMessages({ ...messages, access: data.success ? `Access granted for ${accessViewer} to view ${accessTarget}!` : data.message || 'Failed to grant access.' });
+          const { data } = await axios.post(`${API_BASE}/grant-admin`, { username, username: user.username });
+          setMessage(data.message || (data.success ? `Admin access granted for ${username}!` : 'Failed to grant admin access.'));
           if (data.success) {
-            setForm({ ...form, accessViewer: '', accessTarget: '' });
-            fetchData('get-access', setAccessList, 'accessList');
+            fetchUsers();
           }
-        } catch (err) {
-          setMessages({ ...messages, access: 'Error granting access.' });
-          console.error('Error granting access:', err);
+        } catch (error) {
+          setMessage('Error granting admin access.');
+          console.error('Error granting admin access:', error);
         }
       };
+
+      const handleRevokeAdmin = async (username) => {
+        try {
+          const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username, username: user.username });
+          setMessage(data.message || (data.success ? `Admin access revoked for ${username}!` : 'Failed to revoke admin access.'));
+          if (data.success) {
+            fetchUsers();
+          }
+        } catch (error) {
+          setMessage('Error revoking admin access.');
+          console.error('Error revoking admin access:', error);
+        }
+      };
+
+      const handleGrantAccess = async () => {
+        if (!viewer || !target) {
+          setMessage('Viewer and target usernames are required.');
+          return;
+        }
+        try {
+          const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer, target, username: user.username });
+          setMessage(data.message || (data.success ? `Access granted for ${viewer} to view ${target}'s data.` : 'Failed to grant access.'));
+          if (data.success) {
+            setViewer('');
+            setTarget('');
+            fetchAccessList();
+          }
+        } catch (error) {
+          setMessage('Error granting access.');
+          console.error('Error granting access:', error);
+        }
+      };
+
       const handleRevokeAccess = async (viewer, target) => {
         try {
-          const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target });
-          setMessages({ ...messages, access: data.success ? `Access revoked for ${viewer} to view ${target}!` : data.message || 'Failed to revoke access.' });
-          if (data.success) fetchData('get-access', setAccessList, 'accessList');
-        } catch (err) {
-          setMessages({ ...messages, access: 'Error revoking access.' });
-          console.error('Error revoking access:', err);
+          const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target, username: user.username });
+          setMessage(data.message || (data.success ? `Access revoked for ${viewer} to view ${target}'s data.` : 'Failed to revoke access.'));
+          if (data.success) {
+            fetchAccessList();
+          }
+        } catch (error) {
+          setMessage('Error revoking access.');
+          console.error('Error revoking access:', error);
         }
       };
+
+      const handleUpdatePassword = async () => {
+        if (!passwordUsername || !newUserPassword) {
+          setMessage('Username and new password are required.');
+          return;
+        }
+        try {
+          const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: passwordUsername, newPassword: newUserPassword, username: user.username });
+          setMessage(data.message || (data.success ? `Password updated for ${passwordUsername}!` : 'Failed to update password.'));
+          if (data.success) {
+            setPasswordUsername('');
+            setNewUserPassword('');
+          }
+        } catch (error) {
+          setMessage('Error updating password.');
+          console.error('Error updating password:', error);
+        }
+      };
+
+      useEffect(() => {
+        fetchUsers();
+        fetchAccessList();
+      }, []);
+
       return (
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
@@ -835,97 +852,121 @@
             <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6">Admin Dashboard</h1>
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <span>Admin Dashboard</span>
+            </h1>
+            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
             <div className="space-y-8">
-              <div>
+              <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
-                <form onSubmit={handleAddUser} className="space-y-4">
-                  <Input name="newUsername" placeholder="New Username" value={form.newUsername} onChange={e => setForm({ ...form, newUsername: e.target.value })} />
-                  <Input type="password" name="newPassword" placeholder="Password" value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} />
-                  <Input type="password" name="confirmNewPassword" placeholder="Confirm Password" value={form.confirmNewPassword} onChange={e => setForm({ ...form, confirmNewPassword: e.target.value })} />
-                  <Button type="submit">Add User</Button>
-                  {messages.add && <p className={`text-center text-sm ${messages.add.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.add}</p>}
-                </form>
+                <Input
+                  label="Username"
+                  placeholder="Enter username"
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                />
+                <Input
+                  label="Password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="mt-4"
+                />
+                <Button onClick={handleAddUser} className="mt-4">Add User</Button>
               </div>
-              <div>
+
+              <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
-                <form onSubmit={handleUpdatePassword} className="space-y-4">
-                  <Select label="Select User" name="selectedUser" value={form.selectedUser} onChange={e => setForm({ ...form, selectedUser: e.target.value })} options={users.filter(u => u.username !== user.username).map(u => ({ value: u.username, label: u.username }))} />
-                  <Input type="password" name="updatePassword" placeholder="New Password" value={form.updatePassword} onChange={e => setForm({ ...form, updatePassword: e.target.value })} />
-                  <Input type="password" name="updateConfirmPassword" placeholder="Confirm New Password" value={form.updateConfirmPassword} onChange={e => setForm({ ...form, updateConfirmPassword: e.target.value })} />
-                  <Button type="submit">Update Password</Button>
-                  {messages.update && <p className={`text-center text-sm ${messages.update.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.update}</p>}
-                </form>
+                <Select
+                  label="Select User"
+                  value={passwordUsername}
+                  onChange={e => setPasswordUsername(e.target.value)}
+                  options={users.map(u => ({ value: u.username, label: u.username }))}
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newUserPassword}
+                  onChange={e => setNewUserPassword(e.target.value)}
+                  className="mt-4"
+                />
+                <Button onClick={handleUpdatePassword} className="mt-4">Update Password</Button>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage Admin Access</h2>
-                <div className="space-y-4">
-                  <Select label="Select User" name="adminUser" value={form.adminUser} onChange={e => setForm({ ...form, adminUser: e.target.value })} options={users.filter(u => u.username !== user.username).map(u => ({ value: u.username, label: u.username }))} />
-                  <div className="flex space-x-4">
-                    <Button className="bg-green-500 hover:bg-green-600" onClick={() => handleGrantAdmin(form.adminUser)} disabled={!form.adminUser}>Grant Admin</Button>
-                    <Button className="bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAdmin(form.adminUser)} disabled={!form.adminUser}>Revoke Admin</Button>
-                  </div>
-                  {messages.admin && <p className={`text-center text-sm ${messages.admin.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.admin}</p>}
-                </div>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Manage User Access</h2>
-                <form onSubmit={handleGrantAccess} className="space-y-4">
-                  <Select label="Viewer" name="accessViewer" value={form.accessViewer} onChange={e => setForm({ ...form, accessViewer: e.target.value })} options={users.map(u => ({ value: u.username, label: u.username }))} />
-                  <Select label="Target" name="accessTarget" value={form.accessTarget} onChange={e => setForm({ ...form, accessTarget: e.target.value })} options={users.map(u => ({ value: u.username, label: u.username }))} />
-                  <Button type="submit">Grant Access</Button>
-                  {messages.access && <p className={`text-center text-sm ${messages.access.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{messages.access}</p>}
-                </form>
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium text-white mb-3">Current Access Permissions</h3>
-                  <div className="space-y-3">
-                    {accessList.map((access, idx) => (
-                      <div key={idx} className="flex justify-between p-4 card items-center">
-                        <span>{access.viewer} can view {access.target}'s data</span>
-                        <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAccess(access.viewer, access.target)}>Revoke</Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white mb-4">User List</h2>
+
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Users</h2>
                 <div className="space-y-3">
-                  {users.map(u => (
-                    <div key={u.username} className="flex justify-between p-4 card items-center">
-                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
-                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleDeleteUser(u.username)} disabled={u.username === user.username}>Delete</Button>
+                  {users.map(user => (
+                    <div key={user.username} className="flex justify-between items-center p-4 card">
+                      <span>{user.username} {user.isAdmin ? '(Admin)' : ''}</span>
+                      <div className="flex space-x-2">
+                        <Button
+                          className="px-3 py-1 bg-red-500 hover:bg-red-600"
+                          onClick={() => handleDeleteUser(user.username)}
+                          disabled={user.username === user.username}
+                        >
+                          Delete
+                        </Button>
+                        {user.isAdmin ? (
+                          <Button
+                            className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600"
+                            onClick={() => handleRevokeAdmin(user.username)}
+                            disabled={user.username === user.username}
+                          >
+                            Revoke Admin
+                          </Button>
+                        ) : (
+                          <Button
+                            className="px-3 py-1 bg-green-500 hover:bg-green-600"
+                            onClick={() => handleGrantAdmin(user.username)}
+                            disabled={user.username === user.username}
+                          >
+                            Grant Admin
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-              {pamComparison && (
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-4">PAM User Comparison</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-2">PAM Users</h3>
-                      <p className="text-gray-300">{pamComparison.pamUsers?.join(', ') || 'None'}</p>
+
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
+                <Select
+                  label="Viewer"
+                  value={viewer}
+                  onChange={e => setViewer(e.target.value)}
+                  options={users.map(u => ({ value: u.username, label: u.username }))}
+                />
+                <Select
+                  label="Target"
+                  value={target}
+                  onChange={e => setTarget(e.target.value)}
+                  options={users.map(u => ({ value: u.username, label: u.username }))}
+                  className="mt-4"
+                />
+                <Button onClick={handleGrantAccess} className="mt-4">Grant Access</Button>
+              </div>
+
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Access List</h2>
+                <div className="space-y-3">
+                  {accessList.map(access => (
+                    <div key={`${access.viewer}-${access.target}`} className="flex justify-between items-center p-4 card">
+                      <span>{access.viewer} can view {access.target}'s data</span>
+                      <Button
+                        className="px-3 py-1 bg-red-500 hover:bg-red-600"
+                        onClick={() => handleRevokeAccess(access.viewer, access.target)}
+                      >
+                        Revoke
+                      </Button>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-2">App Users</h3>
-                      <p className="text-gray-300">{pamComparison.appUsers?.join(', ') || 'None'}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-2">Common Users</h3>
-                      <p className="text-gray-300">{pamComparison.commonUsers?.join(', ') || 'None'}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-2">App-Only Users</h3>
-                      <p className="text-gray-300">{pamComparison.appOnlyUsers?.join(', ') || 'None'}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-2">PAM-Only Users</h3>
-                      <p className="text-gray-300">{pamComparison.pamOnlyUsers?.join(', ') || 'None'}</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
