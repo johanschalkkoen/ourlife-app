@@ -1,0 +1,22 @@
+DROP TABLE users;
+CREATE TABLE users (
+    username TEXT PRIMARY KEY,
+    password TEXT NOT NULL,
+    passwordHash TEXT,
+    profilePicUrl TEXT,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    eventColor TEXT,
+    isAdmin INTEGER DEFAULT 0
+);
+
+curl -X POST https://ourlife.work.gd:8443/api/add-user \
+-H "Content-Type: application/json" \
+-d '{"username": "admin", "password": "newSecurePassword123"}'
+curl -X POST https://ourlife.work.gd:8443/api/grant-admin \
+-H "Content-Type: application/json" \
+-d '{"username": "admin", "username": "admin"}'
+curl -X POST https://ourlife.work.gd:8443/api/add-user \
+-H "Content-Type: application/json" \
+-d '{"username": "schalk", "password": "userPassword123"}'

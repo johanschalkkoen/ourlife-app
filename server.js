@@ -23,7 +23,7 @@ app.use(cors());
 const db = new sqlite3.Database('./ourlife.db', (err) => {
     if (err) {
         console.error('Error connecting to database:', err.message);
-        process.exit(1); // Exit on connection failure
+        process.exit(1);
     }
     console.log('Connected to the SQLite database.');
     db.serialize(() => {
@@ -76,7 +76,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                         console.error('Error adding color column to financial_items:', alterErr);
                     } else {
                         console.log('Added color column to financial_items table.');
-                        // Validate type column values before updating
                         db.all(`SELECT id, type FROM financial_items WHERE type IS NOT NULL`, [], (selectErr, rows) => {
                             if (selectErr) {
                                 console.error('Error checking financial_items type values:', selectErr);
@@ -86,7 +85,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                             const invalidRows = rows.filter(row => !validTypes.includes(row.type));
                             if (invalidRows.length > 0) {
                                 console.error('Invalid type values found in financial_items:', invalidRows);
-                                // Optionally clean invalid types
                                 db.run(`UPDATE financial_items SET type = 'expense' WHERE type NOT IN (?, ?)`, validTypes, (cleanErr) => {
                                     if (cleanErr) {
                                         console.error('Error cleaning invalid type values:', cleanErr);
@@ -95,7 +93,6 @@ const db = new sqlite3.Database('./ourlife.db', (err) => {
                                     }
                                 });
                             }
-                            // Proceed with color update
                             db.run(
                                 `UPDATE financial_items SET color = CASE WHEN type = 'income' THEN '#00FF00' ELSE '#FF0000' END WHERE color IS NULL`,
                                 (updateErr) => {
@@ -216,8 +213,9 @@ async function getAccessibleUsers(viewer) {
 }
 
 const requireAdmin = async (req, res, next) => {
-    const { username } = req.body.username ? req.body : req.query;
+    const username = (req.body && req.body.username) || (req.query && req.query.username);
     if (!username) {
+        console.error('No username provided in req.body or req.query');
         return res.json({ success: false, message: 'Username is required.' });
     }
     try {
@@ -227,12 +225,13 @@ const requireAdmin = async (req, res, next) => {
                 return res.json({ success: false, message: 'Database error checking admin access.' });
             }
             if (!row || !row.isAdmin) {
+                console.error('Unauthorized access attempt by:', username);
                 return res.json({ success: false, message: 'Unauthorized: Admin access required.' });
             }
             next();
         });
     } catch (error) {
-        console.error('Error checking admin access:', error);
+        console.error('Error checking admin access:', error.stack);
         res.json({ success: false, message: 'Server error checking admin access.' });
     }
 };
@@ -491,7 +490,7 @@ app.get('/api/users', requireAdmin, async (req, res) => {
     try {
         db.all('SELECT username, isAdmin FROM users', [], (err, rows) => {
             if (err) {
-                console.error('Database error fetching users:', err);
+                console.error('Database error fetching users:', err, 'Query: SELECT username, isAdmin FROM users');
                 return res.json({ success: false, message: 'Database error fetching users.' });
             }
             const userList = rows.map(row => ({

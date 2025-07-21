@@ -1,1 +1,12 @@
 INSERT INTO users (username, password) VALUES ('admin', '$2b$10$FbeIZ7rPG6mBE3Vn5k4QVOjS.E1k2BfBMzfKTBt7WZLzNTmnm4Mw6');
+
+
+root@mail:~/ourlife-app# node generate-hash.js
+Generated hash: $2b$10$iLZDSwmWN0Iihdp34rbIKeVlinmmy.XmNNVGsw32QGYhY1C3rTumy
+root@mail:~/ourlife-app# sqlite3 /root/ourlife-app/ourlife.db
+SQLite version 3.46.1 2024-08-13 09:16:08
+Enter ".help" for usage hints.
+sqlite> UPDATE users SET passwordHash = '$2b$10$iLZDSwmWN0Iihdp34rbIKeVlinmmy.XmNNVGsw32QGYhY1C3rTumy', isAdmin = 1 WHERE username = 'admin';
+sqlite> UPDATE users SET passwordHash = '$2b$10$iLZDSwmWN0Iihdp34rbIKeVlinmmy.XmNNVGsw32QGYhY1C3rTumy', isAdmin = 1 WHERE username = 'schalk';
+sqlite> .exit
+root@mail:~/ourlife-app#

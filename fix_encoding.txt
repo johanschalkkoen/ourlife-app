@@ -1,0 +1,6 @@
+cat -A /root/ourlife-app/server.js | head -n 190 | tail -n 10
+# Look for stray characters (e.g., ^M, ], or non-ASCII symbols) around line 189.
+file /root/ourlife-app/server.js
+sed -i 's/\r//g' /root/ourlife-app/server.js
+iconv -f UTF-8 -t UTF-8 -o /root/ourlife-app/server.js.new /root/ourlife-app/server.js
+mv /root/ourlife-app/server.js.new /root/ourlife-app/server.js
