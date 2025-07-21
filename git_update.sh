@@ -7,3 +7,4 @@ git add *
 gt add .
 git commit -m "$name"
 git push
+git status
