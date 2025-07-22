@@ -1,21 +1,14 @@
-adding a Period Tracker component for female users and updating the ProfileSettings component to include a gender field, with the Period Tracker option only available to users who select "Female." The changes will align with the existing site’s style and follow the same deployment process as the Budget Calculator.
-
-Requirements Breakdown
-Period Tracker Component:
-Create a new PeriodTracker component, accessible via a menu button next to "Budget Calculator" for female users only.
-Allow female users to:
-Log period start/end dates, cycle length, and symptoms (e.g., cramps, mood swings).
-View a summary of their cycle history and predictions for upcoming periods.
-Match the site’s style: Tailwind CSS, card design, Inter font, dark theme with teal accents, consistent with Financial and BudgetCalculator.
-Include "Back to Menu" and "Sign Out" buttons, styled like other pages.
-ProfileSettings Update:
-Add a gender selection field (Male/Female) to the ProfileSettings component.
-Save the gender to the user’s profile via the existing /api/profile-pictures endpoint (assumes backend supports a gender field).
-Only show the "Period Tracker" menu option for users with gender: "Female".
-Male users will not see the "Period Tracker" option.
-Constraints:
-Only modify ProfileSettings, Menu, and add PeriodTracker. No changes to other components (Login, Financial, Calendar, Admin, etc.).
-Reuse the same artifact_id as before (4b7c686b-698e-423e-9670-0a3dbbe841e2) with a new version.
-Ensure deployment instructions are provided, accounting for cache issues.
-Implementation
-Below is the updated index.html with the new PeriodTracker component and modifications to ProfileSettings and Menu. The code reuses existing utilities (Input, Button, ProfilePic, formatDateTime) and styles to ensure consistency.
+Key Features
+Gender Saving:
+The ProfileSettings component includes a gender field (Male/Female) that is saved to the /profile-pictures endpoint and stored in localStorage.
+The App component fetches and updates the gender field on login and profile updates.
+The Menu component conditionally displays the PeriodTracker option only for users with gender: 'Female'.
+Period Tracker:
+The PeriodTracker component allows users to log menstrual cycles (start date, end date, cycle length, symptoms) and saves them to the /period-tracker endpoint.
+Cycle data is fetched and displayed with predictions for the next period and fertile days.
+A POST request is sent to the n8n webhook URL when a new cycle is added, triggering a WhatsApp notification with the user’s phone number.
+WhatsApp Trigger:
+The handleAddCycle function in PeriodTracker sends a POST request to the n8n webhook URL with cycle details and the user’s phone number (from ProfileSettings).
+Backend Requirements:
+The backend must support /period-tracker (GET/POST) for cycle data and /profile-pictures (GET/POST) for profile data, including gender.
+The n8n webhook URL must be configured to handle WhatsApp notifications.

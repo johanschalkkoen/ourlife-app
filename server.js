@@ -542,10 +542,10 @@ const httpsOptions = {
 };
 
 const httpsServer = https.createServer(httpsOptions, app);
-httpsServer.listen(8443, () => console.log('HTTPS Server running on port 8443'));
+httpsServer.listen(9443, () => console.log('HTTPS Server running on port 9443'));
 
 const httpServer = http.createServer((req, res) => {
     res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
     res.end();
 });
-httpServer.listen(9000, () => console.log('HTTP Server running on port 9000 and redirecting to HTTPS'));
+httpServer.listen(9001, () => console.log('HTTP Server running on port 9001 and redirecting to HTTPS'));
