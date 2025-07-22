@@ -9,120 +9,29 @@
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.6/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/compressorjs@1.2.1/dist/compressor.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      background: #1e293b;
-      min-height: 100vh;
-      font-family: 'Inter', sans-serif;
-      color: #f1f5f9;
-    }
-    .fc-event {
-      position: relative;
-      cursor: pointer;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-      margin: 4px 6px;
-      transition: transform 0.2s ease, background-color 0.2s ease;
-    }
-    .fc-event:hover {
-      transform: scale(1.03);
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-    .fc-event:active {
-      transform: scale(0.98);
-    }
-    .fc-event-main {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      padding: 8px;
-      background: none;
-      color: #f1f5f9;
-      font-size: 0.875rem;
-    }
-    .fc-event-title {
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      width: 100%;
-    }
-    .fc-event-user {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .modal {
-      transform: scale(0.8);
-      opacity: 0;
-      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    }
-    .modal.show {
-      transform: scale(1);
-      opacity: 1;
-    }
-    .profile-pic-container {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid #2dd4bf;
-      background: #fff;
-    }
-    .profile-pic {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .event-profile-pic-container {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid #fff;
-      background: #fff;
-    }
-    .event-profile-pic {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    input, select, textarea {
-      transition: all 0.2s ease;
-    }
-    input:focus, select:focus, textarea:focus {
-      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
-      border-color: #2dd4bf;
-    }
-    button {
-      transition: all 0.2s ease;
-    }
-    button:hover {
-      transform: scale(1.02);
-    }
-    button:active {
-      transform: scale(0.98);
-    }
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
+    body { background: #1e293b; min-height: 100vh; font-family: 'Inter', sans-serif; color: #f1f5f9; }
+    .fc-event { position: relative; cursor: pointer; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); margin: 4px 6px; transition: transform 0.2s ease, background-color 0.2s ease; }
+    .fc-event:hover { transform: scale(1.03); background-color: rgba(255, 255, 255, 0.1); }
+    .fc-event:active { transform: scale(0.98); }
+    .fc-event-main { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px; background: none; color: #f1f5f9; font-size: 0.875rem; }
+    .fc-event-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+    .fc-event-user { font-size: 0.75rem; opacity: 0.8; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .modal { transform: scale(0.8); opacity: 0; transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+    .modal.show { transform: scale(1); opacity: 1; }
+    .profile-pic-container { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #2dd4bf; background: #fff; }
+    .profile-pic { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .event-profile-pic-container { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; background: #fff; }
+    .event-profile-pic { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    input, select, textarea { transition: all 0.2s ease; }
+    input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2); border-color: #2dd4bf; }
+    button { transition: all 0.2s ease; }
+    button:hover { transform: scale(1.02); }
+    button:active { transform: scale(0.98); }
+    .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
   </style>
 </head>
 <body>
@@ -140,22 +49,11 @@
       { value: '09', label: 'September' }, { value: '10', label: 'October' },
       { value: '11', label: 'November' }, { value: '12', label: 'December' }
     ];
-    const CURRENCY_CONFIG = {
-      USD: { symbol: '$', rate: 1 },
-      EUR: { symbol: '€', rate: 0.85 },
-      ZAR: { symbol: 'R', rate: 18.5 }
-    };
+    const CURRENCY_CONFIG = { USD: { symbol: '$', rate: 1 }, EUR: { symbol: '€', rate: 0.85 }, ZAR: { symbol: 'R', rate: 18.5 } };
 
     const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
-    const getCurrentDateTime = () => {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      return now.toISOString().slice(0, 19);
-    };
-    const formatDateTime = date => new Date(date).toLocaleString('en-ZA', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-    }).replace(/,/, '');
+    const getCurrentDateTime = () => { const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); return now.toISOString().slice(0, 19); };
+    const formatDateTime = date => new Date(date).toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/, '');
     const formatAmount = amount => `${CURRENCY_CONFIG.ZAR.symbol}${parseFloat(amount).toFixed(2)}`;
 
     const Input = ({ label, className = '', ...props }) => (
@@ -194,7 +92,6 @@
               const users = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
               setAccessibleUsers(users);
               setSelectedUsers(users);
-              const profiles = { [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC };
               Promise.all(users.filter(u => u !== user.username).map(u =>
                 axios.get(`${API_BASE}/profile-pictures?username=${u}`)
                   .then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC])
@@ -298,11 +195,22 @@
             setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
             return;
           }
-          setSelectedFile(file);
-          setMessage('');
-          const reader = new FileReader();
-          reader.onloadend = () => setForm({ ...form, profilePicUrl: reader.result });
-          reader.readAsDataURL(file);
+          new Compressor(file, {
+            quality: 0.6, // Compress to 60% quality
+            maxWidth: 500, // Max width 500px
+            maxHeight: 500, // Max height 500px
+            success(compressedFile) {
+              setSelectedFile(compressedFile);
+              setMessage('');
+              const reader = new FileReader();
+              reader.onloadend = () => setForm({ ...form, profilePicUrl: reader.result });
+              reader.readAsDataURL(compressedFile);
+            },
+            error(err) {
+              setMessage('Error compressing image.');
+              console.error('Compression error:', err);
+            }
+          });
         } else {
           setSelectedFile(null);
           setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
@@ -701,174 +609,210 @@
       const [newUserPassword, setNewUserPassword] = useState('');
       const [message, setMessage] = useState('');
 
-const requireAdmin = async (req, res, next) => {
-    // Prioritize adminUsername for admin authentication, fall back to username
-    const username = (req.query && req.query.adminUsername) || (req.body && req.body.adminUsername) || 
-                    (req.query && req.query.username) || (req.body && req.body.username);
-    if (!username) {
-        console.error('No username provided in req.body or req.query');
-        return res.json({ success: false, message: 'Username is required.' });
-    }
-    try {
-        db.get('SELECT isAdmin FROM users WHERE username = ?', [username], (err, row) => {
-            if (err) {
-                console.error('Database error checking admin access:', err.message);
-                return res.json({ success: false, message: 'Database error checking admin access.' });
-            }
-            if (!row || !row.isAdmin) {
-                console.error('Unauthorized access attempt by:', username);
-                return res.json({ success: false, message: 'Unauthorized: Admin access required.' });
-            }
-            next();
-        });
-    } catch (error) {
-        console.error('Error checking admin access:', error.stack);
-        res.json({ success: false, message: 'Server error checking admin access.' });
-    }
-};
-
-const fetchUsers = async () => {
-    try {
-        const { data } = await axios.get(`${API_BASE}/users`, { params: { username: user.username } });
-        if (data.success) {
-            setUsers(data.data);
-        } else {
-            setMessage(data.message || 'Failed to fetch users.');
+      const fetchUsers = async () => {
+        if (!user?.username) {
+          console.error('fetchUsers: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
         }
-    } catch (error) {
-        setMessage('Error fetching users: ' + (error.response?.data?.message || error.message));
-        console.error('Error fetching users:', error.response?.data || error);
-    }
-};
-      const fetchAccessList = async () => {
+        console.log('Fetching users with adminUsername:', user.username);
         try {
-          const { data } = await axios.get(`${API_BASE}/get-access`);
-          if (data.success) {
-            setAccessList(data.accessList);
-          } else {
-            setMessage(data.message || 'Failed to fetch access list.');
-          }
+          const { data } = await axios.get(`${API_BASE}/users`, { params: { adminUsername: user.username } });
+          data.success ? setUsers(data.data) : setMessage(data.message || 'Failed to fetch users.');
         } catch (error) {
-          setMessage('Error fetching access list.');
-          console.error('Error fetching access list:', error);
+          console.error('Error fetching users:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error fetching users.');
+        }
+      };
+
+      const fetchAccessList = async () => {
+        if (!user?.username) {
+          console.error('fetchAccessList: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
+        console.log('Fetching access list with adminUsername:', user.username);
+        try {
+          const { data } = await axios.get(`${API_BASE}/get-access`, { params: { adminUsername: user.username } });
+          data.success ? setAccessList(data.accessList) : setMessage(data.message || 'Failed to fetch access list.');
+        } catch (error) {
+          console.error('Error fetching access list:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error fetching access list.');
         }
       };
 
       const handleAddUser = async () => {
+        if (!user?.username) {
+          console.error('handleAddUser: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
         if (!newUsername || !newPassword) {
           setMessage('Username and password are required.');
           return;
         }
+        console.log('Adding user:', { newUsername, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword, username: user.username });
-          setMessage(data.message || (data.success ? 'User added successfully!' : 'Failed to add user.'));
+          const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword, adminUsername: user.username });
           if (data.success) {
+            setMessage('User added successfully!');
             setNewUsername('');
             setNewPassword('');
             fetchUsers();
+          } else {
+            setMessage(data.message || 'Failed to add user.');
           }
         } catch (error) {
-          setMessage('Error adding user.');
-          console.error('Error adding user:', error);
+          console.error('Error adding user:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error adding user.');
         }
       };
 
       const handleDeleteUser = async (username) => {
+        if (!user?.username) {
+          console.error('handleDeleteUser: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
+        console.log('Deleting user:', { username, adminUsername: user.username });
         try {
-          const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`, {
-            data: { username: user.username }
-          });
-          setMessage(data.message || (data.success ? 'User deleted successfully!' : 'Failed to delete user.'));
+          const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`, { data: { adminUsername: user.username } });
           if (data.success) {
+            setMessage('User deleted successfully!');
             fetchUsers();
             fetchAccessList();
+          } else {
+            setMessage(data.message || 'Failed to delete user.');
           }
         } catch (error) {
-          setMessage('Error deleting user.');
-          console.error('Error deleting user:', error);
+          console.error('Error deleting user:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error deleting user.');
         }
       };
 
       const handleGrantAdmin = async (username) => {
+        if (!user?.username) {
+          console.error('handleGrantAdmin: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
+        console.log('Granting admin for:', { username, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/grant-admin`, { username, username: user.username });
-          setMessage(data.message || (data.success ? `Admin access granted for ${username}!` : 'Failed to grant admin access.'));
+          const { data } = await axios.post(`${API_BASE}/grant-admin`, { username, adminUsername: user.username });
           if (data.success) {
+            setMessage(`Admin access granted for ${username}!`);
             fetchUsers();
+          } else {
+            setMessage(data.message || 'Failed to grant admin access.');
           }
         } catch (error) {
-          setMessage('Error granting admin access.');
-          console.error('Error granting admin access:', error);
+          console.error('Error granting admin access:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error granting admin access.');
         }
       };
 
       const handleRevokeAdmin = async (username) => {
+        if (!user?.username) {
+          console.error('handleRevokeAdmin: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
+        console.log('Revoking admin for:', { username, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username, username: user.username });
-          setMessage(data.message || (data.success ? `Admin access revoked for ${username}!` : 'Failed to revoke admin access.'));
+          const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username, adminUsername: user.username });
           if (data.success) {
+            setMessage(`Admin access revoked for ${username}!`);
             fetchUsers();
+          } else {
+            setMessage(data.message || 'Failed to revoke admin access.');
           }
         } catch (error) {
-          setMessage('Error revoking admin access.');
-          console.error('Error revoking admin access:', error);
+          console.error('Error revoking admin access:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error revoking admin access.');
         }
       };
 
       const handleGrantAccess = async () => {
+        if (!user?.username) {
+          console.error('handleGrantAccess: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
         if (!viewer || !target) {
           setMessage('Viewer and target usernames are required.');
           return;
         }
+        console.log('Granting access:', { viewer, target, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer, target, username: user.username });
-          setMessage(data.message || (data.success ? `Access granted for ${viewer} to view ${target}'s data.` : 'Failed to grant access.'));
+          const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer, target, adminUsername: user.username });
           if (data.success) {
+            setMessage(`Access granted for ${viewer} to view ${target}'s data.`);
             setViewer('');
             setTarget('');
             fetchAccessList();
+          } else {
+            setMessage(data.message || 'Failed to grant access.');
           }
         } catch (error) {
-          setMessage('Error granting access.');
-          console.error('Error granting access:', error);
+          console.error('Error granting access:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error granting access.');
         }
       };
 
       const handleRevokeAccess = async (viewer, target) => {
+        if (!user?.username) {
+          console.error('handleRevokeAccess: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
+        console.log('Revoking access:', { viewer, target, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target, username: user.username });
-          setMessage(data.message || (data.success ? `Access revoked for ${viewer} to view ${target}'s data.` : 'Failed to revoke access.'));
+          const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target, adminUsername: user.username });
           if (data.success) {
+            setMessage(`Access revoked for ${viewer} to view ${target}'s data.`);
             fetchAccessList();
+          } else {
+            setMessage(data.message || 'Failed to revoke access.');
           }
         } catch (error) {
-          setMessage('Error revoking access.');
-          console.error('Error revoking access:', error);
+          console.error('Error revoking access:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error revoking access.');
         }
       };
 
       const handleUpdatePassword = async () => {
+        if (!user?.username) {
+          console.error('handleUpdatePassword: User not initialized or username missing');
+          setMessage('User not logged in');
+          return;
+        }
         if (!passwordUsername || !newUserPassword) {
           setMessage('Username and new password are required.');
           return;
         }
+        console.log('Updating password for:', { passwordUsername, adminUsername: user.username });
         try {
-          const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: passwordUsername, newPassword: newUserPassword, username: user.username });
-          setMessage(data.message || (data.success ? `Password updated for ${passwordUsername}!` : 'Failed to update password.'));
+          const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: passwordUsername, newPassword: newUserPassword, adminUsername: user.username });
           if (data.success) {
+            setMessage(`Password updated for ${passwordUsername}!`);
             setPasswordUsername('');
             setNewUserPassword('');
+          } else {
+            setMessage(data.message || 'Failed to update password.');
           }
         } catch (error) {
-          setMessage('Error updating password.');
-          console.error('Error updating password:', error);
+          console.error('Error updating password:', error.response?.data || error);
+          setMessage(error.response?.data?.message || 'Error updating password.');
         }
       };
 
       useEffect(() => {
-        fetchUsers();
-        fetchAccessList();
-      }, []);
+        if (user?.isAdmin) {
+          console.log('User is admin, fetching users and access list');
+          fetchUsers();
+          fetchAccessList();
+        }
+      }, [user]);
 
       return (
         <div className="p-6 max-w-6xl mx-auto">
@@ -885,109 +829,47 @@ const fetchUsers = async () => {
             <div className="space-y-8">
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
-                <Input
-                  label="Username"
-                  placeholder="Enter username"
-                  value={newUsername}
-                  onChange={e => setNewUsername(e.target.value)}
-                />
-                <Input
-                  label="Password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="mt-4"
-                />
+                <Input label="Username" placeholder="Enter username" value={newUsername} onChange={e => setNewUsername(e.target.value)} />
+                <Input label="Password" type="password" placeholder="Enter password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-4" />
                 <Button onClick={handleAddUser} className="mt-4">Add User</Button>
               </div>
-
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
-                <Select
-                  label="Select User"
-                  value={passwordUsername}
-                  onChange={e => setPasswordUsername(e.target.value)}
-                  options={users.map(u => ({ value: u.username, label: u.username }))}
-                />
-                <Input
-                  label="New Password"
-                  type="password"
-                  placeholder="Enter new password"
-                  value={newUserPassword}
-                  onChange={e => setNewUserPassword(e.target.value)}
-                  className="mt-4"
-                />
+                <Select label="Select User" value={passwordUsername} onChange={e => setPasswordUsername(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} />
+                <Input label="New Password" type="password" placeholder="Enter new password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} className="mt-4" />
                 <Button onClick={handleUpdatePassword} className="mt-4">Update Password</Button>
               </div>
-
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Users</h2>
                 <div className="space-y-3">
-                  {users.map(user => (
-                    <div key={user.username} className="flex justify-between items-center p-4 card">
-                      <span>{user.username} {user.isAdmin ? '(Admin)' : ''}</span>
+                  {users.map(u => (
+                    <div key={u.username} className="flex justify-between items-center p-4 card">
+                      <span>{u.username} {u.isAdmin ? '(Admin)' : ''}</span>
                       <div className="flex space-x-2">
-                        <Button
-                          className="px-3 py-1 bg-red-500 hover:bg-red-600"
-                          onClick={() => handleDeleteUser(user.username)}
-                          disabled={user.username === user.username}
-                        >
-                          Delete
-                        </Button>
-                        {user.isAdmin ? (
-                          <Button
-                            className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600"
-                            onClick={() => handleRevokeAdmin(user.username)}
-                            disabled={user.username === user.username}
-                          >
-                            Revoke Admin
-                          </Button>
+                        <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleDeleteUser(u.username)} disabled={u.username === user.username}>Delete</Button>
+                        {u.isAdmin ? (
+                          <Button className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600" onClick={() => handleRevokeAdmin(u.username)} disabled={u.username === user.username}>Revoke Admin</Button>
                         ) : (
-                          <Button
-                            className="px-3 py-1 bg-green-500 hover:bg-green-600"
-                            onClick={() => handleGrantAdmin(user.username)}
-                            disabled={user.username === user.username}
-                          >
-                            Grant Admin
-                          </Button>
+                          <Button className="px-3 py-1 bg-green-500 hover:bg-green-600" onClick={() => handleGrantAdmin(u.username)} disabled={u.username === user.username}>Grant Admin</Button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
-                <Select
-                  label="Viewer"
-                  value={viewer}
-                  onChange={e => setViewer(e.target.value)}
-                  options={users.map(u => ({ value: u.username, label: u.username }))}
-                />
-                <Select
-                  label="Target"
-                  value={target}
-                  onChange={e => setTarget(e.target.value)}
-                  options={users.map(u => ({ value: u.username, label: u.username }))}
-                  className="mt-4"
-                />
+                <Select label="Viewer" value={viewer} onChange={e => setViewer(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} />
+                <Select label="Target" value={target} onChange={e => setTarget(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} className="mt-4" />
                 <Button onClick={handleGrantAccess} className="mt-4">Grant Access</Button>
               </div>
-
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Access List</h2>
                 <div className="space-y-3">
                   {accessList.map(access => (
                     <div key={`${access.viewer}-${access.target}`} className="flex justify-between items-center p-4 card">
                       <span>{access.viewer} can view {access.target}'s data</span>
-                      <Button
-                        className="px-3 py-1 bg-red-500 hover:bg-red-600"
-                        onClick={() => handleRevokeAccess(access.viewer, access.target)}
-                      >
-                        Revoke
-                      </Button>
+                      <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => handleRevokeAccess(access.viewer, access.target)}>Revoke</Button>
                     </div>
                   ))}
                 </div>
@@ -1001,8 +883,26 @@ const fetchUsers = async () => {
     const App = () => {
       const [user, setUser] = useState(null);
       const [page, setPage] = useState('login');
-      const handleLogin = userData => { setUser(userData); setPage('menu'); };
-      const handleLogout = () => { setUser(null); setPage('login'); };
+      const handleLogin = userData => {
+        setUser(userData);
+        setPage('menu');
+        localStorage.setItem('user', JSON.stringify(userData));
+      };
+      const handleLogout = () => {
+        console.log('Logging out, clearing user');
+        setUser(null);
+        setPage('login');
+        localStorage.removeItem('user');
+      };
+      useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          console.log('Restoring user from localStorage:', userData);
+          setUser(userData);
+          setPage('menu');
+        }
+      }, []);
       return (
         <>
           {page === 'login' && <Login onLogin={handleLogin} />}
@@ -1010,7 +910,7 @@ const fetchUsers = async () => {
           {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
           {page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
           {page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'admin' && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'admin' && user?.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
         </>
       );
     };
