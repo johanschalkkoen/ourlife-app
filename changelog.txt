@@ -150,3 +150,258 @@ Notes
 The DEP0066 warning can be ignored for now, as it’s a Node.js deprecation and doesn’t affect functionality. To investigate, run node --trace-deprecation on the server and check the stack trace, but this is low priority.
 If the back-end /api/get-access still rejects the request, we may need to inspect its code or test with a tool like Postman to confirm the expected parameters.
 The access list log shows schalk has access to leani, johan, and test, and test has access to johan, which should work once the API call is fixed.
+
+
+
+
+
+iSince you’ve confirmed the previous changes worked but the latest updates (Admin button styling and Budget Calculator) aren’t showing, let’s troubleshoot and ensure the new index.html is properly deployed. The changes were applied to the artifact with artifact_id="4b7c686b-698e-423e-9670-0a3dbbe841e2" and artifact_version_id="908cde99-4adc-4c15-8983-27e6de798727". Here’s how to resolve this:
+
+Possible Issues and Fixes
+File Not Updated:
+The new index.html might not have been saved or copied to the correct location.
+Action: Reapply the updated index.html content to /root/ourlife-app/index.html.
+Server Cache:
+Nginx or browser cache might be serving the old version.
+Action: Clear Nginx cache and force a browser refresh.
+Service Not Restarted:
+Nginx or the Node.js app (ourlife-app-web) might not have restarted properly.
+Action: Restart services and verify they’re running.
+Incorrect Deployment Path:
+The file might have been deployed to the wrong directory or server.
+Action: Confirm the deployment path and server.
+Browser Caching:
+Your browser might be caching the old page.
+Action: Test in an incognito window or clear browser cache.
+Step-by-Step Resolution
+Time: 1:28 PM SAST, July 22, 2025
+
+Verify and Reapply index.html:
+Backup Current File:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+cp /root/ourlife-app/index.html /root/ourlife-app/index.html.bak-$(date +%F-%H%M%S)
+Download and Replace index.html:
+Copy the index.html content from the previous response (from <!DOCTYPE html> to </html>).
+Save it locally as index.html on your machine.
+Upload to the server:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+scp index.html root@ourlife.work.gd:/root/ourlife-app/index.html
+Alternatively, edit directly:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+nano /root/ourlife-app/index.html
+Paste the content, save (Ctrl+O, Enter), and exit (Ctrl+X).
+Verify File Content:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+grep "BudgetCalculator" /root/ourlife-app/index.html
+Should return lines referencing the BudgetCalculator component.
+Check for Admin button classes:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+grep "bg-green-500" /root/ourlife-app/index.html
+grep "bg-yellow-500" /root/ourlife-app/index.html
+grep "bg-blue-500" /root/ourlife-app/index.html
+Should find Add User, Update Password, and Grant Access buttons.
+Clear Nginx Cache and Restart Services:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+sudo rm -rf /var/cache/nginx/*
+sudo systemctl restart nginx
+pm2 restart ourlife-app-web
+Verify services are running:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+sudo systemctl status nginx
+pm2 status
+Ensure nginx is active (running) and ourlife-app-web is online.
+Test in Browser:
+Open an incognito window in Chrome or Firefox.
+Navigate to https://ourlife.work.gd.
+Log in as schalk (or any user).
+Menu Check:
+Look for a "Budget Calculator" button below "Financial" in the menu.
+Should be teal (bg-teal-500, hover bg-teal-600), full-width, rounded, white text, matching other buttons.
+Admin Dashboard Check (if isAdmin):
+Navigate to "Admin" from the menu.
+Verify buttons:
+"Add User": Green (bg-green-500, hover bg-green-600), px-4 py-2 rounded-lg text-white.
+"Update Password": Yellow (bg-yellow-500, hover bg-yellow-600), px-4 py-2 rounded-lg text-white.
+"Grant Access": Blue (bg-blue-500, hover bg-blue-600), px-4 py-2 rounded-lg text-white.
+Hover over buttons to confirm scaling (transform: scale(1.02)) and click to see scale(0.98).
+Budget Calculator Check:
+Click "Budget Calculator" in the menu.
+Verify:
+Header with profile picture and "Budget Calculator" text.
+Card container (rgba(255, 255, 255, 0.05) background, blurred, rounded).
+Input fields for "Monthly Income" and expenses (Rent/Mortgage, Utilities, Groceries, Transport, Other).
+Summary section showing "Total Income," "Total Expenses," and "Remaining Budget" (green if positive, red if negative).
+"Save Budget" button (teal, bg-teal-500).
+Test: Enter income (e.g., 50000), expenses (e.g., 20000 for Rent), and click "Save Budget." Expect "Budget saved successfully!" in green.
+Test: Leave fields empty, click "Save Budget." Expect "Please fill in all fields." in red.
+Confirm "Back to Menu" (gray) and "Sign Out" (red) buttons match other pages.
+Debug Server Logs:
+Check Nginx logs for errors:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+Check PM2 logs for the app:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+pm2 logs ourlife-app-web
+Look for errors related to serving index.html or JavaScript execution.
+Clear Browser Cache:
+In Chrome: Ctrl+Shift+Delete → Select "Cached images and files" → Clear data.
+Or use incognito mode to bypass cache.
+Hard refresh: Ctrl+F5 or Cmd+Shift+R.
+Confirm Server Reachability:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+ping ourlife.work.gd
+curl -I https://ourlife.work.gd
+Expect HTTP/1.1 200 OK or similar.
+If Changes Still Not Visible
+Compare File Content:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+md5sum /root/ourlife-app/index.html
+Share the hash or compare it with the expected file to confirm it matches the updated version.
+Check Deployed File:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+head -n 20 /root/ourlife-app/index.html
+Verify the file starts with <!DOCTYPE html> and includes the updated <script type="text/babel"> section with BudgetCalculator.
+Alternative Deployment:
+If the file is correct but changes aren’t showing, try deploying to a temporary path:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+cp /root/ourlife-app/index.html /root/ourlife-app/index-test.html
+Update Nginx to serve index-test.html temporarily:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+nano /etc/nginx/sites-available/ourlife
+Change root /root/ourlife-app; to point to index-test.html or adjust the location block.
+Reload Nginx:
+bash
+
+Collapse
+
+Wrap
+
+Run
+
+Copy
+sudo nginx -t && sudo systemctl reload nginx
+Test at https://ourlife.work.gd/index-test.html.
+Contact Server Admin (if not you):
+If you’re not managing the server, share the index.html content and deployment instructions with the admin.
+Ask them to confirm the file path and service status.
+Next Steps
+After performing these steps, please confirm if the "Budget Calculator" button appears in the menu and if the Admin buttons are styled (green for "Add User," yellow for "Update Password," blue for "Grant Access").
+If still not visible, share:
+Output of grep "BudgetCalculator" /root/ourlife-app/index.html.
+Any errors from Nginx or PM2 logs.
+Whether you’re testing in incognito mode and the browser used.
+I can provide a diff of the changes or assist with further debugging.
+If you want me to regenerate the index.html or focus on specific sections (e.g., just the Admin or BudgetCalculator components), let me know!

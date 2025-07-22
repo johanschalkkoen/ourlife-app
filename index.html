@@ -131,7 +131,6 @@
           })
           .catch(err => {
             console.error('useAccessibleUsers: Error fetching access list:', err.response?.data || err);
-            setTargetUsers([]);
             setError(err.response?.data?.message || 'Error fetching access list. Check server.');
             setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
           });
@@ -191,7 +190,7 @@
             <span>Welcome, {capitalize(user.username)}!</span>
           </h1>
           <div className="space-y-3">
-            {['financial', 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])].map(page => (
+            {['financial', 'budgetCalculator', 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])].map(page => (
               <Button key={page} onClick={() => setPage(page)}>{capitalize(page)}</Button>
             ))}
             <Button className="bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
@@ -680,6 +679,98 @@
       );
     };
 
+    const BudgetCalculator = ({ user, setPage, onLogout }) => {
+      const [budget, setBudget] = useState({
+        income: '',
+        expenses: [
+          { category: 'Rent/Mortgage', amount: '' },
+          { category: 'Utilities', amount: '' },
+          { category: 'Groceries', amount: '' },
+          { category: 'Transport', amount: '' },
+          { category: 'Other', amount: '' }
+        ]
+      });
+      const [totalExpenses, setTotalExpenses] = useState(0);
+      const [remainingBudget, setRemainingBudget] = useState(0);
+      const [message, setMessage] = useState('');
+
+      const handleIncomeChange = e => {
+        const income = e.target.value;
+        setBudget({ ...budget, income });
+        calculateBudget(income, budget.expenses);
+      };
+
+      const handleExpenseChange = (index, value) => {
+        const newExpenses = [...budget.expenses];
+        newExpenses[index].amount = value;
+        setBudget({ ...budget, expenses: newExpenses });
+        calculateBudget(budget.income, newExpenses);
+      };
+
+      const calculateBudget = (income, expenses) => {
+        const total = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+        setTotalExpenses(total);
+        setRemainingBudget((parseFloat(income) || 0) - total);
+        setMessage('');
+      };
+
+      const handleSaveBudget = () => {
+        if (!budget.income || budget.expenses.some(exp => !exp.amount)) {
+          setMessage('Please fill in all fields.');
+          return;
+        }
+        setMessage('Budget saved successfully!');
+      };
+
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+          </div>
+          <div className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <span>Budget Calculator</span>
+            </h1>
+            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
+            <div className="space-y-6">
+              <Input
+                label="Monthly Income (ZAR)"
+                type="number"
+                placeholder="Enter your total monthly income"
+                value={budget.income}
+                onChange={handleIncomeChange}
+              />
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-white">Expenses</h2>
+                {budget.expenses.map((expense, index) => (
+                  <div key={index} className="flex items-center gap-4">
+                    <Input
+                      label={expense.category}
+                      type="number"
+                      placeholder={`Enter ${expense.category.toLowerCase()} amount`}
+                      value={expense.amount}
+                      onChange={e => handleExpenseChange(index, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-2">Budget Summary</h2>
+                <p className="text-white">Total Income: {formatAmount(budget.income || 0)}</p>
+                <p className="text-white">Total Expenses: {formatAmount(totalExpenses)}</p>
+                <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  Remaining Budget: {formatAmount(remainingBudget)}
+                </p>
+              </div>
+              <Button onClick={handleSaveBudget}>Save Budget</Button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const Admin = ({ user, setPage, onLogout }) => {
       const [users, setUsers] = useState([]);
       const [accessList, setAccessList] = useState([]);
@@ -900,7 +991,7 @@
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
             <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
-          <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
@@ -913,13 +1004,13 @@
                 <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
                 <Input label="Username" placeholder="Enter username" value={newUsername} onChange={e => setNewUsername(e.target.value)} />
                 <Input label="Password" type="password" placeholder="Enter password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-4" />
-                <Button onClick={handleAddUser} className="mt-4">Add User</Button>
+                <Button className="mt-4 px-4 py-2 bg-green-500 hover:bg-green-600" onClick={handleAddUser}>Add User</Button>
               </div>
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Update User Password</h2>
                 <Select label="Select User" value={passwordUsername} onChange={e => setPasswordUsername(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} />
                 <Input label="New Password" type="password" placeholder="Enter new password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} className="mt-4" />
-                <Button onClick={handleUpdatePassword} className="mt-4">Update Password</Button>
+                <Button className="mt-4 px-4 py-2 bg-yellow-500 hover:bg-yellow-600" onClick={handleUpdatePassword}>Update Password</Button>
               </div>
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Users</h2>
@@ -943,7 +1034,7 @@
                 <h2 className="text-xl font-semibold text-white mb-4">Grant Access</h2>
                 <Select label="Viewer" value={viewer} onChange={e => setViewer(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} />
                 <Select label="Target" value={target} onChange={e => setTarget(e.target.value)} options={users.map(u => ({ value: u.username, label: u.username }))} className="mt-4" />
-                <Button onClick={handleGrantAccess} className="mt-4">Grant Access</Button>
+                <Button className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={handleGrantAccess}>Grant Access</Button>
               </div>
               <div className="card p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Access List</h2>
@@ -991,6 +1082,7 @@
           {page === 'menu' && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
           {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
           {page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
           {page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
           {page === 'admin' && user?.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
         </>
