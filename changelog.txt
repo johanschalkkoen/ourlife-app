@@ -1,0 +1,38 @@
+I understand you want to modify the provided index.html to ensure that users can view data (in the Financial and Calendar components) based on the access permissions granted in the access_list table, using a toggle button to show or hide other users' data. The only change should be to enable this functionality without altering any other part of the code except where necessary to implement the toggle feature for viewing accessible users' data.
+
+Problem Analysis
+Current Issue:
+The Financial and Calendar components already use the useAccessibleUsers hook to fetch a list of users whose data the current user (e.g., schalk) can view (e.g., leani if access is granted via /api/get-access).
+The View Data For buttons exist, but they currently toggle data for all accessible users together. You want a mechanism to show or hide other users' data specifically, while keeping the current user's data always visible.
+Requirements:
+Add a single button to toggle the visibility of other users' data (i.e., data from users in accessibleUsers excluding the current user).
+Do not modify any other functionality (e.g., Login, Menu, ProfileSettings, Admin, adding/deleting items, bulk import, etc.).
+Ensure the toggle affects both Financial and Calendar components.
+The backend /api/financial and /api/calendar endpoints expect a user parameter for fetching data for a specific user.
+The access_list table (via /api/get-access) determines which users' data can be viewed (e.g., schalk can view leani’s data if {viewer: "schalk", target: "leani"} exists).
+Solution Approach
+Modify useAccessibleUsers Hook:
+Keep the existing logic to fetch accessibleUsers (current user + users from /api/get-access).
+Replace selectedUsers with a showOtherUsers boolean state to toggle whether other users' data is displayed.
+When showOtherUsers is true, fetch and display data for all accessibleUsers. When false, only fetch/display data for the current user (user.username).
+Update Financial Component:
+Replace the View Data For buttons with a single Show/Hide Others' Data button that toggles showOtherUsers.
+Modify fetchItems to fetch data for either just the current user (showOtherUsers = false) or all accessibleUsers (showOtherUsers = true).
+Update the items filter to use showOtherUsers instead of selectedUsers.
+Update Calendar Component:
+Similarly, replace the View Data For buttons with a Show/Hide Others' Data toggle button.
+Modify fetchEvents to fetch data based on showOtherUsers.
+Update the FullCalendar events filter to use showOtherUsers.
+Styles:
+Add a .toggle-button class for the new button to match existing button styles (teal when active, gray when inactive).
+Preserve All Other Code:
+Keep Login, Menu, ProfileSettings, Admin, and all other functionalities (e.g., adding/deleting items, bulk import, profile picture uploads) unchanged.
+Only modify the <style> section to add the .toggle-button class.
+Ensure userProfiles and profile picture rendering remain intact.
+Assumptions
+The backend /api/financial and /api/calendar endpoints accept a user parameter and return data only for that user.
+The /api/get-access endpoint returns an accessList like [{viewer: "schalk", target: "leani"}] for users with view access.
+The database (/root/ourlife-app/ourlife.db) has users, access_list, financial, and calendar tables with appropriate data.
+You want the current user’s data (e.g., schalk’s) always visible, with a toggle to show/hide other users’ data (e.g., leani’s).
+Updated Code
+Below is the modified index.html with only the necessary changes to implement the toggle button for showing/hiding other users’ data in the Financial and Calendar components.
