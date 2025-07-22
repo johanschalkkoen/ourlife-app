@@ -59,6 +59,7 @@
     const getCurrentDateTime = () => { const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); return now.toISOString().slice(0, 19); };
     const formatDateTime = date => new Date(date).toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/, '');
     const formatAmount = amount => `${CURRENCY_CONFIG.ZAR.symbol}${parseFloat(amount).toFixed(2)}`;
+    const formatDate = date => new Date(date).toISOString().slice(0, 10);
 
     const Input = ({ label, className = '', ...props }) => (
       <div>
@@ -148,7 +149,7 @@
           const { data } = await axios.post(`${API_BASE}/login`, credentials);
           if (data.success) {
             const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`).catch(() => ({
-              data: { profilePicUrl: DEFAULT_PROFILE_PIC, eventColor: DEFAULT_EVENT_COLOR }
+              data: { profilePicUrl: DEFAULT_PROFILE_PIC, eventColor: DEFAULT_EVENT_COLOR, gender: '' }
             }));
             onLogin({
               username: credentials.username,
@@ -157,7 +158,8 @@
               email: profile.email || '',
               phone: profile.phone || '',
               address: profile.address || '',
-              isAdmin: profile.isAdmin || false
+              isAdmin: profile.isAdmin || false,
+              gender: profile.gender || ''
             });
           } else {
             setError(data.message || 'Login failed.');
@@ -190,7 +192,7 @@
             <span>Welcome, {capitalize(user.username)}!</span>
           </h1>
           <div className="space-y-3">
-            {['financial', 'budgetCalculator', 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])].map(page => (
+            {['financial', 'budgetCalculator', ...(user.gender === 'Female' ? ['periodTracker'] : []), 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])].map(page => (
               <Button key={page} onClick={() => setPage(page)}>{capitalize(page)}</Button>
             ))}
             <Button className="bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
@@ -206,6 +208,7 @@
         phone: user.phone || '',
         address: user.address || '',
         eventColor: user.eventColor || DEFAULT_EVENT_COLOR,
+        gender: user.gender || '',
         currentPassword: '',
         newPassword: '',
         confirmNewPassword: ''
@@ -264,11 +267,11 @@
             return;
           }
           const { data } = await axios.post(`${API_BASE}/profile-pictures`, {
-            username: user.username, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor
+            username: user.username, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor, gender: form.gender
           });
           if (data.success) {
             setMessage('Profile saved successfully!');
-            setUser({ ...user, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor });
+            setUser({ ...user, profilePicUrl: urlToSave, email: form.email, phone: form.phone, address: form.address, eventColor: form.eventColor, gender: form.gender });
           } else {
             setMessage(data.message || 'Failed to save profile.');
             setForm({ ...form, profilePicUrl: user.profilePicUrl || DEFAULT_PROFILE_PIC });
@@ -317,6 +320,13 @@
               </div>
               <Input label="Email" type="email" name="email" placeholder="Enter your email" value={form.email} onChange={handleChange} />
               <Input label="Phone Number" type="tel" name="phone" placeholder="Enter your phone number" value={form.phone} onChange={handleChange} />
+              <Select
+                label="Gender"
+                name="gender"
+                value={form.gender}
+                onChange={handleChange}
+                options={[{ value: '', label: 'Select Gender' }, { value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]}
+              />
               <div>
                 <label className="block text-white text-lg font-medium mb-2">Address</label>
                 <textarea name="address" placeholder="Enter your address" value={form.address} onChange={handleChange} rows="3" className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"></textarea>
@@ -489,6 +499,225 @@
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const BudgetCalculator = ({ user, setPage, onLogout }) => {
+      const [budget, setBudget] = useState({
+        income: '',
+        expenses: [
+          { category: 'Rent/Mortgage', amount: '' },
+          { category: 'Utilities', amount: '' },
+          { category: 'Groceries', amount: '' },
+          { category: 'Transport', amount: '' },
+          { category: 'Other', amount: '' }
+        ]
+      });
+      const [totalExpenses, setTotalExpenses] = useState(0);
+      const [remainingBudget, setRemainingBudget] = useState(0);
+      const [message, setMessage] = useState('');
+
+      const handleIncomeChange = e => {
+        const income = e.target.value;
+        setBudget({ ...budget, income });
+        calculateBudget(income, budget.expenses);
+      };
+
+      const handleExpenseChange = (index, value) => {
+        const newExpenses = [...budget.expenses];
+        newExpenses[index].amount = value;
+        setBudget({ ...budget, expenses: newExpenses });
+        calculateBudget(budget.income, newExpenses);
+      };
+
+      const calculateBudget = (income, expenses) => {
+        const total = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+        setTotalExpenses(total);
+        setRemainingBudget((parseFloat(income) || 0) - total);
+        setMessage('');
+      };
+
+      const handleSaveBudget = () => {
+        if (!budget.income || budget.expenses.some(exp => !exp.amount)) {
+          setMessage('Please fill in all fields.');
+          return;
+        }
+        setMessage('Budget saved successfully!');
+      };
+
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+          </div>
+          <div className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <span>Budget Calculator</span>
+            </h1>
+            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
+            <div className="space-y-6">
+              <Input
+                label="Monthly Income (ZAR)"
+                type="number"
+                placeholder="Enter your total monthly income"
+                value={budget.income}
+                onChange={handleIncomeChange}
+              />
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-white">Expenses</h2>
+                {budget.expenses.map((expense, index) => (
+                  <div key={index} className="flex items-center gap-4">
+                    <Input
+                      label={expense.category}
+                      type="number"
+                      placeholder={`Enter ${expense.category.toLowerCase()} amount`}
+                      value={expense.amount}
+                      onChange={e => handleExpenseChange(index, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-2">Budget Summary</h2>
+                <p className="text-white">Total Income: {formatAmount(budget.income || 0)}</p>
+                <p className="text-white">Total Expenses: {formatAmount(totalExpenses)}</p>
+                <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  Remaining Budget: {formatAmount(remainingBudget)}
+                </p>
+              </div>
+              <Button onClick={handleSaveBudget}>Save Budget</Button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PeriodTracker = ({ user, setPage, onLogout }) => {
+      const [cycles, setCycles] = useState([]);
+      const [form, setForm] = useState({
+        startDate: formatDate(new Date()),
+        endDate: '',
+        cycleLength: '28',
+        symptoms: ''
+      });
+      const [message, setMessage] = useState('');
+      const [predictions, setPredictions] = useState({ nextPeriod: '', fertileDays: '' });
+
+      const calculatePredictions = (cycles) => {
+        if (!cycles.length) return { nextPeriod: '', fertileDays: '' };
+        const lastCycle = cycles[cycles.length - 1];
+        if (!lastCycle.startDate) return { nextPeriod: '', fertileDays: '' };
+        const start = new Date(lastCycle.startDate);
+        const avgCycleLength = parseInt(lastCycle.cycleLength) || 28;
+        const nextPeriod = new Date(start);
+        nextPeriod.setDate(start.getDate() + avgCycleLength);
+        const fertileStart = new Date(start);
+        fertileStart.setDate(start.getDate() + avgCycleLength - 14 - 5); // Approx ovulation -5 days
+        const fertileEnd = new Date(fertileStart);
+        fertileEnd.setDate(fertileStart.getDate() + 6);
+        return {
+          nextPeriod: formatDate(nextPeriod),
+          fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}`
+        };
+      };
+
+      const handleAddCycle = () => {
+        if (!form.startDate || !form.cycleLength) {
+          setMessage('Start date and cycle length are required.');
+          return;
+        }
+        const newCycle = {
+          id: Date.now(),
+          startDate: form.startDate,
+          endDate: form.endDate || '',
+          cycleLength: form.cycleLength,
+          symptoms: form.symptoms || ''
+        };
+        const updatedCycles = [...cycles, newCycle];
+        setCycles(updatedCycles);
+        setPredictions(calculatePredictions(updatedCycles));
+        setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
+        setMessage('Cycle added successfully!');
+      };
+
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between mb-6">
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+          </div>
+          <div className="card p-8">
+            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <span>Period Tracker</span>
+            </h1>
+            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-white">Log New Cycle</h2>
+                <Input
+                  label="Start Date"
+                  type="date"
+                  name="startDate"
+                  value={form.startDate}
+                  onChange={e => setForm({ ...form, startDate: e.target.value })}
+                />
+                <Input
+                  label="End Date (Optional)"
+                  type="date"
+                  name="endDate"
+                  value={form.endDate}
+                  onChange={e => setForm({ ...form, endDate: e.target.value })}
+                />
+                <Input
+                  label="Cycle Length (days)"
+                  type="number"
+                  name="cycleLength"
+                  value={form.cycleLength}
+                  onChange={e => setForm({ ...form, cycleLength: e.target.value })}
+                  placeholder="e.g., 28"
+                />
+                <div>
+                  <label className="block text-white text-lg font-medium mb-2">Symptoms (Optional)</label>
+                  <textarea
+                    name="symptoms"
+                    value={form.symptoms}
+                    onChange={e => setForm({ ...form, symptoms: e.target.value })}
+                    placeholder="e.g., Cramps, Mood swings"
+                    rows="3"
+                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+                  ></textarea>
+                </div>
+                <Button onClick={handleAddCycle}>Add Cycle</Button>
+              </div>
+              <div className="card p-6">
+                <h2 className="text-xl font-semibold text-white mb-2">Cycle Summary</h2>
+                {cycles.length > 0 ? (
+                  <>
+                    <p className="text-white">Last Cycle Start: {formatDate(cycles[cycles.length - 1].startDate)}</p>
+                    <p className="text-white">Predicted Next Period: {predictions.nextPeriod || 'N/A'}</p>
+                    <p className="text-white">Fertile Days: {predictions.fertileDays || 'N/A'}</p>
+                    <h3 className="text-lg font-semibold text-white mt-4">Cycle History</h3>
+                    <div className="space-y-3 mt-2">
+                      {cycles.map(cycle => (
+                        <div key={cycle.id} className="p-4 card">
+                          <p className="text-white">Start: {formatDate(cycle.startDate)}</p>
+                          {cycle.endDate && <p className="text-white">End: {formatDate(cycle.endDate)}</p>}
+                          <p className="text-white">Cycle Length: {cycle.cycleLength} days</p>
+                          {cycle.symptoms && <p className="text-white">Symptoms: {cycle.symptoms}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-300">No cycles logged yet.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -674,98 +903,6 @@
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      );
-    };
-
-    const BudgetCalculator = ({ user, setPage, onLogout }) => {
-      const [budget, setBudget] = useState({
-        income: '',
-        expenses: [
-          { category: 'Rent/Mortgage', amount: '' },
-          { category: 'Utilities', amount: '' },
-          { category: 'Groceries', amount: '' },
-          { category: 'Transport', amount: '' },
-          { category: 'Other', amount: '' }
-        ]
-      });
-      const [totalExpenses, setTotalExpenses] = useState(0);
-      const [remainingBudget, setRemainingBudget] = useState(0);
-      const [message, setMessage] = useState('');
-
-      const handleIncomeChange = e => {
-        const income = e.target.value;
-        setBudget({ ...budget, income });
-        calculateBudget(income, budget.expenses);
-      };
-
-      const handleExpenseChange = (index, value) => {
-        const newExpenses = [...budget.expenses];
-        newExpenses[index].amount = value;
-        setBudget({ ...budget, expenses: newExpenses });
-        calculateBudget(budget.income, newExpenses);
-      };
-
-      const calculateBudget = (income, expenses) => {
-        const total = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
-        setTotalExpenses(total);
-        setRemainingBudget((parseFloat(income) || 0) - total);
-        setMessage('');
-      };
-
-      const handleSaveBudget = () => {
-        if (!budget.income || budget.expenses.some(exp => !exp.amount)) {
-          setMessage('Please fill in all fields.');
-          return;
-        }
-        setMessage('Budget saved successfully!');
-      };
-
-      return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
-          </div>
-          <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
-              <span>Budget Calculator</span>
-            </h1>
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
-            <div className="space-y-6">
-              <Input
-                label="Monthly Income (ZAR)"
-                type="number"
-                placeholder="Enter your total monthly income"
-                value={budget.income}
-                onChange={handleIncomeChange}
-              />
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white">Expenses</h2>
-                {budget.expenses.map((expense, index) => (
-                  <div key={index} className="flex items-center gap-4">
-                    <Input
-                      label={expense.category}
-                      type="number"
-                      placeholder={`Enter ${expense.category.toLowerCase()} amount`}
-                      value={expense.amount}
-                      onChange={e => handleExpenseChange(index, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="card p-6">
-                <h2 className="text-xl font-semibold text-white mb-2">Budget Summary</h2>
-                <p className="text-white">Total Income: {formatAmount(budget.income || 0)}</p>
-                <p className="text-white">Total Expenses: {formatAmount(totalExpenses)}</p>
-                <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  Remaining Budget: {formatAmount(remainingBudget)}
-                </p>
-              </div>
-              <Button onClick={handleSaveBudget}>Save Budget</Button>
-            </div>
           </div>
         </div>
       );
@@ -1077,15 +1214,16 @@
         }
       }, []);
       return (
-        <>
+        <div>
           {page === 'login' && <Login onLogin={handleLogin} />}
-          {page === 'menu' && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
-          {page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-          {page === 'admin' && user?.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
-        </>
+          {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'budgetCalculator' && user && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'periodTracker' && user && user.gender === 'Female' && <PeriodTracker user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
+          {page === 'admin' && user && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
+        </div>
       );
     };
 
