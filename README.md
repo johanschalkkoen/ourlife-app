@@ -15,13 +15,13 @@ Welcome to the **OurLife Dashboard**, a full-stack, single-page web application 
 ---
 
 ## 🚀 Change Logs
-* **Added MongoDB and google and facebook authentication** - Mondo installed but migration failed 
-* **Rename all financial-related terms to "transactions" and update descriptions to relate to financial** Failed to do this 
+* **Added MongoDB and google and facebook authentication** - Mondo installed but migration **FAILED**  
+* **Rename all financial-related terms to "transactions" and update descriptions to relate to financial** **Failed** to do this 
 * **Rename Budget to Budget Calculator as it was intended originally** to be anouced 
 * **Period Tracker to be added** being added 
-* **Re-instate add calendar from transactions and visa-vera this was somehow removed** **DONE** **DONE** **DONE** 
-* **Add Google and Facebook authentication** FAILED
-* **Add Administator secion - still not working** FAILED 
+* **Re-instate add calendar from transactions and visa-vera this was somehow removed** **SUCCESS**
+* **Add Google and Facebook authentication** **FAILED**
+* **Add Administator secion - still not working** **SUCCESS** need to address a few bugs - can add new user but new user cannot login. cannot grant view access. Not seeing view access for users. Everything else seems to work. 
 * **Import Iphone of goole calendar entries to Our Life Calendar** Not done as yet 
   
 ## 🛠️ Technology Stack
