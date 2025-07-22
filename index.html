@@ -701,20 +701,45 @@
       const [newUserPassword, setNewUserPassword] = useState('');
       const [message, setMessage] = useState('');
 
-      const fetchUsers = async () => {
-        try {
-          const { data } = await axios.post(`${API_BASE}/users`, { username: user.username });
-          if (data.success) {
-            setUsers(data.data);
-          } else {
-            setMessage(data.message || 'Failed to fetch users.');
-          }
-        } catch (error) {
-          setMessage('Error fetching users.');
-          console.error('Error fetching users:', error);
-        }
-      };
+const requireAdmin = async (req, res, next) => {
+    // Prioritize adminUsername for admin authentication, fall back to username
+    const username = (req.query && req.query.adminUsername) || (req.body && req.body.adminUsername) || 
+                    (req.query && req.query.username) || (req.body && req.body.username);
+    if (!username) {
+        console.error('No username provided in req.body or req.query');
+        return res.json({ success: false, message: 'Username is required.' });
+    }
+    try {
+        db.get('SELECT isAdmin FROM users WHERE username = ?', [username], (err, row) => {
+            if (err) {
+                console.error('Database error checking admin access:', err.message);
+                return res.json({ success: false, message: 'Database error checking admin access.' });
+            }
+            if (!row || !row.isAdmin) {
+                console.error('Unauthorized access attempt by:', username);
+                return res.json({ success: false, message: 'Unauthorized: Admin access required.' });
+            }
+            next();
+        });
+    } catch (error) {
+        console.error('Error checking admin access:', error.stack);
+        res.json({ success: false, message: 'Server error checking admin access.' });
+    }
+};
 
+const fetchUsers = async () => {
+    try {
+        const { data } = await axios.get(`${API_BASE}/users`, { params: { username: user.username } });
+        if (data.success) {
+            setUsers(data.data);
+        } else {
+            setMessage(data.message || 'Failed to fetch users.');
+        }
+    } catch (error) {
+        setMessage('Error fetching users: ' + (error.response?.data?.message || error.message));
+        console.error('Error fetching users:', error.response?.data || error);
+    }
+};
       const fetchAccessList = async () => {
         try {
           const { data } = await axios.get(`${API_BASE}/get-access`);
