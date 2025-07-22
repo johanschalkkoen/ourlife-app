@@ -22,7 +22,7 @@ if [ "$(pwd)" = "/root/ourlife.run.place" ]; then
     
     # Start PM2 processes
     pm2 start "$(which http-server)" --name ourlife-run-place-app-web -- -p 8081 -d . || { echo "Failed to start web server"; exit 1; }
-    pm2 start --name ourlife-run-place-app-api-server server.js || { echo "Failed to start API server"; exit 1; }
+    pm2 start --name ourlife-run-place-app-api-server dev-server.js || { echo "Failed to start API server"; exit 1; }
 else
     echo "Error: Script must be run from /root/ourlife.run.place"
     exit 1
