@@ -32,6 +32,10 @@
     button:hover { transform: scale(1.02); }
     button:active { transform: scale(0.98); }
     .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+    .toggle-button { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s ease; }
+    .toggle-button.active { background-color: #2dd4bf; color: #fff; }
+    .toggle-button.inactive { background-color: #4b5563; color: #f1f5f9; }
+    .error-message { color: #f87171; font-size: 0.875rem; text-align: center; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
@@ -83,25 +87,56 @@
     );
 
     const useAccessibleUsers = (user, setUserProfiles) => {
-      const [accessibleUsers, setAccessibleUsers] = useState([user.username]);
-      const [selectedUsers, setSelectedUsers] = useState([user.username]);
+      const [targetUsers, setTargetUsers] = useState([]);
+      const [showTargetUsers, setShowTargetUsers] = useState(true);
+      const [error, setError] = useState('');
       useEffect(() => {
-        axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username } })
+        if (!user?.username) {
+          console.error('useAccessibleUsers: No username provided');
+          setError('User not logged in');
+          setTargetUsers([]);
+          setUserProfiles({ [user?.username || 'unknown']: DEFAULT_PROFILE_PIC });
+          return;
+        }
+        console.log('useAccessibleUsers: Fetching access list for viewer:', user.username);
+        axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username, adminUsername: user.username } })
           .then(({ data }) => {
-            if (data.success) {
-              const users = [user.username, ...data.accessList.filter(a => a.viewer === user.username).map(a => a.target)];
-              setAccessibleUsers(users);
-              setSelectedUsers(users);
-              Promise.all(users.filter(u => u !== user.username).map(u =>
+            console.log('useAccessibleUsers: API response:', data);
+            if (data.success && Array.isArray(data.accessList)) {
+              const users = data.accessList.filter(a => a.viewer === user.username).map(a => a.target);
+              console.log('useAccessibleUsers: targetUsers set to:', users);
+              setTargetUsers(users);
+              setError('');
+              Promise.all(users.concat(user.username).map(u =>
                 axios.get(`${API_BASE}/profile-pictures?username=${u}`)
-                  .then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC])
-                  .catch(() => [u, DEFAULT_PROFILE_PIC])
-              )).then(results => setUserProfiles(Object.fromEntries(results.concat([[user.username, user.profilePicUrl || DEFAULT_PROFILE_PIC]]))));
+                  .then(({ data }) => {
+                    console.log(`useAccessibleUsers: Profile pic for ${u}:`, data.profilePicUrl);
+                    return [u, data.profilePicUrl || DEFAULT_PROFILE_PIC];
+                  })
+                  .catch(err => {
+                    console.error(`useAccessibleUsers: Error fetching profile pic for ${u}:`, err);
+                    return [u, DEFAULT_PROFILE_PIC];
+                  })
+              )).then(results => {
+                const profiles = Object.fromEntries(results);
+                console.log('useAccessibleUsers: userProfiles set to:', profiles);
+                setUserProfiles(profiles);
+              });
+            } else {
+              console.error('useAccessibleUsers: Invalid API response:', data.message);
+              setTargetUsers([]);
+              setError(data.message || 'Failed to fetch access list.');
+              setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
             }
           })
-          .catch(err => { console.error('Error fetching accessible users:', err); setAccessibleUsers([user.username]); setSelectedUsers([user.username]); });
-      }, [user.username]);
-      return { accessibleUsers, selectedUsers, setSelectedUsers };
+          .catch(err => {
+            console.error('useAccessibleUsers: Error fetching access list:', err.response?.data || err);
+            setTargetUsers([]);
+            setError(err.response?.data?.message || 'Error fetching access list. Check server.');
+            setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+          });
+      }, [user?.username]);
+      return { targetUsers, showTargetUsers, setShowTargetUsers, error };
     };
 
     const Login = ({ onLogin }) => {
@@ -196,9 +231,9 @@
             return;
           }
           new Compressor(file, {
-            quality: 0.6, // Compress to 60% quality
-            maxWidth: 500, // Max width 500px
-            maxHeight: 500, // Max height 500px
+            quality: 0.6,
+            maxWidth: 500,
+            maxHeight: 500,
             success(compressedFile) {
               setSelectedFile(compressedFile);
               setMessage('');
@@ -314,13 +349,35 @@
       const [importMessage, setImportMessage] = useState('');
       const [showAddItemForm, setShowAddItemForm] = useState(false);
       const [showImportTool, setShowImportTool] = useState(false);
-      const { accessibleUsers, selectedUsers, setSelectedUsers } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const fetchItems = () => axios.get(`${API_BASE}/financial`, { params: { user: user.username } }).then(({ data }) => setItems(data)).catch(err => console.error('Error fetching financial items:', err));
+      const fetchItems = () => {
+        console.log('Financial: fetchItems called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+        console.log('Financial: Fetching data for users:', usersToFetch);
+        Promise.all(usersToFetch.map(u => 
+          axios.get(`${API_BASE}/financial`, { params: { user: u } })
+            .then(({ data }) => {
+              console.log(`Financial: Data fetched for ${u}:`, data);
+              return data;
+            })
+            .catch(err => {
+              console.error(`Financial: Error fetching data for ${u}:`, err);
+              return [];
+            })
+        )).then(results => {
+          const flatItems = results.flat();
+          console.log('Financial: Combined items:', flatItems);
+          setItems(flatItems);
+        });
+      };
       const calculateNetTotal = () => {
+        const usersToShow = [user.username, ...(showTargetUsers ? targetUsers : [])];
+        console.log('Financial: Calculating net total for users:', usersToShow, 'month:', selectedMonth);
         const total = items
-          .filter(item => selectedUsers.includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
+          .filter(item => usersToShow.includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
           .reduce((sum, item) => item.type === 'income' ? sum + item.amount : sum - item.amount, 0);
+        console.log('Financial: Net total:', total);
         setNetTotal(total);
       };
       const addItem = async () => {
@@ -335,10 +392,10 @@
           setForm({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
           setShowAddItemForm(false);
         } catch (err) {
-          console.error('Error adding financial item:', err);
+          console.error('Financial: Error adding item:', err);
         }
       };
-      const deleteItem = id => axios.delete(`${API_BASE}/financial/${id}`).then(fetchItems).catch(err => console.error('Error deleting financial item:', err));
+      const deleteItem = id => axios.delete(`${API_BASE}/financial/${id}`).then(fetchItems).catch(err => console.error('Financial: Error deleting item:', err));
       const handleBulkImport = async () => {
         if (!bulkData.trim()) return setImportMessage('Please paste data into the text box.');
         const itemsToImport = bulkData.trim().split('\n').filter(line => line.trim()).map(line => {
@@ -359,11 +416,12 @@
           fetchItems();
         } catch (err) {
           setImportMessage('An error occurred during import. Please check the data and try again.');
-          console.error('Bulk import error:', err);
+          console.error('Financial: Bulk import error:', err);
         }
       };
-      useEffect(() => { fetchItems(); }, [selectedUsers]);
-      useEffect(() => { calculateNetTotal(); }, [items, selectedUsers, selectedMonth]);
+      const toggleButtonLabel = targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Accessible Users' Data`;
+      useEffect(() => { fetchItems(); }, [showTargetUsers, targetUsers, user.username]);
+      useEffect(() => { calculateNetTotal(); }, [items, showTargetUsers, selectedMonth]);
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
@@ -382,17 +440,20 @@
                 <Button className="px-4 py-2 bg-green-500 hover:bg-green-600" onClick={() => setShowImportTool(!showImportTool)}>{showImportTool ? 'Hide Import' : 'Bulk Import'}</Button>
               </div>
             </div>
+            {error && <p className="error-message">{error}</p>}
+            {targetUsers.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-white mb-3">View Data:</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`} onClick={() => setShowTargetUsers(!showTargetUsers)}>
+                    {toggleButtonLabel}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="card p-6 mb-6">
               <h2 className="text-xl font-semibold text-white mb-2">Net Total for {MONTHS.find(m => m.value === selectedMonth)?.label} 2025</h2>
               <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>{hideValues ? '****' : formatAmount(netTotal)}</p>
-            </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(username => (
-                  <Button key={username} className={selectedUsers.includes(username) ? 'px-3 py-2 bg-teal-500 hover:bg-teal-600' : 'px-3 py-2 bg-gray-600 hover:bg-gray-700'} onClick={() => setSelectedUsers(prev => prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username])}>{username}</Button>
-                ))}
-              </div>
             </div>
             {showImportTool && (
               <div className="card p-6 mb-6 space-y-4">
@@ -417,7 +478,7 @@
               <Button onClick={() => setHideValues(!hideValues)}>{hideValues ? 'Show Values' : 'Hide Values'}</Button>
             </div>
             <div className="space-y-3">
-              {items.filter(item => selectedUsers.includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`)).map(item => (
+              {items.filter(item => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`)).map(item => (
                 <div key={item.id} className="flex justify-between p-4 card items-center">
                   <div className="flex items-center gap-3">
                     <div className="event-profile-pic-container"><img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC} alt={item.user} className="event-profile-pic" /></div>
@@ -442,15 +503,32 @@
       const [showAddEventForm, setShowAddEventForm] = useState(false);
       const [showModal, setShowModal] = useState(false);
       const [selectedEvent, setSelectedEvent] = useState(null);
-      const { accessibleUsers, selectedUsers, setSelectedUsers } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
       const calendarRef = useRef(null);
       const fullCalendarInstance = useRef(null);
-      const fetchEvents = () => axios.get(`${API_BASE}/calendar`, { params: { user: user.username } })
-        .then(({ data }) => setEvents(data.map(e => ({
-          id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR
-        }))))
-        .catch(err => console.error('Error fetching calendar events:', err));
+      const fetchEvents = () => {
+        console.log('Calendar: fetchEvents called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+        console.log('Calendar: Fetching data for users:', usersToFetch);
+        Promise.all(usersToFetch.map(u => 
+          axios.get(`${API_BASE}/calendar`, { params: { user: u } })
+            .then(({ data }) => {
+              console.log(`Calendar: Data fetched for ${u}:`, data);
+              return data.map(e => ({
+                id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR
+              }));
+            })
+            .catch(err => {
+              console.error(`Calendar: Error fetching data for ${u}:`, err);
+              return [];
+            })
+        )).then(results => {
+          const flatEvents = results.flat();
+          console.log('Calendar: Combined events:', flatEvents);
+          setEvents(flatEvents);
+        });
+      };
       const handleAddEvent = async () => {
         if (!form.title || !form.date) return alert('Event title and date are required!');
         try {
@@ -467,10 +545,11 @@
           setShowAddEventForm(false);
         } catch (err) {
           alert('Failed to add event.');
-          console.error('Error adding event:', err);
+          console.error('Calendar: Error adding event:', err);
         }
       };
-      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); }).catch(err => { alert('Failed to delete event.'); console.error('Error deleting event:', err); });
+      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); }).catch(err => { alert('Failed to delete event.'); console.error('Calendar: Error deleting event:', err); });
+      const toggleButtonLabel = targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Accessible Users' Data`;
       useEffect(() => {
         fetchEvents();
         const calendarEl = calendarRef.current;
@@ -480,7 +559,7 @@
             initialDate: `2025-${selectedMonth}-01`,
             editable: true,
             selectable: true,
-            events: events.filter(e => selectedUsers.includes(e.user)),
+            events: events.filter(e => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(e.user)),
             eventContent: ({ event }) => {
               const eventEl = document.createElement('div');
               eventEl.className = 'fc-event-main';
@@ -519,7 +598,7 @@
         return () => { if (fullCalendarInstance.current) { fullCalendarInstance.current.destroy(); fullCalendarInstance.current = null; } };
       }, [userProfiles]);
       useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`); }, [selectedMonth]);
-      useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.setOption('events', events.filter(e => selectedUsers.includes(e.user))); }, [events, selectedUsers]);
+      useEffect(() => { if (fullCalendarInstance.current) fullCalendarInstance.current.setOption('events', events.filter(e => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(e.user))); }, [events, showTargetUsers]);
       return (
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
@@ -537,14 +616,17 @@
                 <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={() => setShowAddEventForm(!showAddEventForm)}>{showAddEventForm ? 'Hide Form' : 'Add Event'}</Button>
               </div>
             </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">View Data For:</h3>
-              <div className="flex flex-wrap gap-2">
-                {accessibleUsers.map(username => (
-                  <Button key={username} className={selectedUsers.includes(username) ? 'px-3 py-2 bg-teal-500 hover:bg-teal-600' : 'px-3 py-2 bg-gray-600 hover:bg-gray-700'} onClick={() => setSelectedUsers(prev => prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username])}>{username}</Button>
-                ))}
+            {error && <p className="error-message">{error}</p>}
+            {targetUsers.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-white mb-3">View Data:</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`} onClick={() => setShowTargetUsers(!showTargetUsers)}>
+                    {toggleButtonLabel}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
             {showAddEventForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Calendar Event</h2>
@@ -818,7 +900,7 @@
         <div className="p-6 max-w-6xl mx-auto">
           <div className="flex justify-between mb-6">
             <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+          <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
           </div>
           <div className="card p-8">
             <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">

@@ -1,38 +1,152 @@
-I understand you want to modify the provided index.html to ensure that users can view data (in the Financial and Calendar components) based on the access permissions granted in the access_list table, using a toggle button to show or hide other users' data. The only change should be to enable this functionality without altering any other part of the code except where necessary to implement the toggle feature for viewing accessible users' data.
+Changes Made
+useAccessibleUsers Hook:
+Updated the /api/get-access call to include adminUsername:
+jsx
 
-Problem Analysis
-Current Issue:
-The Financial and Calendar components already use the useAccessibleUsers hook to fetch a list of users whose data the current user (e.g., schalk) can view (e.g., leani if access is granted via /api/get-access).
-The View Data For buttons exist, but they currently toggle data for all accessible users together. You want a mechanism to show or hide other users' data specifically, while keeping the current user's data always visible.
-Requirements:
-Add a single button to toggle the visibility of other users' data (i.e., data from users in accessibleUsers excluding the current user).
-Do not modify any other functionality (e.g., Login, Menu, ProfileSettings, Admin, adding/deleting items, bulk import, etc.).
-Ensure the toggle affects both Financial and Calendar components.
-The backend /api/financial and /api/calendar endpoints expect a user parameter for fetching data for a specific user.
-The access_list table (via /api/get-access) determines which users' data can be viewed (e.g., schalk can view leani’s data if {viewer: "schalk", target: "leani"} exists).
-Solution Approach
-Modify useAccessibleUsers Hook:
-Keep the existing logic to fetch accessibleUsers (current user + users from /api/get-access).
-Replace selectedUsers with a showOtherUsers boolean state to toggle whether other users' data is displayed.
-When showOtherUsers is true, fetch and display data for all accessibleUsers. When false, only fetch/display data for the current user (user.username).
-Update Financial Component:
-Replace the View Data For buttons with a single Show/Hide Others' Data button that toggles showOtherUsers.
-Modify fetchItems to fetch data for either just the current user (showOtherUsers = false) or all accessibleUsers (showOtherUsers = true).
-Update the items filter to use showOtherUsers instead of selectedUsers.
-Update Calendar Component:
-Similarly, replace the View Data For buttons with a Show/Hide Others' Data toggle button.
-Modify fetchEvents to fetch data based on showOtherUsers.
-Update the FullCalendar events filter to use showOtherUsers.
-Styles:
-Add a .toggle-button class for the new button to match existing button styles (teal when active, gray when inactive).
-Preserve All Other Code:
-Keep Login, Menu, ProfileSettings, Admin, and all other functionalities (e.g., adding/deleting items, bulk import, profile picture uploads) unchanged.
-Only modify the <style> section to add the .toggle-button class.
-Ensure userProfiles and profile picture rendering remain intact.
-Assumptions
-The backend /api/financial and /api/calendar endpoints accept a user parameter and return data only for that user.
-The /api/get-access endpoint returns an accessList like [{viewer: "schalk", target: "leani"}] for users with view access.
-The database (/root/ourlife-app/ourlife.db) has users, access_list, financial, and calendar tables with appropriate data.
-You want the current user’s data (e.g., schalk’s) always visible, with a toggle to show/hide other users’ data (e.g., leani’s).
-Updated Code
-Below is the modified index.html with only the necessary changes to implement the toggle button for showing/hiding other users’ data in the Financial and Calendar components.
+
+
+axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username, adminUsername: user.username } })
+Added safety check for missing user.username:
+jsx
+
+
+
+if (!user?.username) {
+  console.error('useAccessibleUsers: No username provided');
+  setError('User not logged in');
+  setTargetUsers([]);
+  setUserProfiles({ [user?.username || 'unknown']: DEFAULT_PROFILE_PIC });
+  return;
+}
+Enhanced error logging in the catch block:
+jsx
+
+
+
+console.error('useAccessibleUsers: Error fetching access list:', err.response?.data || err);
+setError(err.response?.data?.message || 'Error fetching access list. Check server.');
+Ensured userProfiles is set with the current user’s profile picture on error.
+No Changes to Other Components:
+Financial, Calendar, Login, Menu, ProfileSettings, Admin, and App remain identical to the previous version.
+Styles, utility functions, and constants are unchanged.
+The toggle button label and functionality (targetUsers, showTargetUsers) are unaffected, as they rely on useAccessibleUsers output.
+Debugging and Testing Instructions
+Time: 12:40 PM SAST, July 22, 2025
+
+Backup Current File:
+bash
+
+
+
+
+cp /root/ourlife-app/index.html /root/ourlife-app/index.html.bak-$(date +%F-%H%M%S)
+Update index.html:
+bash
+
+
+
+
+nano /root/ourlife-app/index.html
+Replace the entire content with the code above (from <!DOCTYPE html> to </html>).
+Save and exit (Ctrl+O, Enter, Ctrl+X).
+Clear Cache and Restart Services:
+bash
+
+
+
+
+sudo systemctl restart nginx
+pm2 restart ourlife-app-api-server
+pm2 restart ourlife-app-web
+sudo rm -rf /var/cache/nginx/*
+Verify File Update:
+Check the updated useAccessibleUsers API call:
+bash
+
+
+
+
+grep "get-access" /root/ourlife-app/index.html | grep adminUsername
+Expected:
+text
+
+
+
+axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username, adminUsername: user.username } })
+Test as User schalk (based on logs):
+Open https://ourlife.work.gd in an incognito window (Chrome, Firefox, or Edge).
+Log in as schalk (use your known password, e.g., test1234).
+Navigate to Financial:
+Expected:
+No “Admin username is required” error.
+A toggle button labeled “Show/Hide Accessible Users’ Data” (since schalk has access to leani, johan, and test).
+When teal (showTargetUsers=true), see financial items for schalk, leani, johan, and test for July 2025.
+When gray (showTargetUsers=false), see only schalk’s items.
+If an error persists, a red message (e.g., “Error fetching access list. Check server.”) appears above the button.
+Open F12 > Console, look for:
+text
+
+
+
+useAccessibleUsers: Fetching access list for viewer: schalk
+useAccessibleUsers: API response: {success: true, accessList: [{viewer: "schalk", target: "leani"}, {viewer: "schalk", target: "johan"}, {viewer: "schalk", target: "test"}]}
+useAccessibleUsers: targetUsers set to: ["leani", "johan", "test"]
+useAccessibleUsers: Profile pic for schalk: [URL or DEFAULT_PROFILE_PIC]
+useAccessibleUsers: Profile pic for leani: [URL or DEFAULT_PROFILE_PIC]
+useAccessibleUsers: Profile pic for johan: [URL or DEFAULT_PROFILE_PIC]
+useAccessibleUsers: Profile pic for test: [URL or DEFAULT_PROFILE_PIC]
+useAccessibleUsers: userProfiles set to: {schalk: "...", leani: "...", johan: "...", test: "..."}
+Financial: fetchItems called, showTargetUsers: true, targetUsers: ["leani", "johan", "test"]
+Financial: Fetching data for users: ["schalk", "leani", "johan", "test"]
+Financial: Data fetched for schalk: [{id: 1, user: "schalk", description: "Salary", amount: 50000, type: "income", date: "2025-07-01 08:00:00"}, ...]
+Financial: Combined items: [...]
+F12 > Network:
+/api/get-access?viewer=schalk&adminUsername=schalk: Should return {success: true, accessList: [{viewer: "schalk", target: "leani"}, {viewer: "schalk", target: "johan"}, {viewer: "schalk", target: "test"}]}
+/api/financial?user=schalk, /api/financial?user=leani, etc., when button is teal.
+Only /api/financial?user=schalk when gray.
+Navigate to Calendar:
+Expected: Same behavior for events, with the toggle button showing/hiding leani, johan, and test’s events.
+Test as User test:
+Log out, then log in as test (password: testpass1 or your set password).
+Navigate to Financial:
+Expected:
+Toggle button labeled “Show/Hide Johan’s Data” (since test can view johan).
+When teal, see test and johan’s financial items.
+When gray, see only test’s items.
+Console logs similar to above, with targetUsers: ["johan"].
+Check pm2 Logs:
+bash
+
+
+
+
+pm2 logs ourlife-app-api-server
+Expected:
+No No adminUsername provided in req.body or req.query.
+See:
+text
+
+
+
+Authenticated user: schalk
+Access list fetched by schalk: [{viewer: "schalk", target: "leani"}, ...]
+If the error persists, note the exact message and status code.
+If the Error Persists:
+Check the /api/get-access response in F12 > Network for status (e.g., 401, 400) and response body.
+Share the exact error message and console logs.
+Consider checking the back-end /api/get-access endpoint (likely in /root/ourlife-app/api-server.js or similar) to confirm it accepts viewer and adminUsername correctly. For example, it might expect:
+javascript
+
+
+
+
+app.get('/api/get-access', authenticate, (req, res) => {
+  const { viewer, adminUsername } = req.query;
+  if (!adminUsername) return res.status(400).json({ success: false, message: 'Admin username is required' });
+  // ... rest of the logic
+});
+If the back-end requires a different parameter or authentication method (e.g., token-based), we may need to adjust the front-end call further.
+Notes
+The DEP0066 warning can be ignored for now, as it’s a Node.js deprecation and doesn’t affect functionality. To investigate, run node --trace-deprecation on the server and check the stack trace, but this is low priority.
+If the back-end /api/get-access still rejects the request, we may need to inspect its code or test with a tool like Postman to confirm the expected parameters.
+The access list log shows schalk has access to leani, johan, and test, and test has access to johan, which should work once the API call is fixed.
