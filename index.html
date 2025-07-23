@@ -41,213 +41,180 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
+    const {useState,useEffect,useRef,useMemo} = React;
     const API_BASE = 'https://ourlife.work.gd/api';
-    const DEFAULT_PROFILE_PIC = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
-    const DEFAULT_EVENT_COLOR = '#2dd4bf';
-    const MONTHS = Array.from({ length: 12 }, (_, i) => ({
-      value: String(i + 1).padStart(2, '0'),
-      label: new Date(2000, i, 1).toLocaleString('en', { month: 'long' })
-    }));
-    const CURRENCY_CONFIG = { USD: { symbol: '$', rate: 1 }, EUR: { symbol: '€', rate: 0.85 }, ZAR: { symbol: 'R', rate: 18.5 } };
+    const DEF_PIC = 'https://placehold.co/50x50/808080/FFFFFF?text=U';
+    const DEF_COLOR = '#2dd4bf';
+    const MONTHS = Array.from({length:12},(_,i)=>({value:`${i+1}`.padStart(2,'0'),label:new Date(2000,i,1).toLocaleString('en',{month:'long'})}));
+    const CURRENCY = {USD:{symbol:'$',rate:1},EUR:{symbol:'€',rate:0.85},ZAR:{symbol:'R',rate:18.5}};
 
-    // Utility functions
-    const capitalize = str => str ? str[0].toUpperCase() + str.slice(1) : '';
-    const getCurrentDateTime = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const formatDateTime = date => new Date(date).toLocaleString('en-ZA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/,/, '');
-    const formatAmount = (amount, currency = 'ZAR') => `${CURRENCY_CONFIG[currency]?.symbol || ''}${parseFloat(amount || 0).toFixed(2)}`;
-    const formatDate = date => new Date(date).toISOString().slice(0, 10);
+    // Utilities
+    const cap = str => str ? str[0].toUpperCase() + str.slice(1) : '';
+    const now = () => new Date().toISOString().slice(0,19).replace('T',' ');
+    const fmtDt = d => new Date(d).toLocaleString('en-ZA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).replace(/,/,'');
+    const fmtAmt = (amt,cur='ZAR') => `${CURRENCY[cur]?.symbol||''}${Number(amt||0).toFixed(2)}`;
+    const fmtDate = d => new Date(d).toISOString().slice(0,10);
+    const genRefId = () => `REF-${Math.random().toString(36).slice(2,9).toUpperCase()}`;
 
-    // Axios with retry logic
-    const axiosWithRetry = async (config, retries = 3, delay = 1000) => {
-      for (let i = 0; i < retries; i++) {
+    // Axios with retry
+    const axiosWithRetry = async (config,retries=3,delay=1000) => {
+      for (let i=0;i<retries;i++) {
         try {
-          return await axios({ ...config, timeout: 30000 });
+          return await axios({...config,timeout:30000});
         } catch (err) {
-          if (i === retries - 1 || !err.code || !['ECONNABORTED', 'ERR_NETWORK'].includes(err.code)) {
-            throw err;
-          }
-          await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+          if (i===retries-1 || !['ECONNABORTED','ERR_NETWORK'].includes(err.code)) throw err;
+          await new Promise(r=>setTimeout(r,delay*Math.pow(2,i)));
         }
       }
     };
 
-    // Reusable components
-    const Input = ({ label, className = '', id, ...props }) => (
+    // Reusable API call
+    const apiCall = async (method,url,data,params,errPrefix) => {
+      try {
+        const {data:res} = await axiosWithRetry({method,url,data,params});
+        if (!res.success) throw {response:{data:{message:res.message||'Request failed'},status:400}};
+        return res;
+      } catch (err) {
+        const status = err.response?.status ?? err.code;
+        const refId = genRefId();
+        const devMsg = {
+          403: `${errPrefix}-001: Unauthorized`,
+          400: `${errPrefix}-002: Invalid request: ${err.response?.data?.message||err.message}`,
+          'ECONNABORTED': 'NET-001: Request timed out',
+          'ERR_NETWORK': 'NET-002: Unable to reach server`
+          429: 'NET-003: Too many requests. Retry after 5 minutes',
+          500: `${errPrefix}-003: Server error`
+        }[status] || `${errPrefix}-004: ${err.response?.data?.message||err.message}`;
+        const userMsg = {
+          403: `${refId}: No permission. Contact support`,
+          400: `${refId}: Invalid input. Check your data`,
+          'ECONNABORTED': `${refId}: Timed out. Try again`,
+          'ERR_NETWORK': `${refId}: Can't connect. Check your network`,
+          429: `${refId}: Too many attempts. Wait 5 minutes`,
+          500: `${refId}: Server issue. Try again later`
+        }[status] || `${refId}: Error occurred. Contact support`;
+        throw {devMsg,userMsg,refId};
+      }
+    };
+
+    // Components
+    const Input = ({label,className='',id,...p}) => (
       <div className="mb-4">
         {label && <label className="block text-white text-lg font-medium mb-2" htmlFor={id}>{label}</label>}
-        <input id={id} className={`w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...props} />
+        <input id={id} className={`w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...p}/>
       </div>
     );
 
-    const Select = ({ label, options, className = '', id, ...props }) => (
+    const Select = ({label,options,className='',id,...p}) => (
       <div className="mb-4">
         {label && <label className="block text-white text-lg font-medium mb-2" htmlFor={id}>{label}</label>}
-        <select id={id} className={`w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...props}>
-          {options.map(({ value, label: optLabel }) => <option key={value} value={value}>{optLabel || value}</option>)}
+        <select id={id} className={`w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400 ${className}`} {...p}>
+          {options.map(({value,label:vLabel})=><option key={value} value={value}>{vLabel||value}</option>)}
         </select>
       </div>
     );
 
-    const Button = ({ children, className = '', variant = 'primary', disabled, ...props }) => (
-      <button
-        className={`w-full p-3 text-white rounded-lg transition-colors duration-200 ${variant === 'primary' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-gray-500 hover:bg-gray-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-        disabled={disabled}
-        {...props}
-      >
+    const Button = ({children,className='',variant='primary',disabled,...p}) => (
+      <button className={`w-full p-3 text-white rounded-lg transition-colors duration-200 ${variant==='primary'?'bg-teal-500 hover:bg-teal-600':'bg-gray-500 hover:bg-gray-600'} ${disabled?'opacity-50 cursor-not-allowed':''} ${className}`} disabled={disabled} {...p}>
         {children}
       </button>
     );
 
-    const ProfilePic = ({ src, username, size = '56px', border = '2px solid #2dd4bf' }) => (
+    const ProfilePic = ({src,username,size='56px',border='2px solid #2dd4bf'}) => (
       <div className="flex flex-col items-center">
-        <div className="rounded-full overflow-hidden" style={{ width: size, height: size, border }}>
-          <img src={src || DEFAULT_PROFILE_PIC} alt={username || 'User'} className="w-full h-full object-cover" />
+        <div className="rounded-full overflow-hidden" style={{width:size,height:size,border}}>
+          <img src={src||DEF_PIC} alt={username||'User'} className="w-full h-full object-cover"/>
         </div>
         {username && <span className="text-sm text-gray-300 mt-2">{username}</span>}
       </div>
     );
 
-    // Hook for fetching accessible users
-    const useAccessibleUsers = (user, setUserProfiles) => {
-      const [targetUsers, setTargetUsers] = useState([]);
-      const [showTargetUsers, setShowTargetUsers] = useState(true);
-      const [error, setError] = useState('');
-      const [lastFetch, setLastFetch] = useState(null); // Cache timestamp
-      const cacheDuration = 5 * 60 * 1000; // 5 minutes
+    // Accessible users hook
+    const useAccessibleUsers = (user,setProfiles) => {
+      const [targets,setTargets] = useState([]);
+      const [showTargets,setShowTargets] = useState(true);
+      const [err,setErr] = useState('');
+      const [lastFetch,setLastFetch] = useState(null);
+      const cacheDur = 5*60*1000;
 
       useEffect(() => {
         if (!user?.username) {
-          setError('User not logged in');
-          setTargetUsers([]);
-          setUserProfiles({ [user?.username || 'unknown']: DEFAULT_PROFILE_PIC });
+          setErr(`${genRefId()}: User not logged in`);
+          setTargets([]);
+          setProfiles({[user?.username||'unknown']:DEF_PIC});
           return;
         }
 
         const now = Date.now();
-        if (lastFetch && now - lastFetch < cacheDuration) {
-          return;
-        }
+        if (lastFetch && now-lastFetch<cacheDur) return;
 
-        const fetchAccessibleUsers = async () => {
+        const fetchAccess = async () => {
           try {
-            const { data } = await axiosWithRetry({
-              method: 'get',
-              url: `${API_BASE}/get-access`,
-              params: { viewer: user.username }
-            });
-
-            if (data.success && Array.isArray(data.accessList)) {
-              const users = data.accessList
-                .filter(a => a.viewer === user.username && a.target !== user.username)
-                .map(a => a.target);
-              setTargetUsers(users);
-              setError('');
-              setLastFetch(now);
-
-              const profilePromises = [user.username, ...users].map(u =>
-                axiosWithRetry({
-                  method: 'get',
-                  url: `${API_BASE}/user-profile-settings`,
-                  params: { username: u }
-                })
-                  .then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC])
-                  .catch(() => [u, DEFAULT_PROFILE_PIC])
-              );
-              const profiles = await Promise.all(profilePromises);
-              setUserProfiles(Object.fromEntries(profiles));
-            } else {
-              setTargetUsers([]);
-              setError(data.message || 'No accessible users found.');
-              setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
-            }
-          } catch (err) {
-            const status = err.response?.status;
-            const message = status === 403
-              ? 'You do not have permission to view other users\' data.'
-              : status === 500
-                ? 'Server error. Please try again later.'
-                : err.code === 'ECONNABORTED'
-                  ? 'Request timed out. Please check your network.'
-                  : err.code === 'ERR_NETWORK'
-                    ? 'Unable to reach the server. Please ensure the backend is running.'
-                    : err.response?.data?.message || 'Error fetching access list.';
-            setError(message);
-            setTargetUsers([]);
-            setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+            const {accessList} = await apiCall('get',`${API_BASE}/get-access`,null,{viewer:user.username},'AUTH');
+            const users = accessList?.filter(a=>a.viewer===user.username&&a.target!==user.username).map(a=>a.target) ?? [];
+            setTargets([...new Set(users)]);
+            setErr('');
+            setLastFetch(now);
+            const profiles = await Promise.all([user.username,...users].map(u=>
+              apiCall('get',`${API_BASE}/user-profile-settings`,null,{username:u},'PROFILE')
+                .then(({profilePicUrl})=>([u,profilePicUrl||DEF_PIC]))
+                .catch(()=>([u,DEF_PIC]))
+            ));
+            setProfiles(Object.fromEntries(profiles));
+          } catch ({userMsg,devMsg}) {
+            setErr(userMsg);
+            setTargets([]);
+            setProfiles({[user.username]:user.profilePicUrl||DEF_PIC});
+            console.error(devMsg);
           }
         };
 
-        fetchAccessibleUsers();
-      }, [user?.username, setUserProfiles]);
+        fetchAccess();
+      }, [user?.username]);
 
-      return { targetUsers, showTargetUsers, setShowTargetUsers, error };
+      return {targets,showTargets,setShowTargets,err};
     };
 
-    // Error Boundary Component
+    // Error Boundary
     class ErrorBoundary extends React.Component {
-      state = { hasError: false, error: null };
-      static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-      }
+      state = {hasError:false,err:null};
+      static getDerivedStateFromError(err) { return {hasError:true,err}; }
       render() {
-        if (this.state.hasError) {
-          return (
-            <div className="flex items-center justify-center min-h-screen px-4">
-              <div className="card p-8 w-full max-w-md">
-                <h1 className="text-2xl font-semibold text-red-400 mb-6 text-center">Something went wrong.</h1>
-                <p className="text-gray-300 mb-4">{this.state.error?.message || 'Please try again later.'}</p>
-                <Button onClick={() => window.location.reload()}>Reload</Button>
-              </div>
+        return this.state.hasError ? (
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="card p-8 w-full max-w-md">
+              <h1 className="text-2xl font-semibold text-red-400 mb-6 text-center">Something went wrong.</h1>
+              <p className="text-gray-300 mb-4">{this.state.err?.message||'Please try again later.'}</p>
+              <Button onClick={() => window.location.reload()}>Reload</Button>
             </div>
-          );
-        }
-        return this.props.children;
+          </div>
+        ) : this.props.children;
       }
     }
 
     // Login Component
-    const Login = ({ onLogin }) => {
-      const [credentials, setCredentials] = useState({ username: '', password: '' });
-      const [error, setError] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
-
-      const handleChange = e => setCredentials({ ...credentials, [e.target.name]: e.target.value });
+    const Login = ({onLogin}) => {
+      const [cred,setCred] = useState({username:'',password:''});
+      const [err,setErr] = useState('');
+      const [loading,setLoading] = useState(false);
 
       const handleLogin = async e => {
         e.preventDefault();
-        if (!credentials.username || !credentials.password) {
-          setError('Please enter both username and password.');
+        if (!cred.username || !cred.password) {
+          setErr(`${genRefId()}: Enter username and password`);
           return;
         }
-        setIsLoading(true);
-        setError('');
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/login`,
-            data: credentials
-          });
-          if (data.success && data.user) {
-            const { username, profilePicUrl, eventColor, email, phone, address, isAdmin, gender } = data.user;
-            onLogin({ username, profilePicUrl, eventColor, email, phone, address, isAdmin, gender, token: '' });
-          } else {
-            setError(data.message || 'Login failed.');
-          }
-        } catch (err) {
-          const status = err.response?.status;
-          const message = status === 401
-            ? 'Invalid username or password.'
-            : status === 500
-              ? 'Server error. Please try again later.'
-              : err.code === 'ECONNABORTED'
-                ? 'Request timed out. Please check your network.'
-                : err.code === 'ERR_NETWORK'
-                  ? 'Unable to reach the server. Please ensure the backend is running.'
-                  : 'Network error. Please try again.';
-          setError(message);
+          const {user} = await apiCall('post',`${API_BASE}/login`,cred,null,'AUTH');
+          const {username,profilePicUrl,eventColor,email,phone,address,isAdmin,gender} = user;
+          onLogin({username,profilePicUrl,eventColor,email,phone,address,isAdmin,gender,token:''});
+          setErr('');
+        } catch ({userMsg,devMsg}) {
+          setErr(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
@@ -256,10 +223,10 @@
           <div className="card p-8 w-full max-w-md">
             <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
             <div className="space-y-4">
-              <Input name="username" placeholder="Username" value={credentials.username} onChange={handleChange} disabled={isLoading} aria-label="Username" />
-              <Input type="password" name="password" placeholder="Password" value={credentials.password} onChange={handleChange} disabled={isLoading} aria-label="Password" />
-              {error && <p className="error-message">{error}</p>}
-              <Button onClick={handleLogin} disabled={isLoading} aria-label="Sign In">{isLoading ? 'Signing In...' : 'Sign In'}</Button>
+              <Input name="username" placeholder="Username" value={cred.username} onChange={e=>setCred({...cred,username:e.target.value})} disabled={loading} aria-label="Username"/>
+              <Input type="password" name="password" placeholder="Password" value={cred.password} onChange={e=>setCred({...cred,password:e.target.value})} disabled={loading} aria-label="Password"/>
+              {err && <p className="error-message">{err}</p>}
+              <Button onClick={handleLogin} disabled={loading} aria-label="Sign In">{loading?'Signing In...':'Sign In'}</Button>
             </div>
           </div>
         </div>
@@ -267,20 +234,17 @@
     };
 
     // Menu Component
-    const Menu = ({ user, setPage, onLogout }) => (
+    const Menu = ({user,setPage,onLogout}) => (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="card p-8 w-full max-w-md">
           <h1 className="text-2xl font-semibold text-white mb-6 text-center flex items-center justify-center gap-3">
-            <ProfilePic src={user.profilePicUrl} username={user.username} />
-            <span>Welcome, {capitalize(user.username)}!</span>
+            <ProfilePic src={user.profilePicUrl} username={user.username}/>
+            <span>Welcome, {cap(user.username)}!</span>
           </h1>
           <div className="space-y-3">
-            {['financial', 'budgetCalculator', ...(user.gender === 'Female' ? ['periodTracker'] : []), 'calendar', 'profileSettings', ...(user.isAdmin ? ['admin'] : [])]
-              .map(page => (
-                <Button key={page} onClick={() => setPage(page)} aria-label={`Go to ${capitalize(page)}`}>
-                  {capitalize(page.replace(/([A-Z])/g, ' $1').trim())}
-                </Button>
-              ))}
+            {['financial','budgetCalculator',...(user.gender==='Female'?['periodTracker']:[]),'calendar','profileSettings',...(user.isAdmin?['admin']:[])].map(p=>(
+              <Button key={p} onClick={() => setPage(p)} aria-label={`Go to ${cap(p)}`}>{cap(p.replace(/([A-Z])/g,' $1').trim())}</Button>
+            ))}
             <Button className="bg-red-500 hover:bg-red-600" onClick={onLogout} aria-label="Sign Out">Sign Out</Button>
           </div>
         </div>
@@ -288,154 +252,91 @@
     );
 
     // ProfileSettings Component
-    const ProfileSettings = ({ user, setPage, onLogout, setUser }) => {
-      const [form, setForm] = useState({ ...user, currentPassword: '', newPassword: '', confirmNewPassword: '' });
-      const [selectedFile, setSelectedFile] = useState(null);
-      const [message, setMessage] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
+    const ProfileSettings = ({user,setPage,onLogout,setUser}) => {
+      const [form,setForm] = useState({...user,currentPassword:'',newPassword:'',confirmNewPassword:''});
+      const [file,setFile] = useState(null);
+      const [msg,setMsg] = useState('');
+      const [loading,setLoading] = useState(false);
 
-      const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
-
-      const handleFileChange = e => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
-          setMessage(file ? 'Invalid image or size > 5MB.' : '');
-          setSelectedFile(null);
-          setForm({ ...form, profilePicUrl: user.profilePicUrl });
+      const handleFile = e => {
+        const f = e.target.files[0];
+        if (!f || !f.type.startsWith('image/') || f.size > 5*1024*1024) {
+          setMsg(f?`${genRefId()}: Invalid image or size > 5MB`:`${genRefId()}: No file selected`);
+          setFile(null);
+          setForm({...form,profilePicUrl:user.profilePicUrl});
           return;
         }
-        new Compressor(file, {
-          quality: 0.6,
-          maxWidth: 500,
-          maxHeight: 500,
-          success: compressed => {
-            setSelectedFile(compressed);
-            const reader = new FileReader();
-            reader.onloadend = () => setForm({ ...form, profilePicUrl: reader.result });
-            reader.readAsDataURL(compressed);
+        new Compressor(f,{
+          quality:0.6,maxWidth:500,maxHeight:500,
+          success:c => {
+            setFile(c);
+            const r = new FileReader();
+            r.onloadend = () => setForm({...form,profilePicUrl:r.result});
+            r.readAsDataURL(c);
           },
-          error: () => setMessage('Error compressing image.')
+          error:() => setMsg(`${genRefId()}: Error compressing image`)
         });
       };
 
-      const handleSaveProfile = async () => {
-        setIsLoading(true);
-        setMessage('Saving profile...');
+      const saveProfile = async () => {
+        setLoading(true);
+        setMsg('Saving profile...');
         try {
-          const urlToSave = selectedFile ? await new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.readAsDataURL(selectedFile);
-          }) : form.profilePicUrl;
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/user-profile-settings`,
-            data: { username: user.username, ...form, profilePicUrl: urlToSave }
-          });
-          if (data.success) {
-            setMessage('Profile saved successfully!');
-            setUser({ ...user, ...form, profilePicUrl: urlToSave });
-          } else {
-            setMessage(data.message || 'Failed to save profile.');
-          }
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error saving profile.';
-          setMessage(message);
+          const url = file ? await new Promise(r => {const reader=new FileReader();reader.onload=() => r(reader.result);reader.readAsDataURL(file);}) : form.profilePicUrl;
+          await apiCall('post',`${API_BASE}/user-profile-settings`,{username:user.username,...form,profilePicUrl:url},null,'PROFILE');
+          setMsg(`${genRefId()}: Profile saved`);
+          setUser({...user,...form,profilePicUrl:url});
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handlePasswordChange = async () => {
+      const changePassword = async () => {
         if (!form.currentPassword || !form.newPassword || form.newPassword !== form.confirmNewPassword || form.newPassword.length < 6) {
-          setMessage('Password fields invalid or password too short (minimum 6 characters).');
+          setMsg(`${genRefId()}: Invalid password fields or too short (min 6 chars)`);
           return;
         }
-        setIsLoading(true);
-        setMessage('Updating password...');
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/update-password`,
-            data: { username: user.username, currentPassword: form.currentPassword, newPassword: form.newPassword }
-          });
-          if (data.success) {
-            setMessage('Password updated successfully!');
-            setForm({ ...form, currentPassword: '', newPassword: '', confirmNewPassword: '' });
-          } else {
-            setMessage(data.message || 'Failed to update password.');
-          }
-        } catch (err) {
-          const message = err.response?.status === 401
-            ? 'Current password is incorrect.'
-            : err.response?.status === 500
-              ? 'Server error. Please try again later.'
-              : err.code === 'ECONNABORTED'
-                ? 'Request timed out. Please check your network.'
-                : err.code === 'ERR_NETWORK'
-                  ? 'Unable to reach the server. Please ensure the backend is running.'
-                  : err.response?.data?.message || 'Error updating password.';
-          setMessage(message);
+          await apiCall('post',`${API_BASE}/update-password`,{username:user.username,currentPassword:form.currentPassword,newPassword:form.newPassword},null,'AUTH');
+          setMsg(`${genRefId()}: Password updated`);
+          setForm({...form,currentPassword:'',newPassword:'',confirmNewPassword:''});
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8 space-y-6">
             <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
             <div className="flex items-center gap-4 mb-4">
-              <div className="profile-pic-container"><img src={form.profilePicUrl || DEFAULT_PROFILE_PIC} alt="Profile" className="profile-pic" /></div>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600"
-                aria-label="Upload Profile Picture"
-                disabled={isLoading}
-              />
+              <div className="profile-pic-container"><img src={form.profilePicUrl||DEF_PIC} alt="Profile" className="profile-pic"/></div>
+              <Input type="file" accept="image/*" onChange={handleFile} className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-500 file:text-white hover:file:bg-teal-600" disabled={loading} aria-label="Upload Profile Picture"/>
             </div>
-            <Input label="Email" type="email" name="email" value={form.email || ''} onChange={handleChange} disabled={isLoading} aria-label="Email" />
-            <Input label="Phone" type="tel" name="phone" value={form.phone || ''} onChange={handleChange} disabled={isLoading} aria-label="Phone" />
-            <Select
-              label="Gender"
-              name="gender"
-              value={form.gender || ''}
-              onChange={handleChange}
-              options={[{ value: '', label: 'Select' }, { value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]}
-              disabled={isLoading}
-              aria-label="Gender"
-            />
-            <textarea
-              name="address"
-              value={form.address || ''}
-              onChange={handleChange}
-              rows="3"
-              className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400"
-              placeholder="Address"
-              disabled={isLoading}
-              aria-label="Address"
-            />
-            <Input label="Event Color" type="color" name="eventColor" value={form.eventColor || DEFAULT_EVENT_COLOR} onChange={handleChange} className="h-12" disabled={isLoading} aria-label="Event Color" />
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
-            <Button onClick={handleSaveProfile} disabled={isLoading} aria-label="Save Profile">Save Profile</Button>
+            <Input label="Email" type="email" name="email" value={form.email||''} onChange={e=>setForm({...form,email:e.target.value})} disabled={loading} aria-label="Email"/>
+            <Input label="Phone" type="tel" name="phone" value={form.phone||''} onChange={e=>setForm({...form,phone:e.target.value})} disabled={loading} aria-label="Phone"/>
+            <Select label="Gender" name="gender" value={form.gender||''} onChange={e=>setForm({...form,gender:e.target.value})} options={[{value:'',label:'Select'},{value:'Male',label:'Male'},{value:'Female',label:'Female'}]} disabled={loading} aria-label="Gender"/>
+            <textarea name="address" value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})} rows="3" className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10 focus:outline-none focus:border-teal-400" placeholder="Address" disabled={loading} aria-label="Address"/>
+            <Input label="Event Color" type="color" name="eventColor" value={form.eventColor||DEF_COLOR} onChange={e=>setForm({...form,eventColor:e.target.value})} className="h-12" disabled={loading} aria-label="Event Color"/>
+            {msg && <p className={`text-center text-sm ${msg.includes('saved')||msg.includes('updated')?'text-green-400':'text-red-400'}`}>{msg}</p>}
+            <Button onClick={saveProfile} disabled={loading} aria-label="Save Profile">Save Profile</Button>
             <div className="pt-6 border-t border-white/10 space-y-4">
               <h2 className="text-xl font-semibold text-white">Change Password</h2>
-              <Input type="password" name="currentPassword" value={form.currentPassword} onChange={handleChange} placeholder="Current Password" disabled={isLoading} aria-label="Current Password" />
-              <Input type="password" name="newPassword" value={form.newPassword} onChange={handleChange} placeholder="New Password" disabled={isLoading} aria-label="New Password" />
-              <Input type="password" name="confirmNewPassword" value={form.confirmNewPassword} onChange={handleChange} placeholder="Confirm New Password" disabled={isLoading} aria-label="Confirm New Password" />
-              <Button onClick={handlePasswordChange} disabled={isLoading} aria-label="Change Password">Change Password</Button>
+              <Input type="password" name="currentPassword" value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} placeholder="Current Password" disabled={loading} aria-label="Current Password"/>
+              <Input type="password" name="newPassword" value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} placeholder="New Password" disabled={loading} aria-label="New Password"/>
+              <Input type="password" name="confirmNewPassword" value={form.confirmNewPassword} onChange={e=>setForm({...form,confirmNewPassword:e.target.value})} placeholder="Confirm New Password" disabled={loading} aria-label="Confirm New Password"/>
+              <Button onClick={changePassword} disabled={loading} aria-label="Change Password">Change Password</Button>
             </div>
           </div>
         </div>
@@ -443,314 +344,173 @@
     };
 
     // Financial Component
-    const Financial = ({ user, setPage, onLogout }) => {
-      const [items, setItems] = useState([]);
-      const [form, setForm] = useState({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
-      const [hideValues, setHideValues] = useState(false);
-      const [selectedMonth, setSelectedMonth] = useState(('0' + (new Date().getMonth() + 1)).slice(-2));
-      const [netTotal, setNetTotal] = useState(0);
-      const [bulkData, setBulkData] = useState('');
-      const [importMessage, setImportMessage] = useState('');
-      const [showAddItemForm, setShowAddItemForm] = useState(false);
-      const [showImportTool, setShowImportTool] = useState(false);
-      const [isLoading, setIsLoading] = useState(false);
-      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+    const Financial = ({user,setPage,onLogout}) => {
+      const [items,setItems] = useState([]);
+      const [form,setForm] = useState({desc:'',amt:'',type:'income',date:now()});
+      const [hide,setHide] = useState(false);
+      const [month,setMonth] = useState(('0'+(new Date().getMonth()+1)).slice(-2));
+      const [total,setTotal] = useState(0);
+      const [bulk,setBulk] = useState('');
+      const [msg,setMsg] = useState('');
+      const [showForm,setShowForm] = useState(false);
+      const [showImport,setShowImport] = useState(false);
+      const [loading,setLoading] = useState(false);
+      const {targets,showTargets,setShowTargets,err} = useAccessibleUsers(user,setProfiles);
+      const [profiles,setProfiles] = useState({[user.username]:user.profilePicUrl||DEF_PIC});
 
       const fetchItems = async () => {
-        setIsLoading(true);
+        setLoading(true);
         try {
-          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-          const results = await Promise.all(usersToFetch.map(u =>
-            axiosWithRetry({
-              method: 'get',
-              url: `${API_BASE}/financial`,
-              params: { user: u }
-            }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
-              console.error(`Error fetching financial data for ${u}:`, err.message);
-              return [];
-            })
+          const users = [user.username,...(showTargets?targets:[])];
+          const data = await Promise.all(users.map(u=>
+            apiCall('get',`${API_BASE}/financial`,null,{user:u},'FIN').then(({data})=>data??[]).catch(()=>([]))
           ));
-          setItems(results.flat());
-        } catch (err) {
-          console.error('Error fetching financial items:', err.message);
-          setImportMessage(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error fetching financial data.');
+          setItems(data.flat());
+          setMsg('');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const calculateNetTotal = useMemo(() => {
-        return items
-          .filter(item => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
-          .reduce((sum, item) => item.type === 'income' ? sum + (parseFloat(item.amount) || 0) : sum - (parseFloat(item.amount) || 0), 0);
-      }, [items, showTargetUsers, selectedMonth, targetUsers, user.username]);
+      const netTotal = useMemo(() =>
+        items
+          .filter(i=>[user.username,...(showTargets?targets:[])].includes(i.user) && i.date.startsWith(`2025-${month}`))
+          .reduce((s,i)=>s+(i.type==='income'?1:-1)*(Number(i.amount)||0),0)
+      , [items,showTargets,month,targets,user.username]);
 
       const addItem = async () => {
-        if (!form.description || !form.amount || !form.date) {
-          setImportMessage('All fields required.');
+        if (!form.desc || !form.amt || !form.date) {
+          setMsg(`${genRefId()}: All fields required`);
           return;
         }
-        setIsLoading(true);
-        setImportMessage('Adding item...');
+        setLoading(true);
         try {
-          const item = { user: user.username, ...form, amount: parseFloat(form.amount) };
+          const item = {user:user.username,desc:form.desc,amt:Number(form.amt),type:form.type,date:form.date};
           await Promise.all([
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/financial`,
-              data: item
-            }),
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/calendar`,
-              data: { ...item, title: `${form.description} (${form.type})`, financial: true, eventColor: user.eventColor }
-            })
+            apiCall('post',`${API_BASE}/financial`,item,null,'FIN'),
+            apiCall('post',`${API_BASE}/calendar`,{...item,title:`${form.desc} (${form.type})`,financial:true,eventColor:user.eventColor},null,'CAL')
           ]);
-          setImportMessage('Item added successfully!');
+          setMsg(`${genRefId()}: Item added`);
           await fetchItems();
-          setForm({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
-          setShowAddItemForm(false);
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error adding item.';
-          setImportMessage(message);
+          setForm({desc:'',amt:'',type:'income',date:now()});
+          setShowForm(false);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
       const deleteItem = async id => {
-        setIsLoading(true);
+        setLoading(true);
         try {
-          await axiosWithRetry({
-            method: 'delete',
-            url: `${API_BASE}/financial/${id}`
-          });
+          await apiCall('delete',`${API_BASE}/financial/${id}`,null,null,'FIN');
           await fetchItems();
-        } catch (err) {
-          console.error('Error deleting item:', err.message);
-          setImportMessage(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error deleting item.');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleBulkImport = async () => {
-        if (!bulkData.trim()) {
-          setImportMessage('No data to import.');
+      const importBulk = async () => {
+        if (!bulk.trim()) {
+          setMsg(`${genRefId()}: No data to import`);
           return;
         }
-        setIsLoading(true);
-        setImportMessage('Importing data...');
+        setLoading(true);
         try {
-          const itemsToImport = bulkData.trim().split('\n').map(line => {
-            const [description, amount, type, date] = line.split(',').map(f => f.trim());
-            return description && amount && type && date ? { user: user.username, description, amount: parseFloat(amount), type, date } : null;
+          const items = bulk.trim().split('\n').map(l => {
+            const [desc,amt,type,date] = l.split(',').map(f=>f.trim());
+            return desc&&amt&&type&&date ? {user:user.username,desc,amt:Number(amt),type,date} : null;
           }).filter(Boolean);
-          if (!itemsToImport.length) {
-            setImportMessage('Invalid data format.');
-            return;
-          }
-          await Promise.all(itemsToImport.map(item => Promise.all([
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/financial`,
-              data: item
-            }),
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/calendar`,
-              data: { ...item, title: `${item.description} (${item.type})`, financial: true, eventColor: user.eventColor }
-            })
+          if (!items.length) throw {response:{data:{message:'Invalid data format'},status:400}};
+          await Promise.all(items.map(i=>Promise.all([
+            apiCall('post',`${API_BASE}/financial`,i,null,'FIN'),
+            apiCall('post',`${API_BASE}/calendar`,{...i,title:`${i.desc} (${i.type})`,financial:true,eventColor:user.eventColor},null,'CAL')
           ])));
-          setImportMessage(`Successfully imported ${itemsToImport.length} items!`);
-          setBulkData('');
-          setShowImportTool(false);
+          setMsg(`${genRefId()}: Imported ${items.length} items`);
+          setBulk('');
+          setShowImport(false);
           await fetchItems();
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error importing data.';
-          setImportMessage(message);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      useEffect(() => {
-        fetchItems();
-      }, [showTargetUsers, targetUsers, user.username]);
-
-      useEffect(() => {
-        setNetTotal(calculateNetTotal);
-      }, [calculateNetTotal]);
+      useEffect(() => { fetchItems(); }, [showTargets,targets,user.username]);
+      useEffect(() => { setTotal(netTotal); }, [netTotal]);
 
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <ProfilePic src={user.profilePicUrl} username={user.username} />
+                <ProfilePic src={user.profilePicUrl} username={user.username}/>
                 Finances
               </h1>
               <div className="flex space-x-3 mt-4 sm:mt-0">
-                <Select
-                  options={MONTHS.map(m => ({ ...m, label: `${m.label} 2025` }))}
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  disabled={isLoading}
-                  aria-label="Select Month"
-                />
-                <Button
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600"
-                  onClick={() => setShowAddItemForm(!showAddItemForm)}
-                  disabled={isLoading}
-                  aria-label={showAddItemForm ? 'Hide Add Item Form' : 'Show Add Item Form'}
-                >
-                  {showAddItemForm ? 'Hide' : 'Add'}
-                </Button>
-                <Button
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600"
-                  onClick={() => setShowImportTool(!showImportTool)}
-                  disabled={isLoading}
-                  aria-label={showImportTool ? 'Hide Import Tool' : 'Show Import Tool'}
-                >
-                  {showImportTool ? 'Hide' : 'Import'}
-                </Button>
+                <Select options={MONTHS.map(m=>({...m,label:`${m.label} 2025`}))} value={month} onChange={e=>setMonth(e.target.value)} disabled={loading} aria-label="Select Month"/>
+                <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={() => setShowForm(!showForm)} disabled={loading} aria-label={showForm?'Hide Add Form':'Show Add Form'}>{showForm?'Hide':'Add'}</Button>
+                <Button className="px-4 py-2 bg-green-500 hover:bg-green-600" onClick={() => setShowImport(!showImport)} disabled={loading} aria-label={showImport?'Hide Import Tool':'Show Import Tool'}>{showImport?'Hide':'Import'}</Button>
               </div>
             </div>
-            {error && <p className="error-message">{error}</p>}
-            {isLoading && <p className="text-center text-sm text-gray-300">Loading...</p>}
-            {targetUsers.length > 0 && (
+            {err && <p className="error-message">{err}</p>}
+            {loading && <p className="text-center text-sm text-gray-300">Loading...</p>}
+            {targets.length>0 && (
               <div className="mb-6">
-                <button
-                  className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`}
-                  onClick={() => setShowTargetUsers(!showTargetUsers)}
-                  disabled={isLoading}
-                  aria-label={targetUsers.length === 1 ? `Toggle ${capitalize(targetUsers[0])}'s Data` : `Toggle Others' Data`}
-                >
-                  {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Others' Data`}
+                <button className={`toggle-button ${showTargets?'active':'inactive'}`} onClick={() => setShowTargets(!showTargets)} disabled={loading} aria-label={targets.length===1?`Toggle ${cap(targets[0])}'s Data`:`Toggle Others' Data`}>
+                  {targets.length===1?`Show/Hide ${cap(targets[0])}'s Data`:`Show/Hide Others' Data`}
                 </button>
               </div>
             )}
             <div className="card p-6 mb-6">
-              <h2 className="text-xl font-semibold text-white mb-2">Net Total ({MONTHS.find(m => m.value === selectedMonth)?.label} 2025)</h2>
-              <p className={`text-2xl font-bold ${netTotal >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {hideValues ? '****' : formatAmount(netTotal)}
-              </p>
+              <h2 className="text-xl font-semibold text-white mb-2">Net Total ({MONTHS.find(m=>m.value===month)?.label} 2025)</h2>
+              <p className={`text-2xl font-bold ${total>=0?'text-green-400':'text-red-400'}`}>{hide?'****':fmtAmt(total)}</p>
             </div>
-            {showImportTool && (
+            {showImport && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Bulk Import</h2>
-                <textarea
-                  placeholder="Description,Amount,Type,Date"
-                  value={bulkData}
-                  onChange={e => setBulkData(e.target.value)}
-                  rows="8"
-                  className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10"
-                  disabled={isLoading}
-                  aria-label="Bulk Import Data"
-                />
-                <Button
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={handleBulkImport}
-                  disabled={isLoading}
-                  aria-label="Import Data"
-                >
-                  Import
-                </Button>
-                {importMessage && (
-                  <p className={`text-center text-sm ${importMessage.includes('success') || importMessage.includes('Imported') ? 'text-green-400' : 'text-red-400'}`}>
-                    {importMessage}
-                  </p>
-                )}
+                <textarea placeholder="Description,Amount,Type,Date" value={bulk} onChange={e=>setBulk(e.target.value)} rows="8" className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10" disabled={loading} aria-label="Bulk Import Data"/>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={importBulk} disabled={loading} aria-label="Import Data">Import</Button>
+                {msg && <p className={`text-center text-sm ${msg.includes('Imported')||msg.includes('added')?'text-green-400':'text-red-400'}`}>{msg}</p>}
               </div>
             )}
-            {showAddItemForm && (
+            {showForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Item</h2>
-                <Input
-                  name="description"
-                  placeholder="Description"
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                  disabled={isLoading}
-                  aria-label="Description"
-                />
-                <Input
-                  type="number"
-                  name="amount"
-                  placeholder="Amount (ZAR)"
-                  value={form.amount}
-                  onChange={e => setForm({ ...form, amount: e.target.value })}
-                  disabled={isLoading}
-                  aria-label="Amount"
-                />
-                <Select
-                  name="type"
-                  value={form.type}
-                  onChange={e => setForm({ ...form, type: e.target.value })}
-                  options={[{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }]}
-                  disabled={isLoading}
-                  aria-label="Type"
-                />
-                <Input
-                  type="datetime-local"
-                  name="date"
-                  value={form.date}
-                  onChange={e => setForm({ ...form, date: e.target.value })}
-                  step="1"
-                  disabled={isLoading}
-                  aria-label="Date and Time"
-                />
-                <Button onClick={addItem} disabled={isLoading} aria-label="Add Item">Add</Button>
+                <Input name="desc" placeholder="Description" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} disabled={loading} aria-label="Description"/>
+                <Input type="number" name="amt" placeholder="Amount (ZAR)" value={form.amt} onChange={e=>setForm({...form,amt:e.target.value})} disabled={loading} aria-label="Amount"/>
+                <Select name="type" value={form.type} onChange={e=>setForm({...form,type:e.target.value})} options={[{value:'income',label:'Income'},{value:'expense',label:'Expense'}]} disabled={loading} aria-label="Type"/>
+                <Input type="datetime-local" name="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} step="1" disabled={loading} aria-label="Date and Time"/>
+                <Button onClick={addItem} disabled={loading} aria-label="Add Item">Add</Button>
               </div>
             )}
-            <Button
-              onClick={() => setHideValues(!hideValues)}
-              className="mb-6"
-              disabled={isLoading}
-              aria-label={hideValues ? 'Show Financial Values' : 'Hide Financial Values'}
-            >
-              {hideValues ? 'Show Values' : 'Hide Values'}
-            </Button>
+            <Button onClick={() => setHide(!hide)} className="mb-6" disabled={loading} aria-label={hide?'Show Values':'Hide Values'}>{hide?'Show Values':'Hide Values'}</Button>
             <div className="space-y-3">
               {items
-                .filter(item => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
-                .map(item => (
-                  <div key={item.id} className="flex justify-between p-4 card items-center">
+                .filter(i=>[user.username,...(showTargets?targets:[])].includes(i.user) && i.date.startsWith(`2025-${month}`))
+                .map(i=>(
+                  <div key={i.id} className="flex justify-between p-4 card items-center">
                     <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container">
-                        <img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC} alt={item.user} className="event-profile-pic" />
-                      </div>
-                      <span>{item.description} ({item.type}) - {formatDateTime(item.date)}</span>
+                      <div className="event-profile-pic-container"><img src={profiles[i.user]||DEF_PIC} alt={i.user} className="event-profile-pic"/></div>
+                      <span>{i.desc} ({i.type}) - {fmtDt(i.date)}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span>{hideValues ? '****' : formatAmount(item.amount)}</span>
-                      {item.user === user.username && (
-                        <Button
-                          className="px-3 py-1 bg-red-500 hover:bg-red-600"
-                          onClick={() => deleteItem(item.id)}
-                          disabled={isLoading}
-                          aria-label={`Delete ${item.description}`}
-                        >
-                          Delete
-                        </Button>
-                      )}
+                      <span>{hide?'****':fmtAmt(i.amount)}</span>
+                      {i.user===user.username && <Button className="px-3 py-1 bg-red-500 hover:bg-red-600" onClick={() => deleteItem(i.id)} disabled={loading} aria-label={`Delete ${i.desc}`}>Delete</Button>}
                     </div>
                   </div>
                 ))}
@@ -761,176 +521,101 @@
     };
 
     // BudgetCalculator Component
-    const BudgetCalculator = ({ user, setPage, onLogout }) => {
-      const [budgetItems, setBudgetItems] = useState([]);
-      const [form, setForm] = useState({
-        income: '',
-        expenses: [
-          { category: 'Rent/Mortgage', amount: '' },
-          { category: 'Utilities', amount: '' },
-          { category: 'Groceries', amount: '' },
-          { category: 'Transport', amount: '' },
-          { category: 'Other', amount: '' }
-        ]
-      });
-      const [totalExpenses, setTotalExpenses] = useState(0);
-      const [remainingBudget, setRemainingBudget] = useState(0);
-      const [message, setMessage] = useState('');
-      const [selectedMonth, setSelectedMonth] = useState(('0' + (new Date().getMonth() + 1)).slice(-2));
-      const [isLoading, setIsLoading] = useState(false);
-      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+    const BudgetCalculator = ({user,setPage,onLogout}) => {
+      const [items,setItems] = useState([]);
+      const [form,setForm] = useState({income:'',expenses:[{cat:'Rent/Mortgage',amt:''},{cat:'Utilities',amt:''},{cat:'Groceries',amt:''},{cat:'Transport',amt:''},{cat:'Other',amt:''}]});
+      const [totalExp,setTotalExp] = useState(0);
+      const [remain,setRemain] = useState(0);
+      const [msg,setMsg] = useState('');
+      const [month,setMonth] = useState(('0'+(new Date().getMonth()+1)).slice(-2));
+      const [loading,setLoading] = useState(false);
+      const {targets,showTargets,setShowTargets,err} = useAccessibleUsers(user,setProfiles);
+      const [profiles,setProfiles] = useState({[user.username]:user.profilePicUrl||DEF_PIC});
 
-      const fetchBudgetItems = async () => {
-        setIsLoading(true);
+      const fetchItems = async () => {
+        setLoading(true);
         try {
-          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-          const results = await Promise.all(usersToFetch.map(u =>
-            axiosWithRetry({
-              method: 'get',
-              url: `${API_BASE}/budget`,
-              params: { user: u, month: selectedMonth, year: '2025' }
-            }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
-              console.error(`Error fetching budget data for ${u}:`, err.message);
-              return [];
-            })
+          const users = [user.username,...(showTargets?targets:[])];
+          const data = await Promise.all(users.map(u=>
+            apiCall('get',`${API_BASE}/budget`,null,{user:u,month,year:'2025'},'BUD').then(({data})=>data??[]).catch(()=>([]))
           ));
-          const items = results.flat();
-          setBudgetItems(items);
-          const total = items
-            .filter(item => item.category !== 'Income')
-            .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-          const income = items.find(item => item.category === 'Income')?.amount || 0;
-          setTotalExpenses(total);
-          setRemainingBudget(parseFloat(income) - total);
-        } catch (err) {
-          console.error('Error fetching budget items:', err.message);
-          setMessage(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error fetching budget data.');
+          const flat = data.flat();
+          setItems(flat);
+          const total = flat.filter(i=>i.category!=='Income').reduce((s,i)=>s+(Number(i.amount)||0),0);
+          const inc = flat.find(i=>i.category==='Income')?.amount||0;
+          setTotalExp(total);
+          setRemain(Number(inc)-total);
+          setMsg('');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleSaveBudget = async () => {
-        if (!form.income || form.expenses.some(exp => !exp.amount)) {
-          setMessage('All fields required.');
+      const saveBudget = async () => {
+        if (!form.income || form.expenses.some(e=>!e.amt)) {
+          setMsg(`${genRefId()}: All fields required`);
           return;
         }
-        setIsLoading(true);
-        setMessage('Saving budget...');
+        setLoading(true);
         try {
-          const itemsToSave = [
-            { user: user.username, category: 'Income', amount: parseFloat(form.income), month: selectedMonth, year: '2025' },
-            ...form.expenses.map(exp => ({
-              user: user.username,
-              category: exp.category,
-              amount: parseFloat(exp.amount),
-              month: selectedMonth,
-              year: '2025'
-            }))
-          ];
-          await Promise.all(itemsToSave.map(item =>
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/budget`,
-              data: item
-            })
-          ));
-          setMessage('Budget saved successfully!');
-          await fetchBudgetItems();
-          setForm({ income: '', expenses: form.expenses.map(exp => ({ ...exp, amount: '' })) });
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error saving budget.';
-          setMessage(message);
+          const items = [{user:user.username,category:'Income',amount:Number(form.income),month,year:'2025'},...form.expenses.map(e=>({user:user.username,category:e.cat,amount:Number(e.amt),month,year:'2025'}))];
+          await Promise.all(items.map(i=>apiCall('post',`${API_BASE}/budget`,i,null,'BUD')));
+          setMsg(`${genRefId()}: Budget saved`);
+          await fetchItems();
+          setForm({income:'',expenses:form.expenses.map(e=>({...e,amt:''}))});
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      useEffect(() => {
-        fetchBudgetItems();
-      }, [user, showTargetUsers, targetUsers, selectedMonth]);
+      useEffect(() => { fetchItems(); }, [user,showTargets,targets,month]);
 
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8 space-y-6">
             <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <ProfilePic src={user.profilePicUrl} username={user.username}/>
               Budget Calculator
             </h1>
-            {error && <p className="error-message">{error}</p>}
-            {isLoading && <p className="text-center text-sm text-gray-300">Loading...</p>}
-            {targetUsers.length > 0 && (
+            {err && <p className="error-message">{err}</p>}
+            {loading && <p className="text-center text-sm text-gray-300">Loading...</p>}
+            {targets.length>0 && (
               <div className="mb-6">
-                <button
-                  className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`}
-                  onClick={() => setShowTargetUsers(!showTargetUsers)}
-                  disabled={isLoading}
-                  aria-label={targetUsers.length === 1 ? `Toggle ${capitalize(targetUsers[0])}'s Data` : `Toggle Others' Data`}
-                >
-                  {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Others' Data`}
+                <button className={`toggle-button ${showTargets?'active':'inactive'}`} onClick={() => setShowTargets(!showTargets)} disabled={loading} aria-label={targets.length===1?`Toggle ${cap(targets[0])}'s Data`:`Toggle Others' Data`}>
+                  {targets.length===1?`Show/Hide ${cap(targets[0])}'s Data`:`Show/Hide Others' Data`}
                 </button>
               </div>
             )}
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
-            <Select
-              label="Month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              options={MONTHS.map(m => ({ value: m.value, label: `${m.label} 2025` }))}
-              disabled={isLoading}
-              aria-label="Select Month"
-            />
+            {msg && <p className={`text-center text-sm ${msg.includes('saved')?'text-green-400':'text-red-400'}`}>{msg}</p>}
+            <Select label="Month" value={month} onChange={e=>setMonth(e.target.value)} options={MONTHS.map(m=>({value:m.value,label:`${m.label} 2025`}))} disabled={loading} aria-label="Select Month"/>
             <div className="space-y-4">
-              <Input
-                label="Income (ZAR)"
-                type="number"
-                value={form.income}
-                onChange={e => setForm({ ...form, income: e.target.value })}
-                disabled={isLoading}
-                aria-label="Income"
-              />
-              {form.expenses.map((exp, i) => (
-                <Input
-                  key={i}
-                  label={exp.category}
-                  type="number"
-                  value={exp.amount}
-                  onChange={e => setForm({
-                    ...form,
-                    expenses: form.expenses.map((ex, idx) => idx === i ? { ...ex, amount: e.target.value } : ex)
-                  })}
-                  disabled={isLoading}
-                  aria-label={exp.category}
-                />
+              <Input label="Income (ZAR)" type="number" value={form.income} onChange={e=>setForm({...form,income:e.target.value})} disabled={loading} aria-label="Income"/>
+              {form.expenses.map((e,i)=>(
+                <Input key={i} label={e.cat} type="number" value={e.amt} onChange={v=>setForm({...form,expenses:form.expenses.map((ex,idx)=>idx===i?{...ex,amt:v.target.value}:ex)})} disabled={loading} aria-label={e.cat}/>
               ))}
-              <Button onClick={handleSaveBudget} disabled={isLoading} aria-label="Save Budget">Save</Button>
+              <Button onClick={saveBudget} disabled={loading} aria-label="Save Budget">Save</Button>
             </div>
             <div className="card p-6">
-              <p className="text-white">Income: {formatAmount(budgetItems.find(item => item.category === 'Income')?.amount || 0)}</p>
-              <p className="text-white">Expenses: {formatAmount(totalExpenses)}</p>
-              <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                Remaining: {formatAmount(remainingBudget)}
-              </p>
-              {budgetItems.map(item => (
-                <div key={item.id} className="flex justify-between p-4 card items-center">
+              <p className="text-white">Income: {fmtAmt(items.find(i=>i.category==='Income')?.amount||0)}</p>
+              <p className="text-white">Expenses: {fmtAmt(totalExp)}</p>
+              <p className={`text-2xl font-bold ${remain>=0?'text-green-400':'text-red-400'}`}>Remaining: {fmtAmt(remain)}</p>
+              {items.map(i=>(
+                <div key={i.id} className="flex justify-between p-4 card items-center">
                   <div className="flex items-center gap-3">
-                    <div className="event-profile-pic-container">
-                      <img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC} alt={item.user} className="event-profile-pic" />
-                    </div>
-                    <span>{item.category}</span>
+                    <div className="event-profile-pic-container"><img src={profiles[i.user]||DEF_PIC} alt={i.user} className="event-profile-pic"/></div>
+                    <span>{i.category}</span>
                   </div>
-                  <span>{formatAmount(item.amount)}</span>
+                  <span>{fmtAmt(i.amount)}</span>
                 </div>
               ))}
             </div>
@@ -940,101 +625,68 @@
     };
 
     // PeriodTracker Component
-    const PeriodTracker = ({ user, setPage, onLogout }) => {
-      const [cycles, setCycles] = useState([]);
-      const [form, setForm] = useState({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
-      const [message, setMessage] = useState('');
-      const [predictions, setPredictions] = useState({ nextPeriod: '', fertileDays: '' });
-      const [isLoading, setIsLoading] = useState(false);
-      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+    const PeriodTracker = ({user,setPage,onLogout}) => {
+      const [cycles,setCycles] = useState([]);
+      const [form,setForm] = useState({startDate:fmtDate(new Date()),endDate:'',cycleLength:'28',symptoms:''});
+      const [msg,setMsg] = useState('');
+      const [pred,setPred] = useState({nextPeriod:'',fertileDays:''});
+      const [loading,setLoading] = useState(false);
+      const {targets,showTargets,setShowTargets,err} = useAccessibleUsers(user,setProfiles);
+      const [profiles,setProfiles] = useState({[user.username]:user.profilePicUrl||DEF_PIC});
 
       const fetchCycles = async () => {
-        setIsLoading(true);
+        setLoading(true);
         try {
-          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-          const results = await Promise.all(usersToFetch.map(u =>
-            axiosWithRetry({
-              method: 'get',
-              url: `${API_BASE}/period`,
-              params: { user: u }
-            }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
-              console.error(`Error fetching period data for ${u}:`, err.message);
-              return [];
-            })
+          const users = [user.username,...(showTargets?targets:[])];
+          const data = await Promise.all(users.map(u=>
+            apiCall('get',`${API_BASE}/period`,null,{user:u},'PER').then(({data})=>data??[]).catch(()=>([]))
           ));
-          const flatCycles = results.flat();
-          setCycles(flatCycles);
-          if (flatCycles.length) {
-            const last = flatCycles[flatCycles.length - 1];
+          const flat = data.flat();
+          setCycles(flat);
+          if (flat.length) {
+            const last = flat[flat.length-1];
             const start = new Date(last.start_date);
-            const len = parseInt(last.cycle_length) || 28;
-            const next = new Date(start);
-            next.setDate(start.getDate() + len);
-            const fertileStart = new Date(start);
-            fertileStart.setDate(start.getDate() + len - 14 - 5);
-            const fertileEnd = new Date(fertileStart);
-            fertileEnd.setDate(fertileStart.getDate() + 6);
-            setPredictions({
-              nextPeriod: formatDate(next),
-              fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}`
-            });
+            const len = Number(last.cycle_length)||28;
+            const next = new Date(start.setDate(start.getDate()+len));
+            const fertileStart = new Date(start.setDate(start.getDate()+len-14-5));
+            const fertileEnd = new Date(fertileStart.setDate(fertileStart.getDate()+6));
+            setPred({nextPeriod:fmtDate(next),fertileDays:`${fmtDate(fertileStart)} to ${fmtDate(fertileEnd)}`});
           }
-        } catch (err) {
-          console.error('Error fetching cycles:', err.message);
-          setMessage(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error fetching period data.');
+          setMsg('');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleAddCycle = async () => {
+      const addCycle = async () => {
         if (!form.startDate || !form.cycleLength) {
-          setMessage('Start date and cycle length required.');
+          setMsg(`${genRefId()}: Start date and cycle length required`);
           return;
         }
-        setIsLoading(true);
-        setMessage('Adding cycle...');
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/period`,
-            data: {
-              user: user.username,
-              start_date: form.startDate,
-              end_date: form.endDate || null,
-              cycle_length: parseInt(form.cycleLength),
-              symptoms: form.symptoms || null
-            }
-          });
-          setMessage(data.success ? 'Cycle added successfully!' : data.message || 'Failed to add cycle.');
-          if (data.success) {
-            await fetchCycles();
-            setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
-          }
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error adding cycle.';
-          setMessage(message);
+          await apiCall('post',`${API_BASE}/period`,{user:user.username,start_date:form.startDate,end_date:form.endDate||null,cycle_length:Number(form.cycleLength),symptoms:form.symptoms||null},null,'PER');
+          setMsg(`${genRefId()}: Cycle added`);
+          await fetchCycles();
+          setForm({startDate:fmtDate(new Date()),endDate:'',cycleLength:'28',symptoms:''});
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      useEffect(() => {
-        if (user.gender === 'Female') fetchCycles();
-      }, [user, showTargetUsers, targetUsers]);
+      useEffect(() => { user.gender==='Female' && fetchCycles(); }, [user,showTargets,targets]);
 
       if (user.gender !== 'Female') return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8 text-gray-300">This feature is for female users only.</div>
         </div>
@@ -1043,87 +695,47 @@
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8 space-y-6">
             <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <ProfilePic src={user.profilePicUrl} username={user.username}/>
               Period Tracker
             </h1>
-            {error && <p className="error-message">{error}</p>}
-            {isLoading && <p className="text-center text-sm text-gray-300">Loading...</p>}
-            {targetUsers.length > 0 && (
+            {err && <p className="error-message">{err}</p>}
+            {loading && <p className="text-center text-sm text-gray-300">Loading...</p>}
+            {targets.length>0 && (
               <div className="mb-6">
-                <button
-                  className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`}
-                  onClick={() => setShowTargetUsers(!showTargetUsers)}
-                  disabled={isLoading}
-                  aria-label={targetUsers.length === 1 ? `Toggle ${capitalize(targetUsers[0])}'s Data` : `Toggle Others' Data`}
-                >
-                  {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Others' Data`}
+                <button className={`toggle-button ${showTargets?'active':'inactive'}`} onClick={() => setShowTargets(!showTargets)} disabled={loading} aria-label={targets.length===1?`Toggle ${cap(targets[0])}'s Data`:`Toggle Others' Data`}>
+                  {targets.length===1?`Show/Hide ${cap(targets[0])}'s Data`:`Show/Hide Others' Data`}
                 </button>
               </div>
             )}
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
+            {msg && <p className={`text-center text-sm ${msg.includes('added')?'text-green-400':'text-red-400'}`}>{msg}</p>}
             <div className="space-y-4">
-              <Input
-                label="Start Date"
-                type="date"
-                name="startDate"
-                value={form.startDate}
-                onChange={e => setForm({ ...form, startDate: e.target.value })}
-                disabled={isLoading}
-                aria-label="Start Date"
-              />
-              <Input
-                label="End Date (Optional)"
-                type="date"
-                name="endDate"
-                value={form.endDate}
-                onChange={e => setForm({ ...form, endDate: e.target.value })}
-                disabled={isLoading}
-                aria-label="End Date"
-              />
-              <Input
-                label="Cycle Length (days)"
-                type="number"
-                name="cycleLength"
-                value={form.cycleLength}
-                onChange={e => setForm({ ...form, cycleLength: e.target.value })}
-                disabled={isLoading}
-                aria-label="Cycle Length"
-              />
-              <textarea
-                name="symptoms"
-                value={form.symptoms}
-                onChange={e => setForm({ ...form, symptoms: e.target.value })}
-                placeholder="Symptoms"
-                rows="3"
-                className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10"
-                disabled={isLoading}
-                aria-label="Symptoms"
-              />
-              <Button onClick={handleAddCycle} disabled={isLoading} aria-label="Add Cycle">Add Cycle</Button>
+              <Input label="Start Date" type="date" name="startDate" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})} disabled={loading} aria-label="Start Date"/>
+              <Input label="End Date (Optional)" type="date" name="endDate" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})} disabled={loading} aria-label="End Date"/>
+              <Input label="Cycle Length (days)" type="number" name="cycleLength" value={form.cycleLength} onChange={e=>setForm({...form,cycleLength:e.target.value})} disabled={loading} aria-label="Cycle Length"/>
+              <textarea name="symptoms" value={form.symptoms} onChange={e=>setForm({...form,symptoms:e.target.value})} placeholder="Symptoms" rows="3" className="w-full p-3 rounded-lg bg-white/10 text-white border border-white/10" disabled={loading} aria-label="Symptoms"/>
+              <Button onClick={addCycle} disabled={loading} aria-label="Add Cycle">Add Cycle</Button>
             </div>
             <div className="card p-6">
               <h2 className="text-xl font-semibold text-white mb-2">Cycle Summary</h2>
               {cycles.length ? (
                 <>
-                  <p className="text-white">Last Start: {formatDate(cycles[cycles.length - 1].start_date)}</p>
-                  <p className="text-white">Next Period: {predictions.nextPeriod || 'N/A'}</p>
-                  <p className="text-white">Fertile Days: {predictions.fertileDays || 'N/A'}</p>
-                  {cycles.map(cycle => (
-                    <div key={cycle.id} className="p-4 card">
+                  <p className="text-white">Last Start: {fmtDate(cycles[cycles.length-1].start_date)}</p>
+                  <p className="text-white">Next Period: {pred.nextPeriod||'N/A'}</p>
+                  <p className="text-white">Fertile Days: {pred.fertileDays||'N/A'}</p>
+                  {cycles.map(c=>(
+                    <div key={c.id} className="p-4 card">
                       <div className="flex items-center gap-3">
-                        <div className="event-profile-pic-container">
-                          <img src={userProfiles[cycle.user] || DEFAULT_PROFILE_PIC} alt={cycle.user} className="event-profile-pic" />
-                        </div>
+                        <div className="event-profile-pic-container"><img src={profiles[c.user]||DEF_PIC} alt={c.user} className="event-profile-pic"/></div>
                         <div>
-                          <p className="text-white">Start: {formatDate(cycle.start_date)}</p>
-                          {cycle.end_date && <p className="text-white">End: {formatDate(cycle.end_date)}</p>}
-                          <p className="text-white">Length: {cycle.cycle_length} days</p>
-                          {cycle.symptoms && <p className="text-white">Symptoms: {cycle.symptoms}</p>}
+                          <p className="text-white">Start: {fmtDate(c.start_date)}</p>
+                          {c.end_date && <p className="text-white">End: {fmtDate(c.end_date)}</p>}
+                          <p className="text-white">Length: {c.cycle_length} days</p>
+                          {c.symptoms && <p className="text-white">Symptoms: {c.symptoms}</p>}
                         </div>
                       </div>
                     </div>
@@ -1137,313 +749,191 @@
     };
 
     // Calendar Component
-    const Calendar = ({ user, setPage, onLogout }) => {
-      const [events, setEvents] = useState([]);
-      const [form, setForm] = useState({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
-      const [selectedMonth, setSelectedMonth] = useState(('0' + (new Date().getMonth() + 1)).slice(-2));
-      const [showAddEventForm, setShowAddEventForm] = useState(false);
-      const [showModal, setShowModal] = useState(false);
-      const [selectedEvent, setSelectedEvent] = useState(null);
-      const [isLoading, setIsLoading] = useState(false);
-      const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
-      const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
-      const calendarRef = useRef(null);
-      const fullCalendarInstance = useRef(null);
+    const Calendar = ({user,setPage,onLogout}) => {
+      const [events,setEvents] = useState([]);
+      const [form,setForm] = useState({title:'',date:now(),financial:false,amount:'',category:'income'});
+      const [month,setMonth] = useState(('0'+(new Date().getMonth()+1)).slice(-2));
+      const [showForm,setShowForm] = useState(false);
+      const [showModal,setShowModal] = useState(false);
+      const [selEvent,setSelEvent] = useState(null);
+      const [loading,setLoading] = useState(false);
+      const {targets,showTargets,setShowTargets,err} = useAccessibleUsers(user,setProfiles);
+      const [profiles,setProfiles] = useState({[user.username]:user.profilePicUrl||DEF_PIC});
+      const calRef = useRef(null);
+      const fcInst = useRef(null);
 
       const fetchEvents = async () => {
-        setIsLoading(true);
+        setLoading(true);
         try {
-          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-          const results = await Promise.all(usersToFetch.map(u =>
-            axiosWithRetry({
-              method: 'get',
-              url: `${API_BASE}/calendar`,
-              params: { user: u }
-            }).then(({ data }) => Array.isArray(data) ? data.map(e => ({ ...e, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })) : []).catch(err => {
-              console.error(`Error fetching calendar data for ${u}:`, err.message);
-              return [];
-            })
+          const users = [user.username,...(showTargets?targets:[])];
+          const data = await Promise.all(users.map(u=>
+            apiCall('get',`${API_BASE}/calendar`,null,{user:u},'CAL').then(({data})=>data?.map(e=>({...e,eventColor:e.eventColor||DEF_COLOR}))??[]).catch(()=>([]))
           ));
-          setEvents(results.flat());
-        } catch (err) {
-          console.error('Error fetching calendar events:', err.message);
+          setEvents(data.flat());
+          setMsg('');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
           setShowModal(false);
-          setTimeout(() => setSelectedEvent(null), 300);
-          alert(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error fetching calendar events.');
+          setTimeout(() => setSelEvent(null),300);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleAddEvent = async () => {
+      const addEvent = async () => {
         if (!form.title || !form.date) {
-          alert('Title and date required!');
+          setMsg(`${genRefId()}: Title and date required`);
           return;
         }
-        setIsLoading(true);
+        setLoading(true);
         try {
-          const eventData = {
-            user: user.username,
-            title: form.title,
-            date: form.date,
-            financial: form.financial,
-            type: form.financial ? form.category : undefined,
-            amount: form.financial ? parseFloat(form.amount) : undefined,
-            eventColor: user.eventColor
-          };
+          const evt = {user:user.username,title:form.title,date:form.date,financial:form.financial,type:form.financial?form.category:undefined,amount:form.financial?Number(form.amount):undefined,eventColor:user.eventColor};
           await Promise.all([
-            axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/calendar`,
-              data: eventData
-            }),
-            form.financial && axiosWithRetry({
-              method: 'post',
-              url: `${API_BASE}/financial`,
-              data: { user: user.username, description: form.title, amount: parseFloat(form.amount), type: form.category, date: form.date }
-            })
+            apiCall('post',`${API_BASE}/calendar`,evt,null,'CAL'),
+            form.financial && apiCall('post',`${API_BASE}/financial`,{user:user.username,desc:form.title,amount:Number(form.amount),type:form.category,date:form.date},null,'FIN')
           ].filter(Boolean));
+          setMsg(`${genRefId()}: Event added`);
           await fetchEvents();
-          setForm({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
-          setShowAddEventForm(false);
-        } catch (err) {
-          const message = err.response?.status === 500
-            ? 'Server error. Please try again later.'
-            : err.code === 'ECONNABORTED'
-              ? 'Request timed out. Please check your network.'
-              : err.code === 'ERR_NETWORK'
-                ? 'Unable to reach the server. Please ensure the backend is running.'
-                : err.response?.data?.message || 'Error adding event.';
-          alert(message);
+          setForm({title:'',date:now(),financial:false,amount:'',category:'income'});
+          setShowForm(false);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleDeleteEvent = async id => {
-        setIsLoading(true);
+      const deleteEvent = async id => {
+        setLoading(true);
         try {
-          await axiosWithRetry({
-            method: 'delete',
-            url: `${API_BASE}/calendar/${id}`
-          });
+          await apiCall('delete',`${API_BASE}/calendar/${id}`,null,null,'CAL');
           await fetchEvents();
           setShowModal(false);
-          setTimeout(() => setSelectedEvent(null), 300);
-        } catch (err) {
-          console.error('Error deleting event:', err.message);
-          alert(err.code === 'ERR_NETWORK' ? 'Unable to reach the server. Please ensure the backend is running.' : 'Error deleting event.');
+          setTimeout(() => setSelEvent(null),300);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
       useEffect(() => {
         fetchEvents();
-        const calendarEl = calendarRef.current;
-        if (calendarEl && !fullCalendarInstance.current) {
-          fullCalendarInstance.current = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            initialDate: `2025-${selectedMonth}-01`,
-            editable: true,
-            selectable: true,
-            events: events.filter(e => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(e.user)),
-            eventContent: ({ event }) => {
-              const eventEl = document.createElement('div');
-              eventEl.className = 'fc-event-main';
-              eventEl.style.backgroundColor = event.extendedProps.eventColor;
-              eventEl.style.opacity = '0.8';
-              const imgEl = document.createElement('img');
-              imgEl.src = userProfiles[event.extendedProps.user] || DEFAULT_PROFILE_PIC;
-              imgEl.alt = event.extendedProps.user;
-              imgEl.className = 'event-profile-pic';
-              const titleSpan = document.createElement('span');
-              titleSpan.className = 'fc-event-title';
-              titleSpan.textContent = event.title;
-              const userSpan = document.createElement('span');
-              userSpan.className = 'fc-event-user';
-              userSpan.textContent = event.extendedProps.user;
-              const eventPicContainer = document.createElement('div');
-              eventPicContainer.className = 'event-profile-pic-container';
-              eventPicContainer.appendChild(imgEl);
-              eventEl.appendChild(eventPicContainer);
-              eventEl.appendChild(titleSpan);
-              eventEl.appendChild(userSpan);
-              return { domNodes: [eventEl] };
+        const el = calRef.current;
+        if (el && !fcInst.current) {
+          fcInst.current = new FullCalendar.Calendar(el,{
+            initialView:'dayGridMonth',
+            initialDate:`2025-${month}-01`,
+            editable:true,
+            selectable:true,
+            events:events.filter(e=>[user.username,...(showTargets?targets:[])].includes(e.user)),
+            eventContent:({event}) => {
+              const el = document.createElement('div');
+              el.className = 'fc-event-main';
+              el.style.backgroundColor = event.extendedProps.eventColor;
+              el.style.opacity = '0.8';
+              const img = document.createElement('img');
+              img.src = profiles[event.extendedProps.user] || DEF_PIC;
+              img.alt = event.extendedProps.user;
+              img.className = 'event-profile-pic';
+              const title = document.createElement('span');
+              title.className = 'fc-event-title';
+              title.textContent = event.title;
+              const user = document.createElement('span');
+              user.className = 'fc-event-user';
+              user.textContent = event.extendedProps.user;
+              const pic = document.createElement('div');
+              pic.className = 'event-profile-pic-container';
+              pic.appendChild(img);
+              el.appendChild(pic);
+              el.appendChild(title);
+              el.appendChild(user);
+              return {domNodes:[el]};
             },
-            eventClick: ({ event }) => {
-              setSelectedEvent({
-                id: event.id,
-                title: event.title,
-                date: event.start.toISOString().slice(0, 19),
-                user: event.extendedProps.user,
-                financial: event.extendedProps.financial,
-                type: event.extendedProps.type,
-                amount: event.extendedProps.amount,
-                profilePicUrl: userProfiles[event.extendedProps.user],
-                eventColor: event.extendedProps.eventColor
-              });
+            eventClick:({event}) => {
+              setSelEvent({id:event.id,title:event.title,date:event.start.toISOString().slice(0,19),user:event.extendedProps.user,financial:event.extendedProps.financial,type:event.extendedProps.type,amount:event.extendedProps.amount,profilePicUrl:profiles[event.extendedProps.user],eventColor:event.extendedProps.eventColor});
               setShowModal(true);
             }
           });
-          fullCalendarInstance.current.render();
+          fcInst.current.render();
         }
-        return () => {
-          if (fullCalendarInstance.current) {
-            fullCalendarInstance.current.destroy();
-            fullCalendarInstance.current = null;
-          }
-        };
-      }, [userProfiles, events, selectedMonth, showTargetUsers, targetUsers, user.username]);
+        return () => { if (fcInst.current) { fcInst.current.destroy(); fcInst.current = null; } };
+      }, [profiles,events,month,showTargets,targets,user.username]);
 
-      useEffect(() => {
-        if (fullCalendarInstance.current) {
-          fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`);
-          fullCalendarInstance.current.setOption('events', events.filter(e => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(e.user)));
-        }
-      }, [selectedMonth, events, showTargetUsers, targetUsers, user.username]);
+      useEffect(() => { fcInst.current && fcInst.current.gotoDate(`2025-${month}-01`) && fcInst.current.setOption('events',events.filter(e=>[user.username,...(showTargets?targets:[])].includes(e.user))); }, [month,events,showTargets,targets,user.username]);
 
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
-                <ProfilePic src={user.profilePicUrl} username={user.username} />
+                <ProfilePic src={user.profilePicUrl} username={user.username}/>
                 Calendar
               </h1>
               <div className="flex space-x-3 mt-4 sm:mt-0">
-                <Select
-                  options={MONTHS.map(m => ({ ...m, label: `${m.label} 2025` }))}
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  disabled={isLoading}
-                  aria-label="Select Month"
-                />
-                <Button
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600"
-                  onClick={() => setShowAddEventForm(!showAddEventForm)}
-                  disabled={isLoading}
-                  aria-label={showAddEventForm ? 'Hide Add Event Form' : 'Show Add Event Form'}
-                >
-                  {showAddEventForm ? 'Hide' : 'Add Event'}
-                </Button>
+                <Select options={MONTHS.map(m=>({...m,label:`${m.label} 2025`}))} value={month} onChange={e=>setMonth(e.target.value)} disabled={loading} aria-label="Select Month"/>
+                <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600" onClick={() => setShowForm(!showForm)} disabled={loading} aria-label={showForm?'Hide Add Form':'Show Add Form'}>{showForm?'Hide':'Add Event'}</Button>
               </div>
             </div>
-            {error && <p className="error-message">{error}</p>}
-            {isLoading && <p className="text-center text-sm text-gray-300">Loading...</p>}
-            {targetUsers.length > 0 && (
+            {err && <p className="error-message">{err}</p>}
+            {loading && <p className="text-center text-sm text-gray-300">Loading...</p>}
+            {targets.length>0 && (
               <div className="mb-6">
-                <button
-                  className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`}
-                  onClick={() => setShowTargetUsers(!showTargetUsers)}
-                  disabled={isLoading}
-                  aria-label={targetUsers.length === 1 ? `Toggle ${capitalize(targetUsers[0])}'s Data` : `Toggle Others' Data`}
-                >
-                  {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Others' Data`}
+                <button className={`toggle-button ${showTargets?'active':'inactive'}`} onClick={() => setShowTargets(!showTargets)} disabled={loading} aria-label={targets.length===1?`Toggle ${cap(targets[0])}'s Data`:`Toggle Others' Data`}>
+                  {targets.length===1?`Show/Hide ${cap(targets[0])}'s Data`:`Show/Hide Others' Data`}
                 </button>
               </div>
             )}
-            {showAddEventForm && (
+            {msg && <p className={`text-center text-sm ${msg.includes('added')?'text-green-400':'text-red-400'}`}>{msg}</p>}
+            {showForm && (
               <div className="card p-6 mb-6 space-y-4">
                 <h2 className="text-xl font-semibold text-white">Add Event</h2>
-                <Input
-                  name="title"
-                  placeholder="Event Title"
-                  value={form.title}
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  disabled={isLoading}
-                  aria-label="Event Title"
-                />
-                <Input
-                  type="datetime-local"
-                  name="date"
-                  value={form.date}
-                  onChange={e => setForm({ ...form, date: e.target.value })}
-                  step="1"
-                  disabled={isLoading}
-                  aria-label="Date and Time"
-                />
+                <Input name="title" placeholder="Event Title" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} disabled={loading} aria-label="Event Title"/>
+                <Input type="datetime-local" name="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} step="1" disabled={loading} aria-label="Date and Time"/>
                 <label className="flex items-center text-white">
-                  <input
-                    type="checkbox"
-                    checked={form.financial}
-                    onChange={e => setForm({ ...form, financial: e.target.checked })}
-                    disabled={isLoading}
-                    className="mr-2"
-                    aria-label="Financial Event"
-                  />
+                  <input type="checkbox" checked={form.financial} onChange={e=>setForm({...form,financial:e.target.checked})} disabled={loading} className="mr-2" aria-label="Financial Event"/>
                   Financial Event
                 </label>
                 {form.financial && (
                   <>
-                    <Input
-                      type="number"
-                      name="amount"
-                      placeholder="Amount (ZAR)"
-                      value={form.amount}
-                      onChange={e => setForm({ ...form, amount: e.target.value })}
-                      disabled={isLoading}
-                      aria-label="Amount"
-                    />
-                    <Select
-                      name="category"
-                      value={form.category}
-                      onChange={e => setForm({ ...form, category: e.target.value })}
-                      options={[{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }]}
-                      disabled={isLoading}
-                      aria-label="Category"
-                    />
+                    <Input type="number" name="amount" placeholder="Amount (ZAR)" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} disabled={loading} aria-label="Amount"/>
+                    <Select name="category" value={form.category} onChange={e=>setForm({...form,category:e.target.value})} options={[{value:'income',label:'Income'},{value:'expense',label:'Expense'}]} disabled={loading} aria-label="Category"/>
                   </>
                 )}
-                <Button onClick={handleAddEvent} disabled={isLoading} aria-label="Add Event">Add</Button>
+                <Button onClick={addEvent} disabled={loading} aria-label="Add Event">Add</Button>
               </div>
             )}
             <div className="card p-6">
-              <div ref={calendarRef} className="fc-custom"></div>
+              <div ref={calRef} className="fc-custom"></div>
             </div>
-            {showModal && selectedEvent && (
+            {showModal && selEvent && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className={`card p-6 w-full max-w-md modal ${showModal ? 'show' : ''}`}>
+                <div className={`card p-6 w-full max-w-md modal ${showModal?'show':''}`}>
                   <h2 className="text-xl font-semibold text-white mb-4">Event Details</h2>
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <div className="event-profile-pic-container">
-                        <img src={selectedEvent.profilePicUrl || DEFAULT_PROFILE_PIC} alt={selectedEvent.user} className="event-profile-pic" />
-                      </div>
-                      <p className="text-white">User: {capitalize(selectedEvent.user)}</p>
+                      <div className="event-profile-pic-container"><img src={selEvent.profilePicUrl||DEF_PIC} alt={selEvent.user} className="event-profile-pic"/></div>
+                      <p className="text-white">User: {cap(selEvent.user)}</p>
                     </div>
-                    <p className="text-white">Title: {selectedEvent.title}</p>
-                    <p className="text-white">Date: {formatDateTime(selectedEvent.date)}</p>
-                    {selectedEvent.financial && (
+                    <p className="text-white">Title: {selEvent.title}</p>
+                    <p className="text-white">Date: {fmtDt(selEvent.date)}</p>
+                    {selEvent.financial && (
                       <>
-                        <p className="text-white">Type: {capitalize(selectedEvent.type)}</p>
-                        <p className="text-white">Amount: {formatAmount(selectedEvent.amount)}</p>
+                        <p className="text-white">Type: {cap(selEvent.type)}</p>
+                        <p className="text-white">Amount: {fmtAmt(selEvent.amount)}</p>
                       </>
                     )}
                   </div>
                   <div className="flex space-x-3 mt-6">
-                    {selectedEvent.user === user.username && (
-                      <Button
-                        className="bg-red-500 hover:bg-red-600"
-                        onClick={() => handleDeleteEvent(selectedEvent.id)}
-                        disabled={isLoading}
-                        aria-label={`Delete ${selectedEvent.title}`}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                    <Button
-                      className="bg-gray-500 hover:bg-gray-600"
-                      onClick={() => { setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); }}
-                      disabled={isLoading}
-                      aria-label="Close"
-                    >
-                      Close
-                    </Button>
+                    {selEvent.user===user.username && <Button className="bg-red-500 hover:bg-red-600" onClick={() => deleteEvent(selEvent.id)} disabled={loading} aria-label={`Delete ${selEvent.title}`}>Delete</Button>}
+                    <Button className="bg-gray-500 hover:bg-gray-600" onClick={() => {setShowModal(false);setTimeout(() => setSelEvent(null),300);}} disabled={loading} aria-label="Close">Close</Button>
                   </div>
                 </div>
               </div>
@@ -1454,175 +944,109 @@
     };
 
     // Admin Component
-    const Admin = ({ user, setPage, onLogout }) => {
-      const [users, setUsers] = useState([]);
-      const [accessForm, setAccessForm] = useState({ viewer: '', target: '' });
-      const [message, setMessage] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
+    const Admin = ({user,setPage,onLogout}) => {
+      const [users,setUsers] = useState([]);
+      const [form,setForm] = useState({viewer:'',target:''});
+      const [msg,setMsg] = useState('');
+      const [loading,setLoading] = useState(false);
 
       const fetchUsers = async () => {
-        setIsLoading(true);
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'get',
-            url: `${API_BASE}/users`
-          });
-          if (data.success && Array.isArray(data.users)) {
-            setUsers(data.users);
-            setMessage('');
-          } else {
-            setMessage(data.message || 'No users found.');
-            setUsers([]);
-          }
-        } catch (err) {
-          const message = err.response?.status === 403
-            ? 'You do not have admin privileges.'
-            : err.response?.status === 500
-              ? 'Server error. Please try again later.'
-              : err.code === 'ECONNABORTED'
-                ? 'Request timed out. Please check your network.'
-                : err.code === 'ERR_NETWORK'
-                  ? 'Unable to reach the server. Please ensure the backend is running.'
-                  : err.response?.data?.message || 'Error fetching users.';
-          setMessage(message);
+          const {users} = await apiCall('get',`${API_BASE}/users`,null,null,'ADM');
+          setUsers(users ?? []);
+          setMsg('');
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
           setUsers([]);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleGrantAccess = async () => {
-        if (!accessForm.viewer || !accessForm.target || accessForm.viewer === accessForm.target) {
-          setMessage('Valid viewer and target usernames required (cannot be the same).');
+      const grantAccess = async () => {
+        if (!form.viewer || !form.target || form.viewer === form.target) {
+          setMsg(`${genRefId()}: Select different viewer and target`);
           return;
         }
-        setIsLoading(true);
-        setMessage('Granting access...');
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/grant-access`,
-            data: accessForm
-          });
-          setMessage(data.success ? 'Access granted successfully!' : data.message || 'Failed to grant access.');
-          setAccessForm({ viewer: '', target: '' });
+          await apiCall('post',`${API_BASE}/grant-access`,form,null,'ADM');
+          setMsg(`${genRefId()}: Access granted`);
+          setForm({viewer:'',target:''});
           await fetchUsers();
-        } catch (err) {
-          const message = err.response?.status === 403
-            ? 'You do not have admin privileges.'
-            : err.response?.status === 500
-              ? 'Server error. Please try again later.'
-              : err.code === 'ECONNABORTED'
-                ? 'Request timed out. Please check your network.'
-                : err.code === 'ERR_NETWORK'
-                  ? 'Unable to reach the server. Please ensure the backend is running.'
-                  : err.response?.data?.message || 'Error granting access.';
-          setMessage(message);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      const handleRevokeAccess = async (viewer, target) => {
-        setIsLoading(true);
-        setMessage('Revoking access...');
+      const revokeAccess = async (viewer,target) => {
+        setLoading(true);
         try {
-          const { data } = await axiosWithRetry({
-            method: 'post',
-            url: `${API_BASE}/revoke-access`,
-            data: { viewer, target }
-          });
-          setMessage(data.success ? 'Access revoked successfully!' : data.message || 'Failed to revoke access.');
+          await apiCall('post',`${API_BASE}/revoke-access`,{viewer,target},null,'ADM');
+          setMsg(`${genRefId()}: Access revoked`);
           await fetchUsers();
-        } catch (err) {
-          const message = err.response?.status === 403
-            ? 'You do not have admin privileges.'
-            : err.response?.status === 500
-              ? 'Server error. Please try again later.'
-              : err.code === 'ECONNABORTED'
-                ? 'Request timed out. Please check your network.'
-                : err.code === 'ERR_NETWORK'
-                  ? 'Unable to reach the server. Please ensure the backend is running.'
-                  : err.response?.data?.message || 'Error revoking access.';
-          setMessage(message);
+        } catch ({userMsg,devMsg}) {
+          setMsg(userMsg);
+          console.error(devMsg);
         } finally {
-          setIsLoading(false);
+          setLoading(false);
         }
       };
 
-      useEffect(() => {
-        if (user.isAdmin) fetchUsers();
-      }, [user.isAdmin]);
+      useEffect(() => { user.isAdmin && fetchUsers(); }, [user.isAdmin]);
 
       if (!user.isAdmin) return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
-          <div className="card p-8 text-gray-300">Access restricted to admins only.</div>
+          <div className="card p-8 text-gray-300">Admin access only.</div>
         </div>
       );
 
       return (
         <div className="p-6 max-w-4xl mx-auto">
           <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={isLoading} aria-label="Back to Menu">Back</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={isLoading} aria-label="Sign Out">Sign Out</Button>
+            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')} disabled={loading} aria-label="Back">Back</Button>
+            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout} disabled={loading} aria-label="Sign Out">Sign Out</Button>
           </div>
           <div className="card p-8 space-y-6">
             <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
+              <ProfilePic src={user.profilePicUrl} username={user.username}/>
               Admin Panel
             </h1>
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'}`}>{message}</p>}
-            {isLoading && <p className="text-center text-sm text-gray-300">Loading...</p>}
+            {msg && <p className={`text-center text-sm ${msg.includes('granted')||msg.includes('revoked')?'text-green-400':'text-red-400'}`}>{msg}</p>}
+            {loading && <p className="text-center text-sm text-gray-300">Loading...</p>}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-white">Grant Access</h2>
-              <Select
-                label="Viewer"
-                name="viewer"
-                value={accessForm.viewer}
-                onChange={e => setAccessForm({ ...accessForm, viewer: e.target.value })}
-                options={users.map(u => ({ value: u.username, label: capitalize(u.username) }))}
-                disabled={isLoading}
-                aria-label="Select Viewer"
-              />
-              <Select
-                label="Target"
-                name="target"
-                value={accessForm.target}
-                onChange={e => setAccessForm({ ...accessForm, target: e.target.value })}
-                options={users.map(u => ({ value: u.username, label: capitalize(u.username) }))}
-                disabled={isLoading}
-                aria-label="Select Target"
-              />
-              <Button onClick={handleGrantAccess} disabled={isLoading} aria-label="Grant Access">Grant Access</Button>
+              <Select label="Viewer" name="viewer" value={form.viewer} onChange={e=>setForm({...form,viewer:e.target.value})} options={users.map(u=>({value:u.username,label:cap(u.username)}))} disabled={loading} aria-label="Select Viewer"/>
+              <Select label="Target" name="target" value={form.target} onChange={e=>setForm({...form,target:e.target.value})} options={users.map(u=>({value:u.username,label:cap(u.username)}))} disabled={loading} aria-label="Select Target"/>
+              <Button onClick={grantAccess} disabled={loading} aria-label="Grant Access">Grant Access</Button>
             </div>
             <div className="card p-6">
               <h2 className="text-xl font-semibold text-white mb-2">User Access List</h2>
               {users.length ? (
                 <div className="space-y-3">
-                  {users.map(u => (
+                  {users.map(u=>(
                     <div key={u.username} className="p-4 card">
                       <div className="flex items-center gap-3">
-                        <ProfilePic src={u.profilePicUrl || DEFAULT_PROFILE_PIC} username={u.username} size="40px" />
+                        <ProfilePic src={u.profilePicUrl??DEF_PIC} username={u.username} size="40px"/>
                         <div>
-                          <p className="text-white">Username: {capitalize(u.username)}</p>
-                          <p className="text-white">Can view: {u.canView?.length ? u.canView.map(v => capitalize(v)).join(', ') : 'None'}</p>
+                          <p className="text-white">Username: {cap(u.username)}</p>
+                          <p className="text-white">Can view: {(u.canView??[]).length?u.canView.map(cap).join(', '):'None'}</p>
                         </div>
                       </div>
-                      {u.canView?.length > 0 && (
+                      {(u.canView??[]).length>0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {u.canView.map(target => (
-                            <Button
-                              key={`${u.username}-${target}`}
-                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-sm"
-                              onClick={() => handleRevokeAccess(u.username, target)}
-                              disabled={isLoading}
-                              aria-label={`Revoke ${u.username}'s access to ${target}`}
-                            >
-                              Revoke {capitalize(target)}
+                          {u.canView.map(t=>(
+                            <Button key={`${u.username}-${t}`} className="px-3 py-1 bg-red-500 hover:bg-red-600 text-sm" onClick={() => revokeAccess(u.username,t)} disabled={loading} aria-label={`Revoke ${u.username}'s access to ${t}`}>
+                              Revoke {cap(t)}
                             </Button>
                           ))}
                         </div>
@@ -1637,32 +1061,29 @@
       );
     };
 
-    // Main App Component
+    // App Component
     const App = () => {
-      const [user, setUser] = useState(null);
-      const [page, setPage] = useState('login');
+      const [user,setUser] = useState(null);
+      const [page,setPage] = useState('login');
 
       useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-            setPage('menu');
-          } catch (err) {
-            console.error('Error parsing stored user:', err);
-            localStorage.removeItem('user');
-          }
+        const stored = localStorage.getItem('user');
+        if (stored) try {
+          const parsed = JSON.parse(stored);
+          setUser(parsed);
+          setPage('menu');
+        } catch {
+          localStorage.removeItem('user');
         }
       }, []);
 
-      const handleLogin = userData => {
+      const login = userData => {
         setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('user',JSON.stringify(userData));
         setPage('menu');
       };
 
-      const handleLogout = () => {
+      const logout = () => {
         setUser(null);
         localStorage.removeItem('user');
         setPage('login');
@@ -1670,21 +1091,20 @@
 
       return (
         <ErrorBoundary>
-          {page === 'login' && <Login onLogin={handleLogin} />}
-          {user && page === 'menu' && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
-          {user && page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
-          {user && page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
-          {user && page === 'periodTracker' && <PeriodTracker user={user} setPage={setPage} onLogout={handleLogout} />}
-          {user && page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-          {user && page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
-          {user && page === 'admin' && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
+          {page==='login' && <Login onLogin={login}/>}
+          {user && page==='menu' && <Menu user={user} setPage={setPage} onLogout={logout}/>}
+          {user && page==='financial' && <Financial user={user} setPage={setPage} onLogout={logout}/>}
+          {user && page==='budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} onLogout={logout}/>}
+          {user && page==='periodTracker' && <PeriodTracker user={user} setPage={setPage} onLogout={logout}/>}
+          {user && page==='calendar' && <Calendar user={user} setPage={setPage} onLogout={logout}/>}
+          {user && page==='profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={logout} setUser={setUser}/>}
+          {user && page==='admin' && <Admin user={user} setPage={setPage} onLogout={logout}/>}
         </ErrorBoundary>
       );
     };
 
-    // Render the App
-    ReactDOM.render(<App />, document.getElementById('root'));
+    // Render
+    ReactDOM.render(<App/>, document.getElementById('root'));
   </script>
 </body>
 </html>
-<!DOCTYPE html>
