@@ -140,49 +140,101 @@
     };
 
     const Login = ({ onLogin }) => {
-      const [credentials, setCredentials] = useState({ username: '', password: '' });
-      const [error, setError] = useState('');
-      const handleChange = e => setCredentials({ ...credentials, [e.target.name]: e.target.value });
-      const handleLogin = async e => {
-        e.preventDefault();
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = e => setCredentials({ ...credentials, [e.target.name]: e.target.value });
+
+  const handleLogin = async e => {
+    e.preventDefault();
+    if (!credentials.username || !credentials.password) {
+      setError('Please enter both username and password.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      console.log('Login: Attempting login for username:', credentials.username);
+      const config = { timeout: 15000 }; // 15-second timeout
+      const { data } = await axios.post(`${API_BASE}/login`, credentials, config);
+      console.log('Login: API response:', JSON.stringify(data, null, 2));
+      if (data.success && data.token) {
         try {
-          const { data } = await axios.post(`${API_BASE}/login`, credentials);
-          if (data.success) {
-            const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`).catch(() => ({
-              data: { profilePicUrl: DEFAULT_PROFILE_PIC, eventColor: DEFAULT_EVENT_COLOR, gender: '' }
-            }));
-            onLogin({
-              username: credentials.username,
-              profilePicUrl: profile.profilePicUrl || DEFAULT_PROFILE_PIC,
-              eventColor: profile.eventColor || DEFAULT_EVENT_COLOR,
-              email: profile.email || '',
-              phone: profile.phone || '',
-              address: profile.address || '',
-              isAdmin: profile.isAdmin || false,
-              gender: profile.gender || ''
-            });
-          } else {
-            setError(data.message || 'Login failed.');
-          }
-        } catch (err) {
-          setError('Error during login. Check server.');
-          console.error('Login error:', err);
+          const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`, {
+            headers: { Authorization: `Bearer ${data.token}` },
+            timeout: 15000
+          });
+          console.log('Login: Profile data:', JSON.stringify(profile, null, 2));
+          onLogin({
+            username: credentials.username,
+            token: data.token,
+            profilePicUrl: profile.profilePicUrl || DEFAULT_PROFILE_PIC,
+            eventColor: profile.eventColor || DEFAULT_EVENT_COLOR,
+            email: profile.email || '',
+            phone: profile.phone || '',
+            address: profile.address || '',
+            isAdmin: profile.isAdmin || false,
+            gender: profile.gender || ''
+          });
+          setError('');
+        } catch (profileErr) {
+          console.error('Login: Error fetching profile:', {
+            status: profileErr.response?.status,
+            data: profileErr.response?.data,
+            message: profileErr.message
+          });
+          setError('Login succeeded, but failed to fetch profile data. Using default profile.');
+          onLogin({
+            username: credentials.username,
+            token: data.token,
+            profilePicUrl: DEFAULT_PROFILE_PIC,
+            eventColor: DEFAULT_EVENT_COLOR,
+            email: '',
+            phone: '',
+            address: '',
+            isAdmin: false,
+            gender: ''
+          });
         }
-      };
-      return (
-        <div className="flex items-center justify-center min-h-screen px-4">
-          <div className="card p-8 w-full max-w-md">
-            <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <Input name="username" placeholder="Username" value={credentials.username} onChange={handleChange} />
-              <Input type="password" name="password" placeholder="Password" value={credentials.password} onChange={handleChange} />
-              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-              <Button type="submit">Sign In</Button>
-            </form>
-          </div>
-        </div>
-      );
-    };
+      } else {
+        setError(data.message || 'Login failed. Invalid response from server.');
+        console.error('Login: Failed with message:', data.message || 'No message provided');
+      }
+    } catch (err) {
+      console.error('Login: Error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+      let errorMsg = 'Error during login. Please try again.';
+      if (err.response?.status === 401) errorMsg = 'Invalid username or password.';
+      else if (err.response?.status === 404) errorMsg = 'Login endpoint not found. Check server URL.';
+      else if (err.response?.status === 500) errorMsg = 'Server error. Please contact support.';
+      else if (err.code === 'ECONNABORTED') errorMsg = 'Request timed out. Check your connection.';
+      else if (err.code === 'ERR_NETWORK') errorMsg = 'Network error. Ensure the server is reachable.';
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="card p-8 w-full max-w-md">
+        <h1 className="text-2xl font-semibold text-white mb-6 text-center">Sign In</h1>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <Input name="username" placeholder="Username (e.g., admin or schalk)" value={credentials.username} onChange={handleChange} disabled={isLoading} />
+          <Input type="password" name="password" placeholder="Password" value={credentials.password} onChange={handleChange} disabled={isLoading} />
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Signing In...' : 'Sign In'}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
     const Menu = ({ user, setPage, onLogout }) => (
       <div className="flex items-center justify-center min-h-screen px-4">
