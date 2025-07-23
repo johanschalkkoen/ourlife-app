@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 
-const DB_PATH = '/root/ourlife-app/ourlife.db';
+const DB_PATH = '/root/ourlife.work.gd/prd-ourlife.db';
 const API_BASE = 'https://ourlife.work.gd:8443/api';
 const STANDARD_PASSWORD = '.Sh@d0w.Sh13ld.';
 const ADMIN_USERNAME = 'admin';
