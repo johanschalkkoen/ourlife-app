@@ -103,23 +103,35 @@
           setUserProfiles({ [user?.username || 'unknown']: DEFAULT_PROFILE_PIC });
           return;
         }
-        axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username, adminUsername: user.username } })
+        // Fetch access list for the logged-in user
+        axios.get(`${API_BASE}/get-access`, { params: { viewer: user.username } })
           .then(({ data }) => {
             if (data.success && Array.isArray(data.accessList)) {
-              const users = data.accessList.filter(a => a.viewer === user.username).map(a => a.target);
+              const users = data.accessList
+                .filter(a => a.viewer === user.username && a.target !== user.username) // Exclude self
+                .map(a => a.target);
               setTargetUsers(users);
               setError('');
-              Promise.all(users.concat(user.username).map(u =>
-                axios.get(`${API_BASE}/user-profile-settings?username=${u}`).then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC]).catch(() => [u, DEFAULT_PROFILE_PIC])
-              )).then(results => setUserProfiles(Object.fromEntries(results)));
+              // Fetch profile pictures for all accessible users
+              Promise.all(
+                [user.username, ...users].map(u =>
+                  axios.get(`${API_BASE}/user-profile-settings?username=${u}`)
+                    .then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC])
+                    .catch(() => [u, DEFAULT_PROFILE_PIC])
+                )
+              ).then(results => setUserProfiles(Object.fromEntries(results)));
             } else {
               setTargetUsers([]);
-              setError(data.message || 'Failed to fetch access list.');
+              setError(data.message || 'No accessible users found.');
               setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
             }
           })
           .catch(err => {
-            setError(err.response?.data?.message || 'Error fetching access list.');
+            const message = err.response?.status === 403
+              ? 'You are not authorized to view other users\' data.'
+              : err.response?.data?.message || 'Error fetching access list.';
+            setError(message);
+            setTargetUsers([]);
             setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
           });
       }, [user?.username, setUserProfiles]);
@@ -234,7 +246,7 @@
         setMessage('Saving...');
         try {
           const urlToSave = selectedFile ? await new Promise(r => { const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsDataURL(selectedFile); }) : form.profilePicUrl;
-          const { data } = await axios.post(`${API_BASE}/user-profile-settings`, { username: user.username, ...form, profilePicUrl: urlToSave });
+          const { data } = await axios.post(`${API_BASE}/user-profile-settings`, { username: user.username, ...form, profilePicUrl: urlToSave }, { timeout: 15000 });
           if (data.success) {
             setMessage('Profile saved!');
             setUser({ ...user, ...form, profilePicUrl: urlToSave });
@@ -251,7 +263,7 @@
           return;
         }
         try {
-          const { data } = await axios.post(`${API_BASE}/update-password`, { username: user.username, currentPassword: form.currentPassword, newPassword: form.newPassword });
+          const { data } = await axios.post(`${API_BASE}/update-password`, { username: user.username, currentPassword: form.currentPassword, newPassword: form.newPassword }, { timeout: 15000 });
           if (data.success) {
             setMessage('Password updated!');
             setForm({ ...form, currentPassword: '', newPassword: '', confirmNewPassword: '' });
@@ -309,11 +321,14 @@
         try {
           const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
           const results = await Promise.all(usersToFetch.map(u =>
-            axios.get(`${API_BASE}/financial`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+            axios.get(`${API_BASE}/financial`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
+              console.error(`Error fetching financial data for ${u}:`, err.message);
+              return [];
+            })
           ));
           setItems(results.flat());
         } catch (err) {
-          console.error('Error fetching financial items:', err);
+          console.error('Error fetching financial items:', err.message);
         }
       };
       const calculateNetTotal = () => {
@@ -344,7 +359,7 @@
           await axios.delete(`${API_BASE}/financial/${id}`);
           await fetchItems();
         } catch (err) {
-          console.error('Error deleting item:', err);
+          console.error('Error deleting item:', err.message);
         }
       };
       const handleBulkImport = async () => {
@@ -456,7 +471,10 @@
         try {
           const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
           const results = await Promise.all(usersToFetch.map(u =>
-            axios.get(`${API_BASE}/budget`, { params: { user: u, month: selectedMonth, year: '2025' } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+            axios.get(`${API_BASE}/budget`, { params: { user: u, month: selectedMonth, year: '2025' } }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
+              console.error(`Error fetching budget data for ${u}:`, err.message);
+              return [];
+            })
           ));
           const items = results.flat();
           setBudgetItems(items);
@@ -465,7 +483,7 @@
           setTotalExpenses(total);
           setRemainingBudget(parseFloat(income) - total);
         } catch (err) {
-          console.error('Error fetching budget items:', err);
+          console.error('Error fetching budget items:', err.message);
         }
       };
       const handleSaveBudget = async () => {
@@ -545,7 +563,10 @@
         try {
           const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
           const results = await Promise.all(usersToFetch.map(u =>
-            axios.get(`${API_BASE}/period`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+            axios.get(`${API_BASE}/period`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(err => {
+              console.error(`Error fetching period data for ${u}:`, err.message);
+              return [];
+            })
           ));
           const flatCycles = results.flat();
           setCycles(flatCycles);
@@ -559,7 +580,7 @@
             setPredictions({ nextPeriod: formatDate(next), fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}` });
           }
         } catch (err) {
-          console.error('Error fetching cycles:', err);
+          console.error('Error fetching cycles:', err.message);
         }
       };
       const handleAddCycle = async () => {
@@ -664,11 +685,14 @@
         try {
           const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
           const results = await Promise.all(usersToFetch.map(u =>
-            axios.get(`${API_BASE}/calendar`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data.map(e => ({ ...e, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })) : []).catch(() => [])
+            axios.get(`${API_BASE}/calendar`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data.map(e => ({ ...e, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })) : []).catch(err => {
+              console.error(`Error fetching calendar data for ${u}:`, err.message);
+              return [];
+            })
           ));
           setEvents(results.flat());
         } catch (err) {
-          console.error('Error fetching calendar events:', err);
+          console.error('Error fetching calendar events:', err.message);
         }
       };
       const handleAddEvent = async () => {
@@ -696,7 +720,7 @@
           setShowModal(false);
           setTimeout(() => setSelectedEvent(null), 300);
         } catch (err) {
-          console.error('Error deleting event:', err);
+          console.error('Error deleting event:', err.message);
         }
       };
       useEffect(() => {
@@ -892,7 +916,7 @@
         try {
           const { data } = await axios.post(`${API_BASE}/grant-admin`, { username, adminUsername: user.username });
           if (data.success) {
-            setMessage(`Admin granted for ${username}!`);
+            setMessage(`Admin granted to ${username}!`);
             await fetchUsers();
           } else {
             setMessage(data.message || 'Grant failed.');
@@ -1046,32 +1070,21 @@
       const handleLogin = userData => {
         setUser(userData);
         setPage('menu');
-        localStorage.setItem('user', JSON.stringify(userData));
       };
       const handleLogout = () => {
         setUser(null);
         setPage('login');
-        localStorage.removeItem('user');
       };
-      useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-          setPage('menu');
-        }
-      }, []);
       return (
         <ErrorBoundary>
-          <div>
-            {page === 'login' && <Login onLogin={handleLogin} />}
-            {page === 'menu' && user && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
-            {page === 'financial' && user && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
-            {page === 'budgetCalculator' && user && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
-            {page === 'periodTracker' && user && user.gender === 'Female' && <PeriodTracker user={user} setPage={setPage} onLogout={handleLogout} />}
-            {page === 'calendar' && user && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
-            {page === 'profileSettings' && user && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
-            {page === 'admin' && user && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
-          </div>
+          {page === 'login' && <Login onLogin={handleLogin} />}
+          {user && page === 'menu' && <Menu user={user} setPage={setPage} onLogout={handleLogout} />}
+          {user && page === 'financial' && <Financial user={user} setPage={setPage} onLogout={handleLogout} />}
+          {user && page === 'budgetCalculator' && <BudgetCalculator user={user} setPage={setPage} onLogout={handleLogout} />}
+          {user && page === 'periodTracker' && <PeriodTracker user={user} setPage={setPage} onLogout={handleLogout} />}
+          {user && page === 'calendar' && <Calendar user={user} setPage={setPage} onLogout={handleLogout} />}
+          {user && page === 'profileSettings' && <ProfileSettings user={user} setPage={setPage} onLogout={handleLogout} setUser={setUser} />}
+          {user && page === 'admin' && user.isAdmin && <Admin user={user} setPage={setPage} onLogout={handleLogout} />}
         </ErrorBoundary>
       );
     };
