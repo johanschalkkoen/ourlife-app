@@ -93,7 +93,7 @@ async function initializeDatabase() {
       `);
 
       // Add gender column to users table if it doesn't exist
-      db.get("PRAGMA table_info(users)", (err, rows) => {
+      db.all("PRAGMA table_info(users)", (err, rows) => {
         if (err) return reject(err);
         const hasGender = rows.some(row => row.name === 'gender');
         if (!hasGender) {
@@ -156,7 +156,7 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// User profile settings endpoint (replaced profile-pictures)
+// User profile settings endpoint
 app.get('/api/user-profile-settings', (req, res) => {
   const { username } = req.query;
   db.get(
