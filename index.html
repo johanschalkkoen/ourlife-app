@@ -159,16 +159,15 @@
       const config = { timeout: 15000 }; // 15-second timeout
       const { data } = await axios.post(`${API_BASE}/login`, credentials, config);
       console.log('Login: API response:', JSON.stringify(data, null, 2));
-      if (data.success && data.token) {
+      if (data.success) {
         try {
           const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`, {
-            headers: { Authorization: `Bearer ${data.token}` },
             timeout: 15000
           });
           console.log('Login: Profile data:', JSON.stringify(profile, null, 2));
           onLogin({
             username: credentials.username,
-            token: data.token,
+            token: '', // No token provided, so use empty string
             profilePicUrl: profile.profilePicUrl || DEFAULT_PROFILE_PIC,
             eventColor: profile.eventColor || DEFAULT_EVENT_COLOR,
             email: profile.email || '',
@@ -187,7 +186,7 @@
           setError('Login succeeded, but failed to fetch profile data. Using default profile.');
           onLogin({
             username: credentials.username,
-            token: data.token,
+            token: '', // No token provided
             profilePicUrl: DEFAULT_PROFILE_PIC,
             eventColor: DEFAULT_EVENT_COLOR,
             email: '',
@@ -235,7 +234,7 @@
     </div>
   );
 };
-
+  
     const Menu = ({ user, setPage, onLogout }) => (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="card p-8 w-full max-w-md">

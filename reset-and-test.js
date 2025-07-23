@@ -19,21 +19,7 @@ async function resetUsers() {
 
     try {
         // Create tables if they don't exist
-        await new Promise((resolve, reject) => {
-            db.run(`CREATE TABLE IF NOT EXISTS users (
-                username TEXT PRIMARY KEY,
-                password TEXT NOT NULL,
-                isAdmin INTEGER DEFAULT 0,
-                profilePicUrl TEXT,
-                email TEXT,
-                phone TEXT,
-                address TEXT,
-                eventColor TEXT
-            )`, (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
+        await new Promise((resolve,Users
         console.log('Users table checked/created.');
 
         await new Promise((resolve, reject) => {
@@ -151,7 +137,7 @@ async function resetUsers() {
 async function runTests() {
     console.log('\nRunning endpoint tests...');
     let testResults = [];
-    let adminToken = null;
+    let adminUsername = null;
 
     // Helper to log test results
     const logTest = (name, success, message) => {
@@ -168,7 +154,7 @@ async function runTests() {
         });
         if (loginResponse.data.success && loginResponse.data.username === ADMIN_USERNAME && loginResponse.data.isAdmin) {
             logTest('Login (correct credentials)', true, 'Successfully logged in as admin');
-            adminToken = ADMIN_USERNAME;
+            adminUsername = ADMIN_USERNAME; // Use username instead of token
         } else {
             logTest('Login (correct credentials)', false, `Unexpected response: ${JSON.stringify(loginResponse.data)}`);
         }
@@ -205,13 +191,13 @@ async function runTests() {
     }
 
     // Endpoint Tests (require admin)
-    if (!adminToken) {
+    if (!adminUsername) {
         console.error('Skipping endpoint tests: Admin login failed.');
         return testResults;
     }
 
     try {
-        const usersResponse = await axios.get(`${API_BASE}/users`, { params: { adminUsername: ADMIN_USERNAME } });
+        const usersResponse = await axios.get(`${API_BASE}/users`, { params: { adminUsername: adminUsername } });
         if (usersResponse.data.success && Array.isArray(usersResponse.data.data)) {
             logTest('Get Users', true, `Retrieved ${usersResponse.data.data.length} users`);
         } else {
@@ -225,7 +211,7 @@ async function runTests() {
         const addUserResponse = await axios.post(
             `${API_BASE}/add-user`,
             { username: 'testuser', password: 'TestPass123' },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (addUserResponse.data.success) {
             logTest('Add User', true, 'User added successfully');
@@ -237,7 +223,7 @@ async function runTests() {
     }
 
     try {
-        const accessResponse = await axios.get(`${API_BASE}/get-access`, { params: { adminUsername: ADMIN_USERNAME } });
+        const accessResponse = await axios.get(`${API_BASE}/get-access`, { params: { adminUsername: adminUsername } });
         if (accessResponse.data.success && Array.isArray(accessResponse.data.accessList)) {
             logTest('Get Access List', true, `Retrieved ${accessResponse.data.accessList.length} access entries`);
         } else {
@@ -251,7 +237,7 @@ async function runTests() {
         const grantAccessResponse = await axios.post(
             `${API_BASE}/grant-access`,
             { viewer: 'testuser', target: USER_USERNAME },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (grantAccessResponse.data.success) {
             logTest('Grant Access', true, `Access granted for testuser to view ${USER_USERNAME}`);
@@ -266,7 +252,7 @@ async function runTests() {
         const revokeAccessResponse = await axios.post(
             `${API_BASE}/revoke-access`,
             { viewer: 'testuser', target: USER_USERNAME },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (revokeAccessResponse.data.success) {
             logTest('Revoke Access', true, `Access revoked for testuser to view ${USER_USERNAME}`);
@@ -310,7 +296,7 @@ async function runTests() {
         const grantAdminResponse = await axios.post(
             `${API_BASE}/grant-admin`,
             { username: USER_USERNAME },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (grantAdminResponse.data.success) {
             logTest('Grant Admin', true, `Admin access granted for ${USER_USERNAME}`);
@@ -325,7 +311,7 @@ async function runTests() {
         const revokeAdminResponse = await axios.post(
             `${API_BASE}/revoke-admin`,
             { username: USER_USERNAME },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (revokeAdminResponse.data.success) {
             logTest('Revoke Admin', true, `Admin access revoked for ${USER_USERNAME}`);
@@ -340,7 +326,7 @@ async function runTests() {
         const updatePasswordResponse = await axios.post(
             `${API_BASE}/admin-update-password`,
             { username: USER_USERNAME, newPassword: 'NewPass123' },
-            { params: { adminUsername: ADMIN_USERNAME } }
+            { params: { adminUsername: adminUsername } }
         );
         if (updatePasswordResponse.data.success) {
             logTest('Admin Update Password', true, `Password updated for ${USER_USERNAME}`);
@@ -410,7 +396,7 @@ async function runTests() {
     }
 
     try {
-        const deleteUserResponse = await axios.delete(`${API_BASE}/delete-user/testuser`, { params: { adminUsername: ADMIN_USERNAME } });
+        const deleteUserResponse = await axios.delete(`${API_BASE}/delete-user/testuser`, { params: { adminUsername: adminUsername } });
         if (deleteUserResponse.data.success) {
             logTest('Delete User', true, 'User deleted successfully');
         } else {
