@@ -19,7 +19,21 @@ async function resetUsers() {
 
     try {
         // Create tables if they don't exist
-        await new Promise((resolve,Users
+        await new Promise((resolve, reject) => {
+            db.run(`CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL,
+                isAdmin INTEGER DEFAULT 0,
+                profilePicUrl TEXT,
+                email TEXT,
+                phone TEXT,
+                address TEXT,
+                eventColor TEXT
+            )`, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
         console.log('Users table checked/created.');
 
         await new Promise((resolve, reject) => {
