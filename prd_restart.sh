@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 
 # Ensure script runs from the correct directory
@@ -85,4 +84,3 @@ pm2 save >> "$LOG_FILE" 2>&1
 
 echo "Restart completed successfully at $(date)" >> "$LOG_FILE"
 exit 0
-```
