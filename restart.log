@@ -1,0 +1,122 @@
+Restart script started at Wed Jul 23 23:12:47 SAST 2025
+Pulling latest changes from git...
+fatal: Unable to read current working directory: No such file or directory
+Error: Git pull failed
+Restart script started at Wed Jul 23 23:13:05 SAST 2025
+Pulling latest changes from git...
+Already up to date.
+Applying database schema updates...
+Connected to SQLite database: prd-ourlife.db
+/root/ourlife.work.gd/fix-schema.js:20
+    const hasGender = rows.some(row => row.name === 'gender');
+                           ^
+
+TypeError: rows.some is not a function
+    at Statement.<anonymous> (/root/ourlife.work.gd/fix-schema.js:20:28)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+
+Node.js v20.16.0
+Error: Database schema update failed
+Restart script started at Wed Jul 23 23:14:02 SAST 2025
+Pulling latest changes from git...
+Already up to date.
+Applying database schema updates...
+Connected to SQLite database: prd-ourlife.db
+/root/ourlife.work.gd/fix-schema.js:20
+    const hasGender = rows.some(row => row.name === 'gender');
+                           ^
+
+TypeError: rows.some is not a function
+    at Statement.<anonymous> (/root/ourlife.work.gd/fix-schema.js:20:28)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+
+Node.js v20.16.0
+Error: Database schema update failed
+Restart script started at Wed Jul 23 23:14:37 SAST 2025
+Pulling latest changes from git...
+Already up to date.
+Applying database schema updates...
+Connected to SQLite database: prd-ourlife.db
+/root/ourlife.work.gd/fix-schema.js:20
+    const hasGender = rows.some(row => row.name === 'gender');
+                           ^
+
+TypeError: rows.some is not a function
+    at Statement.<anonymous> (/root/ourlife.work.gd/fix-schema.js:20:28)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+    at Statement.replacement (/root/ourlife.work.gd/node_modules/sqlite3/lib/trace.js:25:27)
+
+Node.js v20.16.0
+Error: Database schema update failed
+Stopping existing PM2 processes...
+[PM2][ERROR] Process or Namespace ourlife-work-gd-app-web not found
+[PM2][ERROR] Process or Namespace ourlife-work-gd-app-api-server not found
+Reloading Nginx...
+Cleaning npm cache...
+npm WARN using --force Recommended protections disabled.
+Starting web server...
+[PM2] Starting /usr/bin/http-server in fork_mode (1 instance)
+[PM2] Done.
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ ourlife-work-gd-app-web    │ default     │ N/A     │ fork    │ 283264   │ 0s     │ 0    │ online    │ 0%       │ 9.5mb    │ root     │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Starting API server...
+[PM2] Starting /root/ourlife.work.gd/prd-server.js in fork_mode (1 instance)
+[PM2] Done.
+┌────┬───────────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                              │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ ourlife-work-gd-app-api-server    │ default     │ N/A     │ fork    │ 283284   │ 0s     │ 0    │ online    │ 0%       │ 8.7mb    │ root     │ disabled │
+│ 0  │ ourlife-work-gd-app-web           │ default     │ N/A     │ fork    │ 283264   │ 1s     │ 0    │ online    │ 20%      │ 60.7mb   │ root     │ disabled │
+└────┴───────────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Saving PM2 process list...
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+Restart completed successfully at Wed Jul 23 23:14:46 SAST 2025
+Restart script started at Wed Jul 23 23:17:59 SAST 2025
+Pulling latest changes from git...
+Already up to date.
+Applying database schema updates...
+Connected to SQLite database: prd-ourlife.db
+Gender column already exists
+Stopping existing PM2 processes...
+[PM2] Applying action deleteProcessId on app [ourlife-work-gd-app-web](ids: [ 0 ])
+[PM2] [ourlife-work-gd-app-web](0) ✓
+┌────┬───────────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                              │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ ourlife-work-gd-app-api-server    │ default     │ N/A     │ fork    │ 283284   │ 3m     │ 0    │ online    │ 0%       │ 61.4mb   │ root     │ disabled │
+└────┴───────────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[PM2] Applying action deleteProcessId on app [ourlife-work-gd-app-api-server](ids: [ 1 ])
+[PM2] [ourlife-work-gd-app-api-server](1) ✓
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Reloading Nginx...
+Cleaning npm cache...
+npm WARN using --force Recommended protections disabled.
+Starting web server...
+[PM2] Starting /usr/bin/http-server in fork_mode (1 instance)
+[PM2] Done.
+┌────┬────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                       │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ ourlife-work-gd-app-web    │ default     │ N/A     │ fork    │ 283513   │ 0s     │ 0    │ online    │ 0%       │ 13.9mb   │ root     │ disabled │
+└────┴────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Starting API server...
+[PM2] Starting /root/ourlife.work.gd/prd-server.js in fork_mode (1 instance)
+[PM2] Done.
+┌────┬───────────────────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                              │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ ourlife-work-gd-app-api-server    │ default     │ N/A     │ fork    │ 283533   │ 0s     │ 0    │ online    │ 0%       │ 5.9mb    │ root     │ disabled │
+│ 0  │ ourlife-work-gd-app-web           │ default     │ N/A     │ fork    │ 283513   │ 1s     │ 0    │ online    │ 20%      │ 62.2mb   │ root     │ disabled │
+└────┴───────────────────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Saving PM2 process list...
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+Restart completed successfully at Wed Jul 23 23:18:10 SAST 2025

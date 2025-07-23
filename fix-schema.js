@@ -10,7 +10,7 @@ const db = new sqlite3.Database('./prd-ourlife.db', (err) => {
 
 db.serialize(() => {
   // Check if gender column exists
-  db.get("PRAGMA table_info(users)", (err, rows) => {
+  db.all("PRAGMA table_info(users)", [], (err, rows) => {
     if (err) {
       console.error('Error checking table schema:', err.message);
       db.close();
