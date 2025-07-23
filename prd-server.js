@@ -10,6 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('/root/ourlife.work.gd/prd-ourlife.db', (err) => {
     if (err) {
         console.error('Error connecting to the SQLite database:', err.message);
@@ -25,40 +26,32 @@ const db = new sqlite3.Database('/root/ourlife.work.gd/prd-ourlife.db', (err) =>
             address TEXT,
             eventColor TEXT
         )`, (err) => {
-            if (err) {
-                console.error('Error creating users table:', err.message);
-            } else {
-                console.log('Users table checked/created.');
-            }
+            if (err) console.error('Error creating users table:', err.message);
+            else console.log('Users table checked/created.');
         });
-        db.run(`CREATE TABLE IF NOT EXISTS access (
+        db.run(`CREATE TABLE IF NOT EXISTS user_access (
             viewer TEXT,
             target TEXT,
             PRIMARY KEY (viewer, target),
             FOREIGN KEY (viewer) REFERENCES users(username),
             FOREIGN KEY (target) REFERENCES users(username)
         )`, (err) => {
-            if (err) {
-                console.error('Error creating access table:', err.message);
-            } else {
-                console.log('Access table checked/created.');
-            }
+            if (err) console.error('Error creating user_access table:', err.message);
+            else console.log('User_access table checked/created.');
         });
-        db.run(`CREATE TABLE IF NOT EXISTS financial (
+        db.run(`CREATE TABLE IF NOT EXISTS financial_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT,
             description TEXT,
             amount REAL,
             type TEXT,
-            date TEXT
+            date TEXT,
+            FOREIGN KEY (user) REFERENCES users(username)
         )`, (err) => {
-            if (err) {
-                console.error('Error creating financial table:', err.message);
-            } else {
-                console.log('Financial table checked/created.');
-            }
+            if (err) console.error('Error creating financial_items table:', err.message);
+            else console.log('Financial_items table checked/created.');
         });
-        db.run(`CREATE TABLE IF NOT EXISTS calendar (
+        db.run(`CREATE TABLE IF NOT EXISTS calendar_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT,
             title TEXT,
@@ -66,13 +59,35 @@ const db = new sqlite3.Database('/root/ourlife.work.gd/prd-ourlife.db', (err) =>
             financial INTEGER,
             type TEXT,
             amount REAL,
-            eventColor TEXT
+            eventColor TEXT,
+            FOREIGN KEY (user) REFERENCES users(username)
         )`, (err) => {
-            if (err) {
-                console.error('Error creating calendar table:', err.message);
-            } else {
-                console.log('Calendar table checked/created.');
-            }
+            if (err) console.error('Error creating calendar_events table:', err.message);
+            else console.log('Calendar_events table checked/created.');
+        });
+        db.run(`CREATE TABLE IF NOT EXISTS period (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user TEXT,
+            start_date TEXT,
+            end_date TEXT,
+            cycle_length INTEGER,
+            symptoms TEXT,
+            FOREIGN KEY (user) REFERENCES users(username)
+        )`, (err) => {
+            if (err) console.error('Error creating period table:', err.message);
+            else console.log('Period table checked/created.');
+        });
+        db.run(`CREATE TABLE IF NOT EXISTS budget (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user TEXT,
+            category TEXT,
+            amount REAL,
+            month TEXT,
+            year TEXT,
+            FOREIGN KEY (user) REFERENCES users(username)
+        )`, (err) => {
+            if (err) console.error('Error creating budget table:', err.message);
+            else console.log('Budget table checked/created.');
         });
     }
 });
@@ -453,13 +468,16 @@ app.delete('/api/delete-user/:username', requireAdmin, async (req, res) => {
 app.get('/api/financial', (req, res) => {
     const { user } = req.query;
     if (!user) {
+        console.error('GET /api/financial: User parameter missing');
         return res.json({ success: false, message: 'User is required.' });
     }
+    console.log('GET /api/financial: Fetching financial data for user:', user);
     db.all('SELECT * FROM financial WHERE user = ?', [user], (err, rows) => {
         if (err) {
-            console.error('Database error fetching financial items:', err.message);
+            console.error('GET /api/financial: Database error fetching financial items:', err.message, { user });
             return res.json({ success: false, message: 'Database error fetching financial items.' });
         }
+        console.log('GET /api/financial: Retrieved rows:', rows);
         res.json(rows);
     });
 });
@@ -469,15 +487,23 @@ app.post('/api/financial', (req, res) => {
     if (!user || !description || !amount || !type || !date) {
         return res.json({ success: false, message: 'All fields are required.' });
     }
+    db.run('BEGIN TRANSACTION');
     db.run(
         'INSERT INTO financial (user, description, amount, type, date) VALUES (?, ?, ?, ?, ?)',
         [user, description, amount, type, date],
-        (err) => {
+        function(err) {
             if (err) {
                 console.error('Database error adding financial item:', err.message);
+                db.run('ROLLBACK');
                 return res.json({ success: false, message: 'Database error adding financial item.' });
             }
-            res.json({ success: true, message: 'Financial item added successfully!' });
+            db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                    console.error('Database error committing transaction:', commitErr.message);
+                    return res.json({ success: false, message: 'Database error committing transaction.' });
+                }
+                res.json({ success: true, message: 'Financial item added successfully!' });
+            });
         }
     );
 });
@@ -496,13 +522,16 @@ app.delete('/api/financial/:id', (req, res) => {
 app.get('/api/calendar', (req, res) => {
     const { user } = req.query;
     if (!user) {
+        console.error('GET /api/calendar: User parameter missing');
         return res.json({ success: false, message: 'User is required.' });
     }
+    console.log('GET /api/calendar: Fetching calendar events for user:', user);
     db.all('SELECT * FROM calendar WHERE user = ?', [user], (err, rows) => {
         if (err) {
-            console.error('Database error fetching calendar events:', err.message);
+            console.error('GET /api/calendar: Database error fetching calendar events:', err.message, { user });
             return res.json({ success: false, message: 'Database error fetching calendar events.' });
         }
+        console.log('GET /api/calendar: Retrieved rows:', rows);
         res.json(rows);
     });
 });
@@ -534,6 +563,96 @@ app.delete('/api/calendar/:id', (req, res) => {
         }
         res.json({ success: true, message: 'Calendar event deleted successfully!' });
     });
+});
+
+app.get('/api/period', (req, res) => {
+    const { user } = req.query;
+    if (!user) {
+        console.error('GET /api/period: User parameter missing');
+        return res.json({ success: false, message: 'User is required.' });
+    }
+    console.log('GET /api/period: Fetching period data for user:', user);
+    db.all('SELECT * FROM period WHERE user = ?', [user], (err, rows) => {
+        if (err) {
+            console.error('GET /api/period: Database error:', err.message, { user });
+            return res.json({ success: false, message: 'Database error fetching period data.' });
+        }
+        console.log('GET /api/period: Retrieved rows:', rows);
+        res.json(rows);
+    });
+});
+
+app.post('/api/period', (req, res) => {
+    const { user, start_date, end_date, cycle_length, symptoms } = req.body;
+    if (!user || !start_date || !cycle_length) {
+        console.error('POST /api/period: Missing required fields', { user, start_date, cycle_length });
+        return res.json({ success: false, message: 'User, start date, and cycle length are required.' });
+    }
+    db.run('BEGIN TRANSACTION');
+    db.run(
+        'INSERT INTO period (user, start_date, end_date, cycle_length, symptoms) VALUES (?, ?, ?, ?, ?)',
+        [user, start_date, end_date || null, cycle_length, symptoms || null],
+        function(err) {
+            if (err) {
+                console.error('POST /api/period: Database error:', err.message);
+                db.run('ROLLBACK');
+                return res.json({ success: false, message: 'Database error adding period.' });
+            }
+            db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                    console.error('POST /api/period: Commit error:', commitErr.message);
+                    return res.json({ success: false, message: 'Database error committing transaction.' });
+                }
+                console.log('POST /api/period: Period added:', { id: this.lastID, user, start_date, cycle_length });
+                res.json({ success: true, message: 'Period added successfully!' });
+            });
+        }
+    );
+});
+
+app.get('/api/budget', (req, res) => {
+    const { user, month, year } = req.query;
+    if (!user || !month || !year) {
+        console.error('GET /api/budget: Missing parameters', { user, month, year });
+        return res.json({ success: false, message: 'User, month, and year are required.' });
+    }
+    console.log('GET /api/budget: Fetching budget data for user:', user, 'month:', month, 'year:', year);
+    db.all('SELECT * FROM budget WHERE user = ? AND month = ? AND year = ?', [user, month, year], (err, rows) => {
+        if (err) {
+            console.error('GET /api/budget: Database error:', err.message, { user, month, year });
+            return res.json({ success: false, message: 'Database error fetching budget data.' });
+        }
+        console.log('GET /api/budget: Retrieved rows:', rows);
+        res.json(rows);
+    });
+});
+
+app.post('/api/budget', (req, res) => {
+    const { user, category, amount, month, year } = req.body;
+    if (!user || !category || !amount || !month || !year) {
+        console.error('POST /api/budget: Missing required fields', { user, category, amount, month, year });
+        return res.json({ success: false, message: 'All fields are required.' });
+    }
+    db.run('BEGIN TRANSACTION');
+    db.run(
+        'INSERT INTO budget (user, category, amount, month, year) VALUES (?, ?, ?, ?, ?)',
+        [user, category, amount, month, year],
+        function(err) {
+            if (err) {
+                console.error('POST /api/budget: Database error:', err.message);
+                db.run('ROLLBACK');
+                return res.json({ success: false, message: 'Database error adding budget item.' });
+            }
+            db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                    console.error('POST /api/budget: Commit error:', commitErr.message);
+                    return res.json({ success: false, message: 'Database error committing transaction.' });
+                }
+                console.log('POST /api/budget: Budget item added:', { id: this.lastID, user, category, amount, month, year });
+                res.json({ success: true, message: 'Budget item added successfully!' });
+            });
+        }
+    );
 });
 
 const httpsOptions = {

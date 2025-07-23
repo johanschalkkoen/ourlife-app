@@ -412,25 +412,27 @@
       const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
       const fetchItems = () => {
-        console.log('Financial: fetchItems called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        console.log('Financial: Fetching data for users:', usersToFetch);
-        Promise.all(usersToFetch.map(u => 
-          axios.get(`${API_BASE}/financial`, { params: { user: u } })
+    console.log('Financial: fetchItems called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+    const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+    console.log('Financial: Fetching data for users:', usersToFetch);
+    Promise.all(usersToFetch.map(u => 
+        axios.get(`${API_BASE}/financial`, { params: { user: u } })
             .then(({ data }) => {
-              console.log(`Financial: Data fetched for ${u}:`, data);
-              return data;
+                console.log(`Financial: Data fetched for ${u}:`, data);
+                return Array.isArray(data) ? data : [];
             })
             .catch(err => {
-              console.error(`Financial: Error fetching data for ${u}:`, err);
-              return [];
+                console.error(`Financial: Error fetching data for ${u}:`, err.response?.data || err);
+                return [];
             })
-        )).then(results => {
-          const flatItems = results.flat();
-          console.log('Financial: Combined items:', flatItems);
-          setItems(flatItems);
-        });
-      };
+    )).then(results => {
+        const flatItems = results.flat();
+        console.log('Financial: Combined items:', flatItems);
+        setItems(flatItems);
+    }).catch(err => {
+        console.error('Financial: Error in fetchItems:', err);
+    });
+};
       const calculateNetTotal = () => {
         const usersToShow = [user.username, ...(showTargetUsers ? targetUsers : [])];
         console.log('Financial: Calculating net total for users:', usersToShow, 'month:', selectedMonth);
@@ -556,8 +558,80 @@
       );
     };
 
-    const BudgetCalculator = ({ user, setPage, onLogout }) => {
-      const [budget, setBudget] = useState({
+const BudgetCalculator = ({ user, setPage, onLogout }) => {
+  const [budgetItems, setBudgetItems] = React.useState([]);
+  const [form, setForm] = React.useState({
+    income: '',
+    expenses: [
+      { category: 'Rent/Mortgage', amount: '' },
+      { category: 'Utilities', amount: '' },
+      { category: 'Groceries', amount: '' },
+      { category: 'Transport', amount: '' },
+      { category: 'Other', amount: '' }
+    ]
+  });
+  const [totalExpenses, setTotalExpenses] = React.useState(0);
+  const [remainingBudget, setRemainingBudget] = React.useState(0);
+  const [message, setMessage] = React.useState('');
+  const [selectedMonth, setSelectedMonth] = React.useState(('0' + (new Date().getMonth() + 1)).slice(-2));
+  const [year] = React.useState('2025');
+  const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+  const [userProfiles, setUserProfiles] = React.useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+
+  const fetchBudgetItems = () => {
+    console.log('BudgetCalculator: fetchBudgetItems called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+    const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+    console.log('BudgetCalculator: Fetching data for users:', usersToFetch);
+    Promise.all(usersToFetch.map(u => 
+      axios.get(`${API_BASE}/budget`, { params: { user: u, month: selectedMonth, year } })
+        .then(({ data }) => {
+          console.log(`BudgetCalculator: Data fetched for ${u}:`, data);
+          return Array.isArray(data) ? data : [];
+        })
+        .catch(err => {
+          console.error(`BudgetCalculator: Error fetching data for ${u}:`, err.response?.data || err);
+          return [];
+        })
+    )).then(results => {
+      const flatItems = results.flat();
+      console.log('BudgetCalculator: Combined budget items:', flatItems);
+      setBudgetItems(flatItems);
+      calculateBudget(flatItems);
+    }).catch(err => {
+      console.error('BudgetCalculator: Error in fetchBudgetItems:', err);
+    });
+  };
+
+  const calculateBudget = (items) => {
+    const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    const incomeItem = items.find(item => item.category === 'Income');
+    const income = incomeItem ? parseFloat(incomeItem.amount) || 0 : 0;
+    setTotalExpenses(total);
+    setRemainingBudget(income - total);
+  };
+
+  const handleSaveBudget = async () => {
+    if (!form.income || form.expenses.some(exp => !exp.amount)) {
+      setMessage('Please fill in all fields.');
+      return;
+    }
+    try {
+      const itemsToSave = [
+        { user: user.username, category: 'Income', amount: parseFloat(form.income), month: selectedMonth, year },
+        ...form.expenses.map(exp => ({
+          user: user.username,
+          category: exp.category,
+          amount: parseFloat(exp.amount),
+          month: selectedMonth,
+          year
+        }))
+      ];
+      await Promise.all(itemsToSave.map(item => 
+        axios.post(`${API_BASE}/budget`, item)
+      ));
+      setMessage('Budget saved successfully!');
+      fetchBudgetItems();
+      setForm({
         income: '',
         expenses: [
           { category: 'Rent/Mortgage', amount: '' },
@@ -567,213 +641,302 @@
           { category: 'Other', amount: '' }
         ]
       });
-      const [totalExpenses, setTotalExpenses] = useState(0);
-      const [remainingBudget, setRemainingBudget] = useState(0);
-      const [message, setMessage] = useState('');
+    } catch (err) {
+      setMessage('Error saving budget.');
+      console.error('BudgetCalculator: Error saving budget:', err);
+    }
+  };
 
-      const handleIncomeChange = e => {
-        const income = e.target.value;
-        setBudget({ ...budget, income });
-        calculateBudget(income, budget.expenses);
-      };
+  const handleIncomeChange = e => {
+    setForm({ ...form, income: e.target.value });
+  };
 
-      const handleExpenseChange = (index, value) => {
-        const newExpenses = [...budget.expenses];
-        newExpenses[index].amount = value;
-        setBudget({ ...budget, expenses: newExpenses });
-        calculateBudget(budget.income, newExpenses);
-      };
+  const handleExpenseChange = (index, value) => {
+    const newExpenses = [...form.expenses];
+    newExpenses[index].amount = value;
+    setForm({ ...form, expenses: newExpenses });
+  };
 
-      const calculateBudget = (income, expenses) => {
-        const total = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
-        setTotalExpenses(total);
-        setRemainingBudget((parseFloat(income) || 0) - total);
-        setMessage('');
-      };
+  React.useEffect(() => {
+    fetchBudgetItems();
+  }, [user, showTargetUsers, targetUsers, selectedMonth]);
 
-      const handleSaveBudget = () => {
-        if (!budget.income || budget.expenses.some(exp => !exp.amount)) {
-          setMessage('Please fill in all fields.');
-          return;
-        }
-        setMessage('Budget saved successfully!');
-      };
-
-      return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex justify-between mb-6">
+        <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+        <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+      </div>
+      <div className="card p-8">
+        <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+          <ProfilePic src={user.profilePicUrl} username={user.username} />
+          <span>Budget Calculator</span>
+        </h1>
+        {error && <p className="error-message">{error}</p>}
+        {targetUsers.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-white mb-3">View Data:</h3>
+            <div className="flex flex-wrap gap-2">
+              <button className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`} onClick={() => setShowTargetUsers(!showTargetUsers)}>
+                {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Accessible Users' Data`}
+              </button>
+            </div>
           </div>
-          <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
-              <span>Budget Calculator</span>
-            </h1>
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
-            <div className="space-y-6">
+        )}
+        {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
+        <div className="space-y-6">
+          <div className="flex space-x-3 mb-6">
+            <Select
+              label="Month"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              options={['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(m => ({ value: m, label: `${m} 2025` }))}
+            />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-white">Add Budget</h2>
+            <Input
+              label="Monthly Income (ZAR)"
+              type="number"
+              placeholder="Enter your total monthly income"
+              value={form.income}
+              onChange={handleIncomeChange}
+            />
+            <h3 className="text-lg font-semibold text-white">Expenses</h3>
+            {form.expenses.map((expense, index) => (
               <Input
-                label="Monthly Income (ZAR)"
+                key={index}
+                label={expense.category}
                 type="number"
-                placeholder="Enter your total monthly income"
-                value={budget.income}
-                onChange={handleIncomeChange}
+                placeholder={`Enter ${expense.category.toLowerCase()} amount`}
+                value={expense.amount}
+                onChange={e => handleExpenseChange(index, e.target.value)}
               />
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white">Expenses</h2>
-                {budget.expenses.map((expense, index) => (
-                  <div key={index} className="flex items-center gap-4">
-                    <Input
-                      label={expense.category}
-                      type="number"
-                      placeholder={`Enter ${expense.category.toLowerCase()} amount`}
-                      value={expense.amount}
-                      onChange={e => handleExpenseChange(index, e.target.value)}
-                    />
+            ))}
+            <Button onClick={handleSaveBudget}>Save Budget</Button>
+          </div>
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-white mb-2">Budget Summary</h2>
+            <p className="text-white">Total Income: {formatAmount(budgetItems.find(item => item.category === 'Income')?.amount || 0)}</p>
+            <p className="text-white">Total Expenses: {formatAmount(totalExpenses)}</p>
+            <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              Remaining Budget: {formatAmount(remainingBudget)}
+            </p>
+            <h3 className="text-lg font-semibold text-white mt-4">Budget Items</h3>
+            <div className="space-y-3 mt-2">
+              {budgetItems.length > 0 ? budgetItems.map(item => (
+                <div key={item.id} className="flex justify-between p-4 card items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="event-profile-pic-container"><img src={userProfiles[item.user] || DEFAULT_PROFILE_PIC} alt={item.user} className="event-profile-pic" /></div>
+                    <span>{item.category} ({item.month}/{item.year})</span>
                   </div>
-                ))}
-              </div>
-              <div className="card p-6">
-                <h2 className="text-xl font-semibold text-white mb-2">Budget Summary</h2>
-                <p className="text-white">Total Income: {formatAmount(budget.income || 0)}</p>
-                <p className="text-white">Total Expenses: {formatAmount(totalExpenses)}</p>
-                <p className={`text-2xl font-bold ${remainingBudget >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  Remaining Budget: {formatAmount(remainingBudget)}
-                </p>
-              </div>
-              <Button onClick={handleSaveBudget}>Save Budget</Button>
+                  <span>{formatAmount(item.amount)}</span>
+                </div>
+              )) : (
+                <p className="text-gray-300">No budget items logged for this month.</p>
+              )}
             </div>
           </div>
         </div>
-      );
-    };
+      </div>
+    </div>
+  );
+};
 
     const PeriodTracker = ({ user, setPage, onLogout }) => {
-      const [cycles, setCycles] = useState([]);
-      const [form, setForm] = useState({
-        startDate: formatDate(new Date()),
-        endDate: '',
-        cycleLength: '28',
-        symptoms: ''
+  const [cycles, setCycles] = React.useState([]);
+  const [form, setForm] = React.useState({
+    startDate: formatDate(new Date()),
+    endDate: '',
+    cycleLength: '28',
+    symptoms: ''
+  });
+  const [message, setMessage] = React.useState('');
+  const [predictions, setPredictions] = React.useState({ nextPeriod: '', fertileDays: '' });
+  const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, profiles => setUserProfiles(profiles));
+  const [userProfiles, setUserProfiles] = React.useState({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
+
+  const fetchCycles = () => {
+    console.log('PeriodTracker: fetchCycles called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+    const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+    console.log('PeriodTracker: Fetching data for users:', usersToFetch);
+    Promise.all(usersToFetch.map(u => 
+      axios.get(`${API_BASE}/period`, { params: { user: u } })
+        .then(({ data }) => {
+          console.log(`PeriodTracker: Data fetched for ${u}:`, data);
+          return Array.isArray(data) ? data : [];
+        })
+        .catch(err => {
+          console.error(`PeriodTracker: Error fetching data for ${u}:`, err.response?.data || err);
+          return [];
+        })
+    )).then(results => {
+      const flatCycles = results.flat();
+      console.log('PeriodTracker: Combined cycles:', flatCycles);
+      setCycles(flatCycles);
+      setPredictions(calculatePredictions(flatCycles));
+    }).catch(err => {
+      console.error('PeriodTracker: Error in fetchCycles:', err);
+    });
+  };
+
+  const calculatePredictions = (cycles) => {
+    if (!cycles.length) return { nextPeriod: '', fertileDays: '' };
+    const lastCycle = cycles[cycles.length - 1];
+    if (!lastCycle.start_date) return { nextPeriod: '', fertileDays: '' };
+    const start = new Date(lastCycle.start_date);
+    const avgCycleLength = parseInt(lastCycle.cycle_length) || 28;
+    const nextPeriod = new Date(start);
+    nextPeriod.setDate(start.getDate() + avgCycleLength);
+    const fertileStart = new Date(start);
+    fertileStart.setDate(start.getDate() + avgCycleLength - 14 - 5);
+    const fertileEnd = new Date(fertileStart);
+    fertileEnd.setDate(fertileStart.getDate() + 6);
+    return {
+      nextPeriod: formatDate(nextPeriod),
+      fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}`
+    };
+  };
+
+  const handleAddCycle = async () => {
+    if (!form.startDate || !form.cycleLength) {
+      setMessage('Start date and cycle length are required.');
+      return;
+    }
+    try {
+      const { data } = await axios.post(`${API_BASE}/period`, {
+        user: user.username,
+        start_date: form.startDate,
+        end_date: form.endDate || null,
+        cycle_length: parseInt(form.cycleLength),
+        symptoms: form.symptoms || null
       });
-      const [message, setMessage] = useState('');
-      const [predictions, setPredictions] = useState({ nextPeriod: '', fertileDays: '' });
-
-      const calculatePredictions = (cycles) => {
-        if (!cycles.length) return { nextPeriod: '', fertileDays: '' };
-        const lastCycle = cycles[cycles.length - 1];
-        if (!lastCycle.startDate) return { nextPeriod: '', fertileDays: '' };
-        const start = new Date(lastCycle.startDate);
-        const avgCycleLength = parseInt(lastCycle.cycleLength) || 28;
-        const nextPeriod = new Date(start);
-        nextPeriod.setDate(start.getDate() + avgCycleLength);
-        const fertileStart = new Date(start);
-        fertileStart.setDate(start.getDate() + avgCycleLength - 14 - 5); // Approx ovulation -5 days
-        const fertileEnd = new Date(fertileStart);
-        fertileEnd.setDate(fertileStart.getDate() + 6);
-        return {
-          nextPeriod: formatDate(nextPeriod),
-          fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}`
-        };
-      };
-
-      const handleAddCycle = () => {
-        if (!form.startDate || !form.cycleLength) {
-          setMessage('Start date and cycle length are required.');
-          return;
-        }
-        const newCycle = {
-          id: Date.now(),
-          startDate: form.startDate,
-          endDate: form.endDate || '',
-          cycleLength: form.cycleLength,
-          symptoms: form.symptoms || ''
-        };
-        const updatedCycles = [...cycles, newCycle];
-        setCycles(updatedCycles);
-        setPredictions(calculatePredictions(updatedCycles));
-        setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
+      if (data.success) {
         setMessage('Cycle added successfully!');
-      };
+        fetchCycles();
+        setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
+      } else {
+        setMessage(data.message || 'Failed to add cycle.');
+      }
+    } catch (err) {
+      setMessage('Error adding cycle.');
+      console.error('PeriodTracker: Error adding cycle:', err);
+    }
+  };
 
-      return (
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="flex justify-between mb-6">
-            <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
-            <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
-          </div>
-          <div className="card p-8">
-            <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
-              <ProfilePic src={user.profilePicUrl} username={user.username} />
-              <span>Period Tracker</span>
-            </h1>
-            {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white">Log New Cycle</h2>
-                <Input
-                  label="Start Date"
-                  type="date"
-                  name="startDate"
-                  value={form.startDate}
-                  onChange={e => setForm({ ...form, startDate: e.target.value })}
-                />
-                <Input
-                  label="End Date (Optional)"
-                  type="date"
-                  name="endDate"
-                  value={form.endDate}
-                  onChange={e => setForm({ ...form, endDate: e.target.value })}
-                />
-                <Input
-                  label="Cycle Length (days)"
-                  type="number"
-                  name="cycleLength"
-                  value={form.cycleLength}
-                  onChange={e => setForm({ ...form, cycleLength: e.target.value })}
-                  placeholder="e.g., 28"
-                />
-                <div>
-                  <label className="block text-white text-lg font-medium mb-2">Symptoms (Optional)</label>
-                  <textarea
-                    name="symptoms"
-                    value={form.symptoms}
-                    onChange={e => setForm({ ...form, symptoms: e.target.value })}
-                    placeholder="e.g., Cramps, Mood swings"
-                    rows="3"
-                    className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
-                  ></textarea>
-                </div>
-                <Button onClick={handleAddCycle}>Add Cycle</Button>
-              </div>
-              <div className="card p-6">
-                <h2 className="text-xl font-semibold text-white mb-2">Cycle Summary</h2>
-                {cycles.length > 0 ? (
-                  <>
-                    <p className="text-white">Last Cycle Start: {formatDate(cycles[cycles.length - 1].startDate)}</p>
-                    <p className="text-white">Predicted Next Period: {predictions.nextPeriod || 'N/A'}</p>
-                    <p className="text-white">Fertile Days: {predictions.fertileDays || 'N/A'}</p>
-                    <h3 className="text-lg font-semibold text-white mt-4">Cycle History</h3>
-                    <div className="space-y-3 mt-2">
-                      {cycles.map(cycle => (
-                        <div key={cycle.id} className="p-4 card">
-                          <p className="text-white">Start: {formatDate(cycle.startDate)}</p>
-                          {cycle.endDate && <p className="text-white">End: {formatDate(cycle.endDate)}</p>}
-                          <p className="text-white">Cycle Length: {cycle.cycleLength} days</p>
-                          {cycle.symptoms && <p className="text-white">Symptoms: {cycle.symptoms}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-gray-300">No cycles logged yet.</p>
-                )}
-              </div>
+  React.useEffect(() => {
+    if (user.gender === 'Female') fetchCycles();
+  }, [user, showTargetUsers, targetUsers]);
+
+  if (user.gender !== 'Female') {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="flex justify-between mb-6">
+          <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+          <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+        </div>
+        <div className="card p-8">
+          <h1 className="text-2xl font-semibold text-white mb-6">Period Tracker</h1>
+          <p className="text-gray-300">This feature is only available for users with gender set to Female.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex justify-between mb-6">
+        <Button className="px-4 py-2 bg-gray-600 hover:bg-gray-700" onClick={() => setPage('menu')}>Back to Menu</Button>
+        <Button className="px-4 py-2 bg-red-500 hover:bg-red-600" onClick={onLogout}>Sign Out</Button>
+      </div>
+      <div className="card p-8">
+        <h1 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3">
+          <ProfilePic src={user.profilePicUrl} username={user.username} />
+          <span>Period Tracker</span>
+        </h1>
+        {error && <p className="error-message">{error}</p>}
+        {targetUsers.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-white mb-3">View Data:</h3>
+            <div className="flex flex-wrap gap-2">
+              <button className={`toggle-button ${showTargetUsers ? 'active' : 'inactive'}`} onClick={() => setShowTargetUsers(!showTargetUsers)}>
+                {targetUsers.length === 1 ? `Show/Hide ${capitalize(targetUsers[0])}'s Data` : `Show/Hide Accessible Users' Data`}
+              </button>
             </div>
           </div>
+        )}
+        {message && <p className={`text-center text-sm ${message.includes('success') ? 'text-green-400' : 'text-red-400'} mb-6`}>{message}</p>}
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-white">Log New Cycle</h2>
+            <Input
+              label="Start Date"
+              type="date"
+              name="startDate"
+              value={form.startDate}
+              onChange={e => setForm({ ...form, startDate: e.target.value })}
+            />
+            <Input
+              label="End Date (Optional)"
+              type="date"
+              name="endDate"
+              value={form.endDate}
+              onChange={e => setForm({ ...form, endDate: e.target.value })}
+            />
+            <Input
+              label="Cycle Length (days)"
+              type="number"
+              name="cycleLength"
+              value={form.cycleLength}
+              onChange={e => setForm({ ...form, cycleLength: e.target.value })}
+              placeholder="e.g., 28"
+            />
+            <div>
+              <label className="block text-white text-lg font-medium mb-2">Symptoms (Optional)</label>
+              <textarea
+                name="symptoms"
+                value={form.symptoms}
+                onChange={e => setForm({ ...form, symptoms: e.target.value })}
+                placeholder="e.g., Cramps, Mood swings"
+                rows="3"
+                className="w-full p-3 rounded-lg bg-white/10 text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-teal-400"
+              ></textarea>
+            </div>
+            <Button onClick={handleAddCycle}>Add Cycle</Button>
+          </div>
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-white mb-2">Cycle Summary</h2>
+            {cycles.length > 0 ? (
+              <>
+                <p className="text-white">Last Cycle Start: {formatDate(cycles[cycles.length - 1].start_date)}</p>
+                <p className="text-white">Predicted Next Period: {predictions.nextPeriod || 'N/A'}</p>
+                <p className="text-white">Fertile Days: {predictions.fertileDays || 'N/A'}</p>
+                <h3 className="text-lg font-semibold text-white mt-4">Cycle History</h3>
+                <div className="space-y-3 mt-2">
+                  {cycles.map(cycle => (
+                    <div key={cycle.id} className="p-4 card">
+                      <div className="flex items-center gap-3">
+                        <div className="event-profile-pic-container"><img src={userProfiles[cycle.user] || DEFAULT_PROFILE_PIC} alt={cycle.user} className="event-profile-pic" /></div>
+                        <div>
+                          <p className="text-white">Start: {formatDate(cycle.start_date)}</p>
+                          {cycle.end_date && <p className="text-white">End: {formatDate(cycle.end_date)}</p>}
+                          <p className="text-white">Cycle Length: {cycle.cycle_length} days</p>
+                          {cycle.symptoms && <p className="text-white">Symptoms: {cycle.symptoms}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-300">No cycles logged yet.</p>
+            )}
+          </div>
         </div>
-      );
-    };
+      </div>
+    </div>
+  );
+};
 
     const Calendar = ({ user, setPage, onLogout }) => {
       const [events, setEvents] = useState([]);
@@ -787,27 +950,29 @@
       const calendarRef = useRef(null);
       const fullCalendarInstance = useRef(null);
       const fetchEvents = () => {
-        console.log('Calendar: fetchEvents called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        console.log('Calendar: Fetching data for users:', usersToFetch);
-        Promise.all(usersToFetch.map(u => 
-          axios.get(`${API_BASE}/calendar`, { params: { user: u } })
+    console.log('Calendar: fetchEvents called, showTargetUsers:', showTargetUsers, 'targetUsers:', targetUsers);
+    const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+    console.log('Calendar: Fetching data for users:', usersToFetch);
+    Promise.all(usersToFetch.map(u => 
+        axios.get(`${API_BASE}/calendar`, { params: { user: u } })
             .then(({ data }) => {
-              console.log(`Calendar: Data fetched for ${u}:`, data);
-              return data.map(e => ({
-                id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR
-              }));
+                console.log(`Calendar: Data fetched for ${u}:`, data);
+                return Array.isArray(data) ? data.map(e => ({
+                    id: e.id, title: e.title, start: e.date, user: e.user, financial: e.financial, type: e.type, amount: e.amount, eventColor: e.eventColor || DEFAULT_EVENT_COLOR
+                })) : [];
             })
             .catch(err => {
-              console.error(`Calendar: Error fetching data for ${u}:`, err);
-              return [];
+                console.error(`Calendar: Error fetching data for ${u}:`, err.response?.data || err);
+                return [];
             })
-        )).then(results => {
-          const flatEvents = results.flat();
-          console.log('Calendar: Combined events:', flatEvents);
-          setEvents(flatEvents);
-        });
-      };
+    )).then(results => {
+        const flatEvents = results.flat();
+        console.log('Calendar: Combined events:', flatEvents);
+        setEvents(flatEvents);
+    }).catch(err => {
+        console.error('Calendar: Error in fetchEvents:', err);
+    });
+};
       const handleAddEvent = async () => {
         if (!form.title || !form.date) return alert('Event title and date are required!');
         try {
