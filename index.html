@@ -110,7 +110,7 @@
               setTargetUsers(users);
               setError('');
               Promise.all(users.concat(user.username).map(u =>
-                axios.get(`${API_BASE}/profile-pictures?username=${u}`).then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC]).catch(() => [u, DEFAULT_PROFILE_PIC])
+                axios.get(`${API_BASE}/user-profile-settings?username=${u}`).then(({ data }) => [u, data.profilePicUrl || DEFAULT_PROFILE_PIC]).catch(() => [u, DEFAULT_PROFILE_PIC])
               )).then(results => setUserProfiles(Object.fromEntries(results)));
             } else {
               setTargetUsers([]);
@@ -122,7 +122,7 @@
             setError(err.response?.data?.message || 'Error fetching access list.');
             setUserProfiles({ [user.username]: user.profilePicUrl || DEFAULT_PROFILE_PIC });
           });
-      }, [user?.username]);
+      }, [user?.username, setUserProfiles]);
       return { targetUsers, showTargetUsers, setShowTargetUsers, error };
     };
 
@@ -154,24 +154,23 @@
       const handleChange = e => setCredentials({ ...credentials, [e.target.name]: e.target.value });
       const handleLogin = async e => {
         e.preventDefault();
-        if (!credentials.username || !credentials.password) return setError('Please enter both username and password.');
+        if (!credentials.username || !credentials.password) {
+          setError('Please enter both username and password.');
+          return;
+        }
         setIsLoading(true);
         setError('');
         try {
           const { data } = await axios.post(`${API_BASE}/login`, credentials, { timeout: 15000 });
-          if (data.success) {
-            const { data: profile } = await axios.get(`${API_BASE}/profile-pictures?username=${credentials.username}`, { timeout: 15000 }).catch(() => ({ data: {} }));
-            onLogin({
-              username: credentials.username, token: '',
-              profilePicUrl: profile.profilePicUrl || DEFAULT_PROFILE_PIC, eventColor: profile.eventColor || DEFAULT_EVENT_COLOR,
-              email: profile.email || '', phone: profile.phone || '', address: profile.address || '',
-              isAdmin: profile.isAdmin || false, gender: profile.gender || ''
-            });
+          if (data.success && data.user) {
+            const { username, profilePicUrl, eventColor, email, phone, address, isAdmin, gender } = data.user;
+            onLogin({ username, profilePicUrl, eventColor, email, phone, address, isAdmin, gender, token: '' });
           } else {
             setError(data.message || 'Login failed.');
           }
         } catch (err) {
-          setError(err.response?.status === 401 ? 'Invalid credentials.' : err.response?.status === 500 ? 'Server error.' : 'Login error.');
+          setError(err.response?.status === 401 ? 'Invalid credentials.' :
+                   err.response?.status === 500 ? 'Server error.' : 'Network error. Please try again.');
         } finally {
           setIsLoading(false);
         }
@@ -235,28 +234,32 @@
         setMessage('Saving...');
         try {
           const urlToSave = selectedFile ? await new Promise(r => { const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsDataURL(selectedFile); }) : form.profilePicUrl;
-          const { data } = await axios.post(`${API_BASE}/profile-pictures`, { username: user.username, ...form, profilePicUrl: urlToSave });
+          const { data } = await axios.post(`${API_BASE}/user-profile-settings`, { username: user.username, ...form, profilePicUrl: urlToSave });
           if (data.success) {
             setMessage('Profile saved!');
             setUser({ ...user, ...form, profilePicUrl: urlToSave });
           } else {
             setMessage(data.message || 'Save failed.');
           }
-        } catch {
-          setMessage('Error saving profile.');
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error saving profile.');
         }
       };
       const handlePasswordChange = async () => {
         if (!form.currentPassword || !form.newPassword || form.newPassword !== form.confirmNewPassword || form.newPassword.length < 6) {
-          setMessage('Password fields invalid.');
+          setMessage('Password fields invalid or password too short.');
           return;
         }
         try {
           const { data } = await axios.post(`${API_BASE}/update-password`, { username: user.username, currentPassword: form.currentPassword, newPassword: form.newPassword });
-          setMessage(data.success ? 'Password updated!' : data.message || 'Update failed.');
-          if (data.success) setForm({ ...form, currentPassword: '', newPassword: '', confirmNewPassword: '' });
-        } catch {
-          setMessage('Error updating password.');
+          if (data.success) {
+            setMessage('Password updated!');
+            setForm({ ...form, currentPassword: '', newPassword: '', confirmNewPassword: '' });
+          } else {
+            setMessage(data.message || 'Update failed.');
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error updating password.');
         }
       };
       return (
@@ -302,40 +305,73 @@
       const [showImportTool, setShowImportTool] = useState(false);
       const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const fetchItems = () => {
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        Promise.all(usersToFetch.map(u => axios.get(`${API_BASE}/financial`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])))
-          .then(results => setItems(results.flat()));
+      const fetchItems = async () => {
+        try {
+          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+          const results = await Promise.all(usersToFetch.map(u =>
+            axios.get(`${API_BASE}/financial`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+          ));
+          setItems(results.flat());
+        } catch (err) {
+          console.error('Error fetching financial items:', err);
+        }
       };
       const calculateNetTotal = () => {
         const total = items.filter(item => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(item.user) && item.date.startsWith(`2025-${selectedMonth}`))
-          .reduce((sum, item) => item.type === 'income' ? sum + item.amount : sum - item.amount, 0);
+          .reduce((sum, item) => item.type === 'income' ? sum + (parseFloat(item.amount) || 0) : sum - (parseFloat(item.amount) || 0), 0);
         setNetTotal(total);
       };
       const addItem = async () => {
-        if (!form.description || !form.amount || !form.date) return;
-        const item = { user: user.username, ...form, amount: parseFloat(form.amount) };
-        await Promise.all([axios.post(`${API_BASE}/financial`, item), axios.post(`${API_BASE}/calendar`, { ...item, title: `${form.description} (${form.type})`, financial: true, eventColor: user.eventColor })]);
-        fetchItems();
-        setForm({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
-        setShowAddItemForm(false);
+        if (!form.description || !form.amount || !form.date) {
+          setImportMessage('All fields required.');
+          return;
+        }
+        try {
+          const item = { user: user.username, ...form, amount: parseFloat(form.amount) };
+          await Promise.all([
+            axios.post(`${API_BASE}/financial`, item),
+            axios.post(`${API_BASE}/calendar`, { ...item, title: `${form.description} (${form.type})`, financial: true, eventColor: user.eventColor })
+          ]);
+          await fetchItems();
+          setForm({ description: '', amount: '', type: 'income', date: getCurrentDateTime() });
+          setShowAddItemForm(false);
+        } catch (err) {
+          setImportMessage(err.response?.data?.message || 'Error adding item.');
+        }
       };
-      const deleteItem = id => axios.delete(`${API_BASE}/financial/${id}`).then(fetchItems);
+      const deleteItem = async id => {
+        try {
+          await axios.delete(`${API_BASE}/financial/${id}`);
+          await fetchItems();
+        } catch (err) {
+          console.error('Error deleting item:', err);
+        }
+      };
       const handleBulkImport = async () => {
-        if (!bulkData.trim()) return setImportMessage('No data to import.');
-        const itemsToImport = bulkData.trim().split('\n').map(line => {
-          const [description, amount, type, date] = line.split(',').map(f => f.trim());
-          return description && amount && type && date ? { user: user.username, description, amount: parseFloat(amount), type, date } : null;
-        }).filter(Boolean);
-        if (!itemsToImport.length) return setImportMessage('Invalid data format.');
-        await Promise.all(itemsToImport.map(item => Promise.all([
-          axios.post(`${API_BASE}/financial`, item),
-          axios.post(`${API_BASE}/calendar`, { ...item, title: `${item.description} (${item.type})`, financial: true, eventColor: user.eventColor })
-        ])));
-        setImportMessage(`Imported ${itemsToImport.length} items!`);
-        setBulkData('');
-        setShowImportTool(false);
-        fetchItems();
+        if (!bulkData.trim()) {
+          setImportMessage('No data to import.');
+          return;
+        }
+        try {
+          const itemsToImport = bulkData.trim().split('\n').map(line => {
+            const [description, amount, type, date] = line.split(',').map(f => f.trim());
+            return description && amount && type && date ? { user: user.username, description, amount: parseFloat(amount), type, date } : null;
+          }).filter(Boolean);
+          if (!itemsToImport.length) {
+            setImportMessage('Invalid data format.');
+            return;
+          }
+          await Promise.all(itemsToImport.map(item => Promise.all([
+            axios.post(`${API_BASE}/financial`, item),
+            axios.post(`${API_BASE}/calendar`, { ...item, title: `${item.description} (${item.type})`, financial: true, eventColor: user.eventColor })
+          ])));
+          setImportMessage(`Imported ${itemsToImport.length} items!`);
+          setBulkData('');
+          setShowImportTool(false);
+          await fetchItems();
+        } catch (err) {
+          setImportMessage(err.response?.data?.message || 'Error importing data.');
+        }
       };
       useEffect(() => { fetchItems(); }, [showTargetUsers, targetUsers, user.username]);
       useEffect(() => { calculateNetTotal(); }, [items, showTargetUsers, selectedMonth]);
@@ -416,25 +452,39 @@
       const [selectedMonth, setSelectedMonth] = useState(('0' + (new Date().getMonth() + 1)).slice(-2));
       const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const fetchBudgetItems = () => {
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        Promise.all(usersToFetch.map(u => axios.get(`${API_BASE}/budget`, { params: { user: u, month: selectedMonth, year: '2025' } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])))
-          .then(results => {
-            const items = results.flat();
-            setBudgetItems(items);
-            const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-            const income = items.find(item => item.category === 'Income')?.amount || 0;
-            setTotalExpenses(total);
-            setRemainingBudget(income - total);
-          });
+      const fetchBudgetItems = async () => {
+        try {
+          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+          const results = await Promise.all(usersToFetch.map(u =>
+            axios.get(`${API_BASE}/budget`, { params: { user: u, month: selectedMonth, year: '2025' } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+          ));
+          const items = results.flat();
+          setBudgetItems(items);
+          const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+          const income = items.find(item => item.category === 'Income')?.amount || 0;
+          setTotalExpenses(total);
+          setRemainingBudget(parseFloat(income) - total);
+        } catch (err) {
+          console.error('Error fetching budget items:', err);
+        }
       };
       const handleSaveBudget = async () => {
-        if (!form.income || form.expenses.some(exp => !exp.amount)) return setMessage('All fields required.');
-        const itemsToSave = [{ user: user.username, category: 'Income', amount: parseFloat(form.income), month: selectedMonth, year: '2025' }, ...form.expenses.map(exp => ({ user: user.username, category: exp.category, amount: parseFloat(exp.amount), month: selectedMonth, year: '2025' }))];
-        await Promise.all(itemsToSave.map(item => axios.post(`${API_BASE}/budget`, item)));
-        setMessage('Budget saved!');
-        fetchBudgetItems();
-        setForm({ income: '', expenses: form.expenses.map(exp => ({ ...exp, amount: '' })) });
+        if (!form.income || form.expenses.some(exp => !exp.amount)) {
+          setMessage('All fields required.');
+          return;
+        }
+        try {
+          const itemsToSave = [
+            { user: user.username, category: 'Income', amount: parseFloat(form.income), month: selectedMonth, year: '2025' },
+            ...form.expenses.map(exp => ({ user: user.username, category: exp.category, amount: parseFloat(exp.amount), month: selectedMonth, year: '2025' }))
+          ];
+          await Promise.all(itemsToSave.map(item => axios.post(`${API_BASE}/budget`, item)));
+          setMessage('Budget saved!');
+          await fetchBudgetItems();
+          setForm({ income: '', expenses: form.expenses.map(exp => ({ ...exp, amount: '' })) });
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error saving budget.');
+        }
       };
       useEffect(() => { fetchBudgetItems(); }, [user, showTargetUsers, targetUsers, selectedMonth]);
       return (
@@ -491,30 +541,47 @@
       const [predictions, setPredictions] = useState({ nextPeriod: '', fertileDays: '' });
       const { targetUsers, showTargetUsers, setShowTargetUsers, error } = useAccessibleUsers(user, setUserProfiles);
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
-      const fetchCycles = () => {
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        Promise.all(usersToFetch.map(u => axios.get(`${API_BASE}/period`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])))
-          .then(results => {
-            const flatCycles = results.flat();
-            setCycles(flatCycles);
-            if (flatCycles.length) {
-              const last = flatCycles[flatCycles.length - 1];
-              const start = new Date(last.start_date);
-              const len = parseInt(last.cycle_length) || 28;
-              const next = new Date(start); next.setDate(start.getDate() + len);
-              const fertileStart = new Date(start); fertileStart.setDate(start.getDate() + len - 14 - 5);
-              const fertileEnd = new Date(fertileStart); fertileEnd.setDate(fertileStart.getDate() + 6);
-              setPredictions({ nextPeriod: formatDate(next), fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}` });
-            }
-          });
+      const fetchCycles = async () => {
+        try {
+          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+          const results = await Promise.all(usersToFetch.map(u =>
+            axios.get(`${API_BASE}/period`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data : []).catch(() => [])
+          ));
+          const flatCycles = results.flat();
+          setCycles(flatCycles);
+          if (flatCycles.length) {
+            const last = flatCycles[flatCycles.length - 1];
+            const start = new Date(last.start_date);
+            const len = parseInt(last.cycle_length) || 28;
+            const next = new Date(start); next.setDate(start.getDate() + len);
+            const fertileStart = new Date(start); fertileStart.setDate(start.getDate() + len - 14 - 5);
+            const fertileEnd = new Date(fertileStart); fertileEnd.setDate(fertileStart.getDate() + 6);
+            setPredictions({ nextPeriod: formatDate(next), fertileDays: `${formatDate(fertileStart)} to ${formatDate(fertileEnd)}` });
+          }
+        } catch (err) {
+          console.error('Error fetching cycles:', err);
+        }
       };
       const handleAddCycle = async () => {
-        if (!form.startDate || !form.cycleLength) return setMessage('Start date and cycle length required.');
-        const { data } = await axios.post(`${API_BASE}/period`, { user: user.username, start_date: form.startDate, end_date: form.endDate || null, cycle_length: parseInt(form.cycleLength), symptoms: form.symptoms || null });
-        setMessage(data.success ? 'Cycle added!' : data.message || 'Add failed.');
-        if (data.success) {
-          fetchCycles();
-          setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
+        if (!form.startDate || !form.cycleLength) {
+          setMessage('Start date and cycle length required.');
+          return;
+        }
+        try {
+          const { data } = await axios.post(`${API_BASE}/period`, {
+            user: user.username,
+            start_date: form.startDate,
+            end_date: form.endDate || null,
+            cycle_length: parseInt(form.cycleLength),
+            symptoms: form.symptoms || null
+          });
+          setMessage(data.success ? 'Cycle added!' : data.message || 'Add failed.');
+          if (data.success) {
+            await fetchCycles();
+            setForm({ startDate: formatDate(new Date()), endDate: '', cycleLength: '28', symptoms: '' });
+          }
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Error adding cycle.');
         }
       };
       useEffect(() => { if (user.gender === 'Female') fetchCycles(); }, [user, showTargetUsers, targetUsers]);
@@ -593,20 +660,45 @@
       const [userProfiles, setUserProfiles] = useState({ [user.username]: user.profilePicUrl });
       const calendarRef = useRef(null);
       const fullCalendarInstance = useRef(null);
-      const fetchEvents = () => {
-        const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
-        Promise.all(usersToFetch.map(u => axios.get(`${API_BASE}/calendar`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data.map(e => ({ ...e, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })) : []).catch(() => [])))
-          .then(results => setEvents(results.flat()));
+      const fetchEvents = async () => {
+        try {
+          const usersToFetch = [user.username, ...(showTargetUsers ? targetUsers : [])];
+          const results = await Promise.all(usersToFetch.map(u =>
+            axios.get(`${API_BASE}/calendar`, { params: { user: u } }).then(({ data }) => Array.isArray(data) ? data.map(e => ({ ...e, eventColor: e.eventColor || DEFAULT_EVENT_COLOR })) : []).catch(() => [])
+          ));
+          setEvents(results.flat());
+        } catch (err) {
+          console.error('Error fetching calendar events:', err);
+        }
       };
       const handleAddEvent = async () => {
-        if (!form.title || !form.date) return alert('Title and date required!');
-        const eventData = { user: user.username, title: form.title, date: form.date, financial: form.financial, type: form.financial ? form.category : undefined, amount: form.financial ? parseFloat(form.amount) : undefined, eventColor: user.eventColor };
-        await Promise.all([axios.post(`${API_BASE}/calendar`, eventData), form.financial && axios.post(`${API_BASE}/financial`, { user: user.username, description: form.title, amount: parseFloat(form.amount), type: form.category, date: form.date })].filter(Boolean));
-        fetchEvents();
-        setForm({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
-        setShowAddEventForm(false);
+        if (!form.title || !form.date) {
+          alert('Title and date required!');
+          return;
+        }
+        try {
+          const eventData = { user: user.username, title: form.title, date: form.date, financial: form.financial, type: form.financial ? form.category : undefined, amount: form.financial ? parseFloat(form.amount) : undefined, eventColor: user.eventColor };
+          await Promise.all([
+            axios.post(`${API_BASE}/calendar`, eventData),
+            form.financial && axios.post(`${API_BASE}/financial`, { user: user.username, description: form.title, amount: parseFloat(form.amount), type: form.category, date: form.date })
+          ].filter(Boolean));
+          await fetchEvents();
+          setForm({ title: '', date: getCurrentDateTime(), financial: false, amount: '', category: 'income' });
+          setShowAddEventForm(false);
+        } catch (err) {
+          alert(err.response?.data?.message || 'Error adding event.');
+        }
       };
-      const handleDeleteEvent = id => axios.delete(`${API_BASE}/calendar/${id}`).then(() => { fetchEvents(); setShowModal(false); setTimeout(() => setSelectedEvent(null), 300); });
+      const handleDeleteEvent = async id => {
+        try {
+          await axios.delete(`${API_BASE}/calendar/${id}`);
+          await fetchEvents();
+          setShowModal(false);
+          setTimeout(() => setSelectedEvent(null), 300);
+        } catch (err) {
+          console.error('Error deleting event:', err);
+        }
+      };
       useEffect(() => {
         fetchEvents();
         const calendarEl = calendarRef.current;
@@ -644,7 +736,7 @@
           });
           fullCalendarInstance.current.render();
         }
-        return () => { if (fullCalendarInstance.current) fullCalendarInstance.current.destroy(); fullCalendarInstance.current = null; };
+        return () => { if (fullCalendarInstance.current) { fullCalendarInstance.current.destroy(); fullCalendarInstance.current = null; } };
       }, [userProfiles]);
       useEffect(() => { if (fullCalendarInstance.current) { fullCalendarInstance.current.gotoDate(`2025-${selectedMonth}-01`); fullCalendarInstance.current.setOption('events', events.filter(e => [user.username, ...(showTargetUsers ? targetUsers : [])].includes(e.user))); } }, [events, showTargetUsers, selectedMonth]);
       return (
@@ -758,7 +850,10 @@
         }
       };
       const handleAddUser = async () => {
-        if (!newUsername || !newPassword) return setMessage('Username and password required.');
+        if (!newUsername || !newPassword) {
+          setMessage('Username and password required.');
+          return;
+        }
         setIsLoading(true);
         try {
           const { data } = await axios.post(`${API_BASE}/add-user`, { username: newUsername, password: newPassword, adminUsername: user.username });
@@ -766,8 +861,10 @@
             setMessage('User added!');
             setNewUsername('');
             setNewPassword('');
-            fetchUsers();
-          } else setMessage(data.message || 'Add failed.');
+            await fetchUsers();
+          } else {
+            setMessage(data.message || 'Add failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error adding user.');
         } finally {
@@ -780,9 +877,10 @@
           const { data } = await axios.delete(`${API_BASE}/delete-user/${username}`, { data: { adminUsername: user.username } });
           if (data.success) {
             setMessage('User deleted!');
-            fetchUsers();
-            fetchAccessList();
-          } else setMessage(data.message || 'Delete failed.');
+            await Promise.all([fetchUsers(), fetchAccessList()]);
+          } else {
+            setMessage(data.message || 'Delete failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error deleting user.');
         } finally {
@@ -795,8 +893,10 @@
           const { data } = await axios.post(`${API_BASE}/grant-admin`, { username, adminUsername: user.username });
           if (data.success) {
             setMessage(`Admin granted for ${username}!`);
-            fetchUsers();
-          } else setMessage(data.message || 'Grant failed.');
+            await fetchUsers();
+          } else {
+            setMessage(data.message || 'Grant failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error granting admin.');
         } finally {
@@ -809,8 +909,10 @@
           const { data } = await axios.post(`${API_BASE}/revoke-admin`, { username, adminUsername: user.username });
           if (data.success) {
             setMessage(`Admin revoked for ${username}!`);
-            fetchUsers();
-          } else setMessage(data.message || 'Revoke failed.');
+            await fetchUsers();
+          } else {
+            setMessage(data.message || 'Revoke failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error revoking admin.');
         } finally {
@@ -818,7 +920,10 @@
         }
       };
       const handleGrantAccess = async () => {
-        if (!viewer || !target) return setMessage('Viewer and target required.');
+        if (!viewer || !target) {
+          setMessage('Viewer and target required.');
+          return;
+        }
         setIsLoading(true);
         try {
           const { data } = await axios.post(`${API_BASE}/grant-access`, { viewer, target, adminUsername: user.username });
@@ -826,8 +931,10 @@
             setMessage(`Access granted for ${viewer} to ${target}!`);
             setViewer('');
             setTarget('');
-            fetchAccessList();
-          } else setMessage(data.message || 'Grant failed.');
+            await fetchAccessList();
+          } else {
+            setMessage(data.message || 'Grant failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error granting access.');
         } finally {
@@ -840,8 +947,10 @@
           const { data } = await axios.post(`${API_BASE}/revoke-access`, { viewer, target, adminUsername: user.username });
           if (data.success) {
             setMessage(`Access revoked for ${viewer} to ${target}!`);
-            fetchAccessList();
-          } else setMessage(data.message || 'Revoke failed.');
+            await fetchAccessList();
+          } else {
+            setMessage(data.message || 'Revoke failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error revoking access.');
         } finally {
@@ -849,7 +958,10 @@
         }
       };
       const handleUpdatePassword = async () => {
-        if (!passwordUsername || !newUserPassword) return setMessage('Username and password required.');
+        if (!passwordUsername || !newUserPassword) {
+          setMessage('Username and password required.');
+          return;
+        }
         setIsLoading(true);
         try {
           const { data } = await axios.post(`${API_BASE}/admin-update-password`, { username: passwordUsername, newPassword: newUserPassword, adminUsername: user.username });
@@ -857,7 +969,9 @@
             setMessage(`Password updated for ${passwordUsername}!`);
             setPasswordUsername('');
             setNewUserPassword('');
-          } else setMessage(data.message || 'Update failed.');
+          } else {
+            setMessage(data.message || 'Update failed.');
+          }
         } catch (err) {
           setMessage(err.response?.data?.message || 'Error updating password.');
         } finally {
