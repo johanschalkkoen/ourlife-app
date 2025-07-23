@@ -2,6 +2,8 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
 
 const app = express();
 const db = new sqlite3.Database('./prd-ourlife.db', (err) => {
@@ -503,10 +505,26 @@ app.delete('/api/calendar/:id', (req, res) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Load SSL certificates from Let's Encrypt
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/ourlife.work.gd/chain.pem', 'utf8');
+
+const credentials = {
+  key: privateKey,
+  cert: certificate,
+  ca: ca
+};
+
+// Define the port
+const PORT = 8443;
+
+// Create HTTPS server
+const httpsServer = https.createServer(credentials, app);
+
+// Start the server
+httpsServer.listen(PORT, () => {
+  console.log(`HTTPS Server running on port ${PORT}`);
 });
 
 // Graceful shutdown
