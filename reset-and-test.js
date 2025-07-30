@@ -2,11 +2,11 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 
-const DB_PATH = '/root/ourlife.work.gd/prd-ourlife.db';
-const API_BASE = 'https://ourlife.work.gd:8443/api';
-const STANDARD_PASSWORD = '.Sh@d0w.Sh13ld.';
+const DB_PATH = './ourlife.db';
+const API_BASE = '/api';
+const STANDARD_PASSWORD = '1234567890';
 const ADMIN_USERNAME = 'admin';
-const USER_USERNAME = 'schalk';
+const USER_USERNAME = 'admin';
 
 async function resetUsers() {
     console.log('Resetting database...');
